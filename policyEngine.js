@@ -8,15 +8,6 @@
  * - Rules are version-controlled separately from code
  * - Instant policy updates without redeploying the service
  * 
- * Example OPA Rule (Rego):
- * 
- *   package payment.compliance
- *   default allow = false
- *   
- *   allow {
- *       input.amount < 100000
- *       input.user.country != "SANCTIONED"
- *   }
  */
 
 const { v4: uuidv4 } = require('uuid');
