@@ -46,23 +46,52 @@ function evaluatePolicy(transaction, apiSecretKey) {
     // });
     // decision = opaResponse.result.allow ? 'APPROVED' : 'REJECTED';
     
-    const permitId = uuidv4();
-    const expiryTime = new Date(Date.now() + 5 * 60 * 1000); // 5 min expiry
+        const permitId = uuidv4();
+    const issuedTime = new Date().toISOString();
+    const expiryTime = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min expiry
     
-    // Generate prototype policy permit
-    // PRODUCTION REPLACEMENT: HSM-signed JWT or MPC threshold signature
+    // Signature must cover ALL LOCK data (not just decision)
+    // This proves permit is bound to the economic lock
+    const signaturePayload = permitId + 
+                             transaction.instruction_id + 
+                             decision + 
+                             transaction.sender + 
+                             transaction.amount + 
+                             transaction.currency + 
+                             issuedTime + 
+                             expiryTime;
+    
     const signature = crypto
         .createHmac('sha256', apiSecretKey)
-        .update(permitId + transaction.instruction_id + decision)
+        .update(signaturePayload)
         .digest('hex');
     
     return {
         permit_id: permitId,
+        instruction_id: transaction.instruction_id,
         decision,
         rationale,
-        instruction_id: transaction.instruction_id,
-        timestamp: new Date().toISOString(),
-        expires_at: expiryTime.toISOString(),
+        
+        // Economic lock semantics (MANDATORY)
+        locked_account: transaction.sender,
+        locked_amount: transaction.amount.toString(),
+        locked_currency: transaction.currency,
+        lock_status: decision === 'APPROVED' ? 'RESERVED' : 'FAILED',
+        
+        // State binding (prevents misuse in wrong state)
+        valid_state: 'LOCKED',
+        
+        // Temporal validity
+        issued_at: issuedTime,
+        expires_at: expiryTime,
+        
+        // Retry & replay constraints
+        constraints: {
+            max_execution_attempts: 1,
+            replay_allowed: false
+        },
+        
+        // Signature now covers lock data
         prototype_signature: signature, // PROTOTYPE ONLY
         // PRODUCTION: signature would be from HSM or MPC signer
     };
