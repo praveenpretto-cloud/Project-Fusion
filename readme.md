@@ -1,4 +1,3 @@
-```markdown
 # Project Fusion
 
 **Orchestration Architecture for Multi-Rail Financial Settlement**
