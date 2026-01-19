@@ -167,7 +167,7 @@ cp .env.example .env
 nano .env
 ```
 
-**Set Required Variables:** NODE_ENV=development, PORT=3000, DB_HOST=localhost, DB_PORT=5432, DB_NAME=fusion_db, DB_USER=postgres, DB_PASSWORD=, API_KEY_SECRET=fusion_secure_bank_key_2025, OPA_ENDPOINT=http://localhost:8181 (Phase 2+), HSM_ENABLED=false.
+**Set Required Variables:** NODE_ENV=development, PORT=3000, DB_HOST=localhost, DB_PORT=5432, DB_NAME=fusion_db, DB_USER=postgres, DB_PASSWORD=, API_KEY_SECRET=, OPA_ENDPOINT=http://localhost:8181 (Phase 2+), HSM_ENABLED=false.
 
 **Initialize Database:**
 ```
