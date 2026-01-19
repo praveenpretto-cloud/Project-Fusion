@@ -1,0 +1,14 @@
+#Environmnent variables
+.env
+.env.*
+
+#Node
+node_modules/
+
+#Logs
+logs
+*.log
+
+#Build
+dist/
+build/
