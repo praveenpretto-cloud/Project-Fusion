@@ -3,7 +3,7 @@
  * 
  * Decoupled policy evaluation logic.
  * 
- *  Open Policy Agent (OPA) with Rego language
+ * Open Policy Agent (OPA) with Rego language
  * - OPA allows non-engineers to write compliance rules
  * - Rules are version-controlled separately from code
  * - Instant policy updates without redeploying the service
