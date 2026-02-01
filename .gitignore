@@ -12,3 +12,6 @@ logs
 #Build
 dist/
 build/
+
+#Security
+*.key
