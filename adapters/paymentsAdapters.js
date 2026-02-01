@@ -1,34 +1,62 @@
-/**
- * PAYMENTS ADAPTER (Prototype)
- * 
- * Handles standard fiat payment rails (SWIFT, PayNow, ACH)
- * 
- * This adapter is called by the Orchestrator with a generic interface.
- * The core orchestration layer does NOT know the specifics of each rail.
- */
+// PAYMENTS ADAPTER
 
 async function executePaymentRail(instruction, adapterConfig) {
-    // PROTOTYPE ONLY: Simulated execution
-    
+    const { getAdapterCredential } = require('../vaultProvider');
+    const stripeKey = getAdapterCredential('STRIPE_KEY');
+    const stripe = require('stripe')(stripeKey);
+    const logger = require('../logger');
     const { instructionId, amount, currency, sender, recipient } = instruction;
-    
-    console.log(`[ADAPTER] PAYMENTS executing ${currency} transfer from ${sender} to ${recipient}`);
-    
-    // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // In production, this would:
-    // - Format the instruction into SWIFT MT103 or PayNow format
-    // - Call the actual bank API
-    // - Verify responses from the destination bank
-    // - Implement retry logic with exponential backoff
-    
-    return {
-        adapter_type: 'PAYMENTS',
-        status: 'SUCCESS',
-        external_ref: `PAY-${Date.now()}`,
-        timestamp: new Date().toISOString()
-    };
+
+    logger.info(`[STRIPE] Creating PaymentIntent for ${amount} ${currency}`);
+
+    try {
+        // Simulate different payment brands/types based on purpose or random
+        const paymentMethods = {
+            'CARD': 'pm_card_visa',
+            'BANK_TRANSFER': 'pm_card_mastercard', // Simulated as Mastercard for demo
+            'NEFT': 'pm_card_amex',              // Simulated as Amex for demo
+            'SWIFT': 'pm_card_unionpay'          // Simulated as UnionPay for demo
+        };
+
+        const methodKey = (instruction.purpose || 'CARD').toUpperCase();
+        const pmToUse = paymentMethods[methodKey] || 'pm_card_visa';
+
+        const intent = await stripe.paymentIntents.create({
+            amount: Math.round(amount * 100),
+            currency: currency.toLowerCase(),
+            payment_method_types: ['card'],
+            payment_method: pmToUse,
+            confirm: true,
+            metadata: {
+                instructionId,
+                sender,
+                recipient,
+                simulated_rail: methodKey === 'CARD' ? 'VISA' : methodKey
+            },
+        });
+
+        return {
+            status: intent.status === 'succeeded' ? 'SUCCESS' : intent.status.toUpperCase(),
+            intent_id: intent.id,
+            timestamp: new Date().toISOString()
+        };
+    } catch (err) {
+        logger.error(`[STRIPE ERROR] ${err.message}`);
+        return { status: 'FAILED', error: err.message };
+    }
 }
 
-module.exports = { executePaymentRail };
+async function queryStatus(intentId) {
+    if (!intentId) return 'UNKNOWN';
+    const { getAdapterCredential } = require('../vaultProvider');
+    const stripeKey = getAdapterCredential('STRIPE_KEY');
+    const stripe = require('stripe')(stripeKey);
+    try {
+        const intent = await stripe.paymentIntents.retrieve(intentId);
+        return intent.status;
+    } catch {
+        return 'UNKNOWN';
+    }
+}
+
+module.exports = { executePaymentRail, queryStatus };
