@@ -442,24 +442,35 @@ app.post('/api/orchestration/route', validateRequest(instructionIdSchema), async
 
 // --- API 4: ATOMIC SETTLEMENT (SAGA PATTERN) ---
 app.post('/api/adapter/execute', validateRequest(adapterExecuteSchema), checkIdempotency, async (req, res) => {
+    // 1. Initial State Check (Short-lived connection)
+    let txn;
     const client = await pool.connect();
     try {
-        const { instructionId, adapter } = req.body;
-
-        // Verify state is PENDING_EXECUTION (not READY_TO_COMMIT)
+        const { instructionId } = req.body;
         const result = await client.query(
             "SELECT * FROM instructions WHERE instruction_id = $1",
             [instructionId]
         );
-        const txn = result.rows[0];
+        txn = result.rows[0];
+    } finally {
+        client.release(); // ✅ RELEASED IMMEDIATELY
+    }
 
-        if (txn.state !== 'PENDING_EXECUTION') {
-            return res.status(400).json({
-                error: "Instruction not in PENDING_EXECUTION state",
-                current_state: txn.state
-            });
-        }
+    if (!txn) {
+        // Handle not found if needed, or if txn was undefined from query
+        return res.status(404).json({ error: "Instruction not found" });
+    }
 
+    if (txn.state !== 'PENDING_EXECUTION') {
+        return res.status(400).json({
+            error: "Instruction not in PENDING_EXECUTION state",
+            current_state: txn.state
+        });
+    }
+
+    const { instructionId, adapter } = req.body; // Redundant but clear
+
+    try {
         logger.info(`[SAGA] SAGA_STARTED for instruction ${instructionId}`);
 
         // Call adapter OUTSIDE transaction (prevents Ghost Money timeout issue)
@@ -471,10 +482,16 @@ app.post('/api/adapter/execute', validateRequest(adapterExecuteSchema), checkIde
 
             // Save external intent ID for reconciler to query status later
             if (adapterResult.intent_id) {
-                await pool.query(
-                    "UPDATE instructions SET external_intent_id = $1 WHERE instruction_id = $2",
-                    [adapterResult.intent_id, instructionId]
-                );
+                // Need a fresh client for this update since we released the first one
+                const updateClient = await pool.connect();
+                try {
+                    await updateClient.query(
+                        "UPDATE instructions SET external_intent_id = $1 WHERE instruction_id = $2",
+                        [adapterResult.intent_id, instructionId]
+                    );
+                } finally {
+                    updateClient.release();
+                }
                 logger.info(`[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`);
             }
         } catch (adapterErr) {
@@ -577,8 +594,6 @@ app.post('/api/adapter/execute', validateRequest(adapterExecuteSchema), checkIde
             error: "System Error",
             reason: err.message
         });
-    } finally {
-        client.release();
     }
 });
 

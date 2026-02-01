@@ -9,6 +9,18 @@ async function executePaymentRail(instruction, adapterConfig) {
 
     logger.info(`[STRIPE] Creating PaymentIntent for ${amount} ${currency}`);
 
+    // MOCK BYPASS FOR LOAD TESTING
+    if (instruction.purpose === 'STRIPE_SCALE_TEST') {
+        const mockDelay = Math.floor(Math.random() * 200) + 50; // 50-250ms delay
+        await new Promise(resolve => setTimeout(resolve, mockDelay));
+        logger.info(`[STRIPE MOCK] Simulated success for ${instructionId}`);
+        return {
+            status: 'SUCCESS',
+            intent_id: `mock_pi_${instructionId}_${Date.now()}`,
+            timestamp: new Date().toISOString()
+        };
+    }
+
     try {
         // Simulate different payment brands/types based on purpose or random
         const paymentMethods = {

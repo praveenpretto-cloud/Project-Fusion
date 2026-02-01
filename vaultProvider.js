@@ -21,7 +21,8 @@ async function signStellarTransaction(senderName, transaction, networkPassphrase
     // SECURE KEY DERIVATION (HMAC-based, not weak Buffer.write)
     // In production, this would retrieve a pre-generated seed from encrypted storage
     // For testnet, we derive deterministically but with full 32-byte entropy
-    const masterSecret = process.env.VAULT_MASTER_SECRET || 'testnet_master_secret_replace_in_production';
+    const masterSecret = process.env.VAULT_MASTER_SECRET;
+    if (!masterSecret) throw new Error('VAULT_MASTER_SECRET not set');
     const derivedSeed = crypto.createHmac('sha256', masterSecret)
         .update(senderName)
         .digest(); // Returns full 32 bytes
@@ -37,7 +38,8 @@ async function signStellarTransaction(senderName, transaction, networkPassphrase
 
 // Returns the public key for a given sender in a secure way.
 async function getStellarPublicKey(senderName) {
-    const masterSecret = process.env.VAULT_MASTER_SECRET || 'testnet_master_secret_replace_in_production';
+    const masterSecret = process.env.VAULT_MASTER_SECRET;
+    if (!masterSecret) throw new Error('VAULT_MASTER_SECRET not set');
     const derivedSeed = crypto.createHmac('sha256', masterSecret)
         .update(senderName)
         .digest();

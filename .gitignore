@@ -14,4 +14,8 @@ dist/
 build/
 
 #Security
+#Security
 *.key
+certs/
+*.pem
+*.p12
