@@ -8,7 +8,9 @@
 
 ## 🚀 Institutional Summary
 
-Project Fusion is a high-security orchestration control-plane designed for the modern multi-asset financial ecosystem. It coordinates complex settlement flows across traditional fiat (Stripe/SWIFT), digital assets (Stellar), and brokerage rails while enforcing atomic ledger integrity and institutional-grade security.
+Project Fusion is a **universal orchestration control-plane** designed to unify settlement across any financial rail: Fiat (SWIFT/ACH/RTP), Digital Assets (Blockchains/CBDCs), and Brokerage (Equities/Bonds).
+
+It acts as the **single source of truth** and atomic coordinator, abstracting the complexity of underlying providers. Stripe and Stellar are currently implemented only as **Reference Adapters** to demonstrate the system's multi-rail capabilities.
 
 ### **Core Capabilities**
 - **Unified Policy Enforcement**: Centralized AMC/KYC/PBM logic across all asset rails.
@@ -35,9 +37,9 @@ graph TD
     end
 
     subgraph "ZONE B: ADAPTER LAYER"
-        AP["Payment Adapter (Stripe)"]
-        AC["Crypto Adapter (Stellar)"]
-        AB["Brokerage Adapter (Simulated)"]
+        AP["Fiat Adapter (Generic Interface)"]
+        AC["Crypto Adapter (Generic Interface)"]
+        AB["Brokerage Adapter (Generic Interface)"]
     end
 
     subgraph "ZONE C: GOVERNANCE & OBSERVABILITY"
@@ -125,7 +127,7 @@ A background worker runs every 60 seconds to scan for transactions stuck in `PEN
 
 - **Backend**: Node.js (Hardened with `express-rate-limit`, `helmet`, and `joi`)
 - **Database**: PostgreSQL (Serialized transactions for ledger integrity)
-- **Blockchain**: Stellar Horizon (with vault-abstracted signing)
+- **Modules**: Pluggable Adapter Architecture (Current Refs: Stripe-Mock, Stellar-Testnet)
 - **Logging**: Pino (Structured JSON logging for ELK/Datadog - **Active**)
 - **Testing**: Jest (70% coverage requirement)
 
