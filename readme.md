@@ -156,10 +156,11 @@ Execute the comprehensive verification suite to validate mTLS, Metrics, Health, 
 node verify_institutional.js
 ```
 
-### **4. Final Batch Simulation**
-Run the end-to-end stress test (5 Stripe + 5 Stellar transactions) to verify full system orchestration:
+### **4. Institutional Scale Test (600+ TPS)**
+Verify the system's high-throughput capability (Configured for 40,000 req/min):
 ```bash
-node batch_run_10.js
+node load_test_scale.js
+# Expected Result: ~660 TPS (5000 requests in <8 seconds)
 ```
 
 ---
