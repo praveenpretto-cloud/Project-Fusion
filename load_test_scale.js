@@ -1,6 +1,6 @@
 /**
  * SCALED LOAD TEST SCRIPT (Institutional TPS Verification)
- * 
+ *
  * Simulates high-velocity institutional traffic.
  * - Concurrency: 100 requests (Parallel sockets)
  * - Total Requests: 5000
@@ -24,7 +24,7 @@ const httpsAgent = new https.Agent({
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
     rejectUnauthorized: true,
     keepAlive: true,
-    maxSockets: CONCURRENCY // Maximize socket reuse
+    maxSockets: CONCURRENCY, // Maximize socket reuse
 });
 
 function makeRequest(id) {
@@ -38,33 +38,35 @@ function makeRequest(id) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `load_${id}_${Math.random()}`
+                'x-idempotency-key': `load_${id}_${Math.random()}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 
         const body = JSON.stringify({
-            amount: 10.00,
-            currency: "USD",
-            sender: "Load_Tester",
-            recipient: "Load_Receiver",
-            purpose: "TPS_SCALING_VERIFICATION"
+            amount: 10.0,
+            currency: 'USD',
+            sender: 'Load_Tester',
+            recipient: 'Load_Receiver',
+            purpose: 'TPS_SCALING_VERIFICATION',
         });
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', c => data += c);
+            res.on('data', (c) => (data += c));
             res.on('end', () => {
                 const duration = Date.now() - start;
                 // Treat 200/201 as success
                 resolve({
                     status: res.statusCode,
-                    duration
+                    duration,
                 });
             });
         });
 
-        req.on('error', (e) => resolve({ status: 'ERR', duration: Date.now() - start, error: e.message }));
+        req.on('error', (e) =>
+            resolve({ status: 'ERR', duration: Date.now() - start, error: e.message })
+        );
         req.write(body);
         req.end();
     });
@@ -84,20 +86,22 @@ async function runLoadTest() {
     const latencies = [];
 
     const queue = Array.from({ length: TOTAL_REQUESTS }, (_, i) => i);
-    const workers = Array(CONCURRENCY).fill(null).map(async () => {
-        while (queue.length > 0) {
-            const id = queue.shift();
-            const result = await makeRequest(id);
-            latencies.push(result.duration);
-            if (result.status === 200 || result.status === 201) {
-                success++;
-            } else {
-                failed++;
+    const workers = Array(CONCURRENCY)
+        .fill(null)
+        .map(async () => {
+            while (queue.length > 0) {
+                const id = queue.shift();
+                const result = await makeRequest(id);
+                latencies.push(result.duration);
+                if (result.status === 200 || result.status === 201) {
+                    success++;
+                } else {
+                    failed++;
+                }
+                completed++;
+                if (completed % 250 === 0) process.stdout.write('█');
             }
-            completed++;
-            if (completed % 250 === 0) process.stdout.write('█');
-        }
-    });
+        });
 
     await Promise.all(workers);
 
@@ -124,7 +128,7 @@ async function runLoadTest() {
         successful: success,
         failed: failed,
         avg_latency_ms: avgLatency,
-        tps: tps
+        tps: tps,
     };
     fs.writeFileSync('scale_report.json', JSON.stringify(report, null, 2));
 }

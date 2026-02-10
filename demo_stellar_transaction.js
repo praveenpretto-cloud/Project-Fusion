@@ -16,7 +16,7 @@ const httpsAgent = new https.Agent({
     key: fs.readFileSync(path.join(__dirname, 'certs', 'client.key')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
 });
 
 function makeRequest(path, method = 'GET', body = null) {
@@ -29,14 +29,14 @@ function makeRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `stellar_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `stellar_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', (chunk) => data += chunk);
+            res.on('data', (chunk) => (data += chunk));
             res.on('end', () => {
                 try {
                     resolve({ status: res.statusCode, data: JSON.parse(data) });
@@ -60,11 +60,11 @@ async function executeStellarTransaction() {
         // Step 1: Initiate
         console.log('Step 1: Initiating instruction...');
         const initResult = await makeRequest('/api/instruction/initiate', 'POST', {
-            amount: 5.00,  // Under AML threshold
+            amount: 5.0, // Under AML threshold
             currency: 'XLM',
             sender: 'Demo_Sender_XLM',
             recipient: 'Demo_Recipient_XLM',
-            purpose: 'STELLAR_DEMO_TRANSACTION'
+            purpose: 'STELLAR_DEMO_TRANSACTION',
         });
 
         const instructionId = initResult.data.instructionId;
@@ -90,7 +90,9 @@ async function executeStellarTransaction() {
 
         // Step 3: Routing
         console.log('Step 3: Routing to crypto adapter...');
-        const routeResult = await makeRequest('/api/orchestration/route', 'POST', { instructionId });
+        const routeResult = await makeRequest('/api/orchestration/route', 'POST', {
+            instructionId,
+        });
         console.log(`✅ Adapter: ${routeResult.data.selectedAdapter}`);
         console.log(`   State: ${routeResult.data.state}\n`);
 
@@ -99,7 +101,7 @@ async function executeStellarTransaction() {
         console.log('   (Using HMAC-SHA256 vault-signed keys)');
         const execResult = await makeRequest('/api/adapter/execute', 'POST', {
             instructionId,
-            adapter: 'ADAPTER_CRYPTO_CUSTODIAN'
+            adapter: 'ADAPTER_CRYPTO_CUSTODIAN',
         });
 
         if (execResult.data.adapter_result && execResult.data.adapter_result.blockchain_hash) {
@@ -123,7 +125,6 @@ async function executeStellarTransaction() {
             console.log('\n❌ Transaction failed');
             console.log(JSON.stringify(execResult.data, null, 2));
         }
-
     } catch (err) {
         console.error('\n❌ Error:', err.message);
     }

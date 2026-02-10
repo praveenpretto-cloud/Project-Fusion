@@ -1,0 +1,44 @@
+name: Project Fusion CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Lint Code
+      run: npm run lint
+
+    - name: Check Formatting
+      run: npm run format -- --check
+
+    - name: Run Schema Init (Mock DB for CI?)
+      # In a real CI, we'd need a Postgres service container.
+      # For now, unit tests usually mock DB. 
+      # Integration tests need DB.
+      # Let's see if we can run unit tests at least.
+      run: echo "Skipping DB init for now (Requires Service Container)"
+
+    - name: Run Tests (Unit Only for now)
+      # Excluding integration tests in CI because they need a running DB
+      run: npm run test:unit

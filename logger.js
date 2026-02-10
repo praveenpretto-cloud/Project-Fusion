@@ -1,6 +1,6 @@
 /**
  * STRUCTURED LOGGER (Institutional Grade)
- * 
+ *
  * Replaces console.log with production-ready JSON structured logging.
  * Compatible with log aggregation tools (ELK, Splunk, Datadog).
  */
@@ -14,12 +14,12 @@ const logger = pino({
         options: {
             colorize: true,
             translateTime: 'SYS:standard',
-            ignore: 'pid,hostname'
-        }
+            ignore: 'pid,hostname',
+        },
     },
     base: {
-        service: 'project-fusion'
-    }
+        service: 'project-fusion',
+    },
 });
 
 module.exports = logger;

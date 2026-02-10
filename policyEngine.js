@@ -8,8 +8,10 @@ function evaluatePolicy(transaction, apiSecretKey) {
     let rationale = 'Standard compliance checks passed';
 
     // Rule 1: PBM Constraints
-    if (transaction.currency === 'PBM_VOUCHER' &&
-        !['FOOD', 'EDUCATION'].includes(transaction.purpose)) {
+    if (
+        transaction.currency === 'PBM_VOUCHER' &&
+        !['FOOD', 'EDUCATION'].includes(transaction.purpose)
+    ) {
         decision = 'REJECTED';
         rationale = 'PBM Violation: Invalid purpose for restricted asset';
     }
@@ -32,7 +34,8 @@ function evaluatePolicy(transaction, apiSecretKey) {
 
     // Signature must cover ALL LOCK data (not just decision)
     // This proves permit is bound to the economic lock
-    const signaturePayload = permitId +
+    const signaturePayload =
+        permitId +
         transaction.instruction_id +
         decision +
         transaction.sender +
@@ -68,7 +71,7 @@ function evaluatePolicy(transaction, apiSecretKey) {
         // Retry & replay constraints
         constraints: {
             max_execution_attempts: 1,
-            replay_allowed: false
+            replay_allowed: false,
         },
 
         // Signature now covers lock data

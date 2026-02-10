@@ -13,7 +13,7 @@ const httpsAgent = new https.Agent({
     key: fs.readFileSync(path.join(__dirname, 'certs', 'client.key')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
 });
 
 function makeRequest(path, method = 'GET', body = null) {
@@ -26,14 +26,14 @@ function makeRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', (chunk) => data += chunk);
+            res.on('data', (chunk) => (data += chunk));
             res.on('end', () => {
                 try {
                     resolve({ status: res.statusCode, data: JSON.parse(data) });
@@ -55,9 +55,14 @@ async function runFullFlow(amount, currency, sender, recipient, adapter) {
     try {
         // 1. Initiate
         const init = await makeRequest('/api/instruction/initiate', 'POST', {
-            amount, currency, sender, recipient, purpose: 'FINAL_BATCH_VERIFICATION'
+            amount,
+            currency,
+            sender,
+            recipient,
+            purpose: 'FINAL_BATCH_VERIFICATION',
         });
-        if (init.status !== 200 && init.status !== 201) throw new Error(`Initiate failed: ${JSON.stringify(init.data)}`);
+        if (init.status !== 200 && init.status !== 201)
+            throw new Error(`Initiate failed: ${JSON.stringify(init.data)}`);
         const instructionId = init.data.instructionId;
         console.log(`   [1] ID: ${instructionId}`);
 
@@ -80,11 +85,14 @@ async function runFullFlow(amount, currency, sender, recipient, adapter) {
             throw new Error('Invalid response structure');
         }
 
-        const txId = exec.data.adapter_result.blockchain_hash || exec.data.adapter_result.stripe_intent;
+        const txId =
+            exec.data.adapter_result.blockchain_hash || exec.data.adapter_result.stripe_intent;
 
         if (!txId) {
             console.error('DEBUG: Transaction failed or missing hash:', JSON.stringify(exec.data));
-            throw new Error(`Transaction failed: ${exec.data.adapter_result.error || 'Unknown error'}`);
+            throw new Error(
+                `Transaction failed: ${exec.data.adapter_result.error || 'Unknown error'}`
+            );
         }
 
         console.log(`   [4] Settled! Ref: ${txId.substring(0, 16)}...`);
@@ -105,14 +113,26 @@ async function startBatch() {
     console.log('\n💵 RAIL: STRIPE (USD)');
     for (let i = 1; i <= 5; i++) {
         const amount = parseFloat((10 + i).toFixed(2));
-        const success = await runFullFlow(amount, 'USD', `User_Fiat_${i}`, `Merchant_${i}`, 'ADAPTER_PAYNOW');
+        const success = await runFullFlow(
+            amount,
+            'USD',
+            `User_Fiat_${i}`,
+            `Merchant_${i}`,
+            'ADAPTER_PAYNOW'
+        );
         if (success) successCount++;
     }
 
     // 5 STELLAR TRANSACTIONS (XLM)
     console.log('\n🌌 RAIL: STELLAR (XLM)');
     for (let i = 1; i <= 5; i++) {
-        const success = await runFullFlow(1.00, 'XLM', `Batch_Crypto_Sender_${i}`, `Recipient_Node_${i}`, 'ADAPTER_CRYPTO_CUSTODIAN');
+        const success = await runFullFlow(
+            1.0,
+            'XLM',
+            `Batch_Crypto_Sender_${i}`,
+            `Recipient_Node_${i}`,
+            'ADAPTER_CRYPTO_CUSTODIAN'
+        );
         if (success) successCount++;
     }
 

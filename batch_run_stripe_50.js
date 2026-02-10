@@ -1,4 +1,3 @@
-
 require('dotenv').config();
 const https = require('https');
 const fs = require('fs');
@@ -24,7 +23,7 @@ const httpsAgent = new https.Agent({
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
     rejectUnauthorized: true,
-    maxSockets: 100 // Allow up to 100 concurrent connections
+    maxSockets: 100, // Allow up to 100 concurrent connections
 });
 
 async function seedBalances() {
@@ -63,14 +62,14 @@ function makeRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', (chunk) => data += chunk);
+            res.on('data', (chunk) => (data += chunk));
             res.on('end', () => {
                 try {
                     resolve({ status: res.statusCode, data: JSON.parse(data) });
@@ -97,9 +96,14 @@ async function runFullFlow(i) {
     try {
         // 1. Initiate
         const init = await makeRequest('/api/instruction/initiate', 'POST', {
-            amount, currency: 'USD', sender, recipient, purpose: 'STRIPE_SCALE_TEST'
+            amount,
+            currency: 'USD',
+            sender,
+            recipient,
+            purpose: 'STRIPE_SCALE_TEST',
         });
-        if (init.status !== 200 && init.status !== 201) throw new Error(`Initiate failed: ${init.status}`);
+        if (init.status !== 200 && init.status !== 201)
+            throw new Error(`Initiate failed: ${init.status}`);
         const instructionId = init.data.instructionId;
         console.log(`[${i}] Init OK: ${instructionId}`);
 
@@ -124,12 +128,13 @@ async function runFullFlow(i) {
         const txId = exec.data.adapter_result.intent_id || exec.data.adapter_result.stripe_intent;
 
         if (!txId) {
-            throw new Error(`Transaction failed: ${exec.data.adapter_result.error || 'Unknown error'}`);
+            throw new Error(
+                `Transaction failed: ${exec.data.adapter_result.error || 'Unknown error'}`
+            );
         }
 
         console.log(`[${i}] Success! Ref: ${txId.substring(0, 10)}...`);
         return true;
-
     } catch (err) {
         console.error(`[${i}] FAIL: ${err.message}`);
         return false;
@@ -155,7 +160,7 @@ async function startBatch() {
 
     const endTime = Date.now();
     const durationSec = (endTime - startTime) / 1000;
-    const successCount = results.filter(r => r === true).length;
+    const successCount = results.filter((r) => r === true).length;
 
     console.log('\n\n===========================================================');
     console.log(`📊 RESULTS`);

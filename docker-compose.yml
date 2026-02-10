@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=fusion_user
+      - DB_PASSWORD=fusion_pass
+      - DB_NAME=fusion_db
+    depends_on:
+      - db
+    networks:
+      - fusion-net
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=fusion_user
+      - POSTGRES_PASSWORD=fusion_pass
+      - POSTGRES_DB=fusion_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - fusion-net
+
+volumes:
+  pgdata:
+
+networks:
+  fusion-net:

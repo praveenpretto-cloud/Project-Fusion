@@ -10,7 +10,7 @@ const fs = require('fs');
 const logger = require('./logger');
 
 const dotenvResult = require('dotenv').config({
-    path: path.resolve(__dirname, '.env')
+    path: path.resolve(__dirname, '.env'),
 });
 
 if (dotenvResult.error) {
@@ -27,7 +27,7 @@ const rateLimit = require('express-rate-limit');
 const {
     instructionInitiateSchema,
     instructionIdSchema,
-    adapterExecuteSchema
+    adapterExecuteSchema,
 } = require('./validators');
 
 const app = express();
@@ -38,19 +38,25 @@ let requestMetrics = {
     total_requests: 0,
     successful_transactions: 0,
     failed_transactions: 0,
-    last_request_time: null
+    last_request_time: null,
 };
 
 app.use(cors());
 app.use(express.json());
+
+// --- DOCUMENTATION: SWAGGER UI ---
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./swagger');
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+console.log('[DOCS] Swagger UI available at https://localhost:3000/api-docs');
 
 // --- SECURITY: RATE LIMITING (Institutional Grade) ---
 const apiLimiter = rateLimit({
     windowMs: LIMITS.RATE_LIMIT_WINDOW_MS,
     max: LIMITS.RATE_LIMIT_MAX_REQUESTS,
     message: {
-        error: "Too many requests",
-        detail: "Institutional rate limit exceeded. Please try again later."
+        error: 'Too many requests',
+        detail: 'Institutional rate limit exceeded. Please try again later.',
     },
     standardHeaders: true,
     legacyHeaders: false,
@@ -61,8 +67,8 @@ const validateRequest = (schema) => (req, res, next) => {
     const { error } = schema.validate(req.body, { abortEarly: false });
     if (error) {
         return res.status(400).json({
-            error: "Validation Failed",
-            details: error.details.map(d => d.message)
+            error: 'Validation Failed',
+            details: error.details.map((d) => d.message),
         });
     }
     next();
@@ -94,7 +100,7 @@ app.get('/', (req, res) => res.send('Project Fusion Enterprise Core Active'));
 
 // =====================================================
 // HEALTH & MONITORING ENDPOINTS (Institutional Grade)
-// ===================================================== 
+// =====================================================
 
 // Basic liveness check for load balancers
 app.get('/health', (req, res) => {
@@ -107,7 +113,7 @@ app.get('/health/detailed', async (req, res) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
-        dependencies: {}
+        dependencies: {},
     };
 
     // Check database connection
@@ -140,7 +146,7 @@ app.get('/metrics', (req, res) => {
         ``,
         `# HELP fusion_last_request_timestamp Last request timestamp (unix)`,
         `# TYPE fusion_last_request_timestamp gauge`,
-        `fusion_last_request_timestamp ${requestMetrics.last_request_time || Date.now()}`
+        `fusion_last_request_timestamp ${requestMetrics.last_request_time || Date.now()}`,
     ].join('\n');
 
     res.set('Content-Type', 'text/plain');
@@ -153,12 +159,12 @@ app.get('/api/observe/instruction/:instructionId', async (req, res) => {
         const { instructionId } = req.params;
 
         const instruction = await pool.query(
-            "SELECT instruction_id, state, purpose, currency, created_at FROM instructions WHERE instruction_id = $1",
+            'SELECT instruction_id, state, purpose, currency, created_at FROM instructions WHERE instruction_id = $1',
             [instructionId]
         );
 
         if (instruction.rows.length === 0) {
-            return res.status(404).json({ error: "Instruction not found" });
+            return res.status(404).json({ error: 'Instruction not found' });
         }
 
         const txn = instruction.rows[0];
@@ -173,7 +179,7 @@ app.get('/api/observe/instruction/:instructionId', async (req, res) => {
             // Deliberately excluded: sender_name, recipient_name, amounts, account_numbers
         });
     } catch (err) {
-        res.status(500).send("Observability Error");
+        res.status(500).send('Observability Error');
     }
 });
 
@@ -182,8 +188,8 @@ const authenticateClient = (req, res, next) => {
     const clientKey = req.headers['x-api-key'];
     if (clientKey !== process.env.API_SECRET_KEY) {
         return res.status(401).json({
-            error: "Unauthorized",
-            detail: "Invalid or missing API credentials (PROTOTYPE AUTH)"
+            error: 'Unauthorized',
+            detail: 'Invalid or missing API credentials (PROTOTYPE AUTH)',
         });
     }
     next();
@@ -201,13 +207,16 @@ const checkIdempotency = async (req, res, next) => {
     if (!key) {
         logger.warn('Request rejected: Missing Idempotency Key');
         return res.status(400).json({
-            error: "Idempotency Key Required",
-            detail: "Institutional APIs require 'x-idempotency-key' header for safety."
+            error: 'Idempotency Key Required',
+            detail: "Institutional APIs require 'x-idempotency-key' header for safety.",
         });
     }
 
     try {
-        const cached = await pool.query("SELECT response_json FROM idempotency_keys WHERE key_id = $1", [key]);
+        const cached = await pool.query(
+            'SELECT response_json FROM idempotency_keys WHERE key_id = $1',
+            [key]
+        );
         if (cached.rows.length > 0) {
             console.log(`[IDEMPOTENCY] Returned cached response for key: ${key}`);
             return res.json(JSON.parse(cached.rows[0].response_json));
@@ -215,7 +224,7 @@ const checkIdempotency = async (req, res, next) => {
         req.idempotencyKey = key; // Attach key to request for later saving
         next();
     } catch (err) {
-        console.error("Idempotency Check Failed", err);
+        console.error('Idempotency Check Failed', err);
         next();
     }
 };
@@ -245,11 +254,11 @@ async function executeAdapter(adapterType, instruction) {
 async function notarizeToGovernance(eventType, payload) {
     // In production, this would use an HTTP Client to hit the Corda API
     const governanceProof = {
-        notary_node: "CORDA_NOTARY_SG_01", // Simulated Singapore notary node
+        notary_node: 'CORDA_NOTARY_SG_01', // Simulated Singapore notary node
         event_type: eventType,
         hash: crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex'),
         timestamp: new Date().toISOString(),
-        status: "NOTARIZED",
+        status: 'NOTARIZED',
         // PRODUCTION: transaction_id, merkle_root, signature, notary_signature
     };
 
@@ -301,7 +310,9 @@ async function verifyLedgerIntegrity(client, instructionId, currency) {
         );
     }
 
-    console.log(`[LEDGER] Integrity verified for ${instructionId}: ${total_debit} = ${total_credit}`);
+    console.log(
+        `[LEDGER] Integrity verified for ${instructionId}: ${total_debit} = ${total_credit}`
+    );
     return true;
 }
 
@@ -312,43 +323,52 @@ async function verifyLedgerIntegrity(client, instructionId, currency) {
 // =====================================================
 // API 1: INITIATE (WITH IDEMPOTENCY)
 // =====================================================
-app.post('/api/instruction/initiate', validateRequest(instructionInitiateSchema), checkIdempotency, async (req, res) => {
-    try {
-        const { amount, currency, sender, recipient, purpose } = req.body;
-        const instructionId = crypto.randomUUID();
+app.post(
+    '/api/instruction/initiate',
+    validateRequest(instructionInitiateSchema),
+    checkIdempotency,
+    async (req, res) => {
+        try {
+            const { amount, currency, sender, recipient, purpose } = req.body;
+            const instructionId = crypto.randomUUID();
 
-        const newInstruction = await pool.query(
-            `INSERT INTO instructions (instruction_id, amount, currency, sender, recipient, purpose, state, created_at, updated_at) 
+            const newInstruction = await pool.query(
+                `INSERT INTO instructions (instruction_id, amount, currency, sender, recipient, purpose, state, created_at, updated_at) 
              VALUES ($1, $2, $3, $4, $5, $6, 'INITIATED', NOW(), NOW()) RETURNING *`,
-            [instructionId, amount, currency, sender, recipient, purpose]
-        );
+                [instructionId, amount, currency, sender, recipient, purpose]
+            );
 
-        const responseData = {
-            message: "Instruction Created",
-            instructionId,
-            state: "INITIATED"
-        };
+            const responseData = {
+                message: 'Instruction Created',
+                instructionId,
+                state: 'INITIATED',
+            };
 
-        // Save Idempotency if key exists
-        if (req.idempotencyKey) {
-            await pool.query("INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)",
-                [req.idempotencyKey, JSON.stringify(responseData)]);
+            // Save Idempotency if key exists
+            if (req.idempotencyKey) {
+                await pool.query(
+                    'INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)',
+                    [req.idempotencyKey, JSON.stringify(responseData)]
+                );
+            }
+
+            res.json(responseData);
+        } catch (err) {
+            console.error(err);
+            res.status(500).send('System Error');
         }
-
-        res.json(responseData);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send("System Error");
     }
-});
+);
 
 // --- API 2: POLICY ENGINE ---
 app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (req, res) => {
     const client = await pool.connect();
     try {
         const { instructionId } = req.body;
-        const result = await client.query("SELECT * FROM instructions WHERE instruction_id = $1", [instructionId]);
-        if (result.rows.length === 0) return res.status(404).json({ error: "Not Found" });
+        const result = await client.query('SELECT * FROM instructions WHERE instruction_id = $1', [
+            instructionId,
+        ]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not Found' });
         const txn = result.rows[0];
 
         // Use isolated policy engine (imported from policyEngine.js)
@@ -368,7 +388,7 @@ app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (re
             // ✅ Reject if insufficient balance
             if (bal.rows.length === 0 || Number(bal.rows[0].balance) < Number(txn.amount)) {
                 await client.query('ROLLBACK');
-                return res.status(400).json({ error: "Insufficient shadow balance" });
+                return res.status(400).json({ error: 'Insufficient shadow balance' });
             }
 
             // ✅ Reserve funds (subtract from sender's balance)
@@ -378,7 +398,7 @@ app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (re
                 [txn.amount, txn.sender, txn.currency]
             );
 
-            // ✅ Transition to LOCKED 
+            // ✅ Transition to LOCKED
             await client.query(
                 "UPDATE instructions SET state = 'LOCKED', updated_at = NOW() WHERE instruction_id = $1",
                 [instructionId]
@@ -400,10 +420,10 @@ app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (re
         try {
             await client.query('ROLLBACK');
         } catch (rollbackErr) {
-            console.error("Rollback Error:", rollbackErr);
+            console.error('Rollback Error:', rollbackErr);
         }
-        console.error("Policy Error:", err);
-        res.status(500).send("Policy Error");
+        console.error('Policy Error:', err);
+        res.status(500).send('Policy Error');
     } finally {
         client.release();
     }
@@ -415,187 +435,200 @@ app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (re
 app.post('/api/orchestration/route', validateRequest(instructionIdSchema), async (req, res) => {
     try {
         const { instructionId } = req.body;
-        const result = await pool.query("SELECT * FROM instructions WHERE instruction_id = $1", [instructionId]);
+        const result = await pool.query('SELECT * FROM instructions WHERE instruction_id = $1', [
+            instructionId,
+        ]);
         const txn = result.rows[0];
 
-        if (txn.state !== 'LOCKED') return res.status(400).json({ error: "Instruction not in LOCKED state" });
+        if (txn.state !== 'LOCKED')
+            return res.status(400).json({ error: 'Instruction not in LOCKED state' });
 
         // Logic: Least-Cost & Capability Routing (Original Logic Preserved)
         let adapterType = 'ADAPTER_SWIFT'; // Default Fallback
 
         if (txn.purpose === 'INVESTMENT') adapterType = 'ADAPTER_BROKERAGE_API';
-        else if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency)) adapterType = 'ADAPTER_CRYPTO_CUSTODIAN';
+        else if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency))
+            adapterType = 'ADAPTER_CRYPTO_CUSTODIAN';
         else if (txn.currency === 'PBM_VOUCHER') adapterType = 'ADAPTER_PBM_CONTRACT';
         else if (txn.currency === 'SGD') adapterType = 'ADAPTER_PAYNOW';
 
-        await pool.query("UPDATE instructions SET state = 'PENDING_EXECUTION', updated_at = NOW() WHERE instruction_id = $1", [instructionId]);
+        await pool.query(
+            "UPDATE instructions SET state = 'PENDING_EXECUTION', updated_at = NOW() WHERE instruction_id = $1",
+            [instructionId]
+        );
 
         // Log the decision
         await notarizeToGovernance('ROUTING_DECISION', { instructionId, adapter: adapterType });
 
-
         res.json({ instructionId, state: 'PENDING_EXECUTION', selectedAdapter: adapterType });
     } catch (err) {
-        res.status(500).send("Orchestration Error");
+        res.status(500).send('Orchestration Error');
     }
 });
 
 // --- API 4: ATOMIC SETTLEMENT (SAGA PATTERN) ---
-app.post('/api/adapter/execute', validateRequest(adapterExecuteSchema), checkIdempotency, async (req, res) => {
-    // 1. Initial State Check (Short-lived connection)
-    let txn;
-    const client = await pool.connect();
-    try {
-        const { instructionId } = req.body;
-        const result = await client.query(
-            "SELECT * FROM instructions WHERE instruction_id = $1",
-            [instructionId]
-        );
-        txn = result.rows[0];
-    } finally {
-        client.release(); // ✅ RELEASED IMMEDIATELY
-    }
-
-    if (!txn) {
-        // Handle not found if needed, or if txn was undefined from query
-        return res.status(404).json({ error: "Instruction not found" });
-    }
-
-    if (txn.state !== 'PENDING_EXECUTION') {
-        return res.status(400).json({
-            error: "Instruction not in PENDING_EXECUTION state",
-            current_state: txn.state
-        });
-    }
-
-    const { instructionId, adapter } = req.body; // Redundant but clear
-
-    try {
-        logger.info(`[SAGA] SAGA_STARTED for instruction ${instructionId}`);
-
-        // Call adapter OUTSIDE transaction (prevents Ghost Money timeout issue)
-        // If server crashes here, reconciler will find it in PENDING_EXECUTION state
-        let adapterResult;
+app.post(
+    '/api/adapter/execute',
+    validateRequest(adapterExecuteSchema),
+    checkIdempotency,
+    async (req, res) => {
+        // 1. Initial State Check (Short-lived connection)
+        let txn;
+        const client = await pool.connect();
         try {
-            adapterResult = await executeAdapter(adapter, txn);
-            logger.info({ msg: '[ADAPTER] Result', result: adapterResult });
-
-            // Save external intent ID for reconciler to query status later
-            if (adapterResult.intent_id) {
-                // Need a fresh client for this update since we released the first one
-                const updateClient = await pool.connect();
-                try {
-                    await updateClient.query(
-                        "UPDATE instructions SET external_intent_id = $1 WHERE instruction_id = $2",
-                        [adapterResult.intent_id, instructionId]
-                    );
-                } finally {
-                    updateClient.release();
-                }
-                logger.info(`[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`);
-            }
-        } catch (adapterErr) {
-            logger.error(`[ADAPTER] Failed for ${instructionId}: ${adapterErr.message}`);
-            // Don't rethrow - let final handler catch and mark state appropriately
-            adapterResult = { status: 'FAILED', error: adapterErr.message };
-        }
-
-        // Reconnect and do final update based on adapter result
-        const finalClient = await pool.connect();
-        try {
-            await finalClient.query('BEGIN');
-
-            if (adapterResult.status === 'SUCCESS') {
-                // Step 2: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
-                await writeLedger(
-                    finalClient,
-                    instructionId,
-                    txn.sender,
-                    txn.recipient,
-                    txn.amount,
-                    txn.currency
-                );
-                console.log(`[SAGA] Ledger writes completed for instruction ${instructionId}`);
-
-                // Step 3: VERIFY DOUBLE-ENTRY INTEGRITY
-                await verifyLedgerIntegrity(finalClient, instructionId, txn.currency);
-
-                // Step 4: UPDATE STATE to SETTLED
-                await finalClient.query(
-                    "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
-                    [instructionId]
-                );
-
-                await finalClient.query('COMMIT');
-                logger.info(`[SAGA] SAGA_COMPLETED for instruction ${instructionId}`);
-            } else {
-                // Adapter failed
-                await finalClient.query(
-                    "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
-                    [instructionId]
-                );
-
-                await finalClient.query('COMMIT');
-                logger.error(`[SAGA] SAGA_FAILED for instruction ${instructionId}`);
-            }
-
-            // Step 5: ASYNC GOVERNANCE (Post-Commit)
-            await notarizeToGovernance('SETTLEMENT_NOTARIZED', {
-                txnId: instructionId,
-                adapterUsed: adapter,
-                adapterResult: adapterResult,
-                amount: txn.amount,
-                integrityHash: crypto.createHash('sha256').update(instructionId).digest('hex')
-            });
-
-            const responseData = {
-                instructionId,
-                state: adapterResult.status === 'SUCCESS' ? 'SETTLED' : 'FAILED',
-                adapter_result: adapterResult,
-                ledger_proof: adapterResult.status === 'SUCCESS' ? "DOUBLE_ENTRY_OK" : "NOT_WRITTEN",
-            };
-
-            if (req.idempotencyKey) {
-                await pool.query(
-                    "INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)",
-                    [req.idempotencyKey, JSON.stringify(responseData)]
-                );
-            }
-
-            res.json(responseData);
-
-        } catch (err) {
-            await finalClient.query('ROLLBACK');
-            logger.error(`[SAGA] Ledger write failed for ${instructionId}: ${err.message}`);
-
-            // Mark as MANUAL_CHECK (not FAILED) - reconciler will investigate
-            try {
-                await pool.query(
-                    "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                    [instructionId]
-                );
-                logger.info(`[SAGA] Moved to MANUAL_CHECK for manual investigation: ${instructionId}`);
-            } catch (updateErr) {
-                logger.error("Failed to mark MANUAL_CHECK", updateErr);
-            }
-
-            res.status(500).json({
-                error: "Settlement Failed",
-                reason: err.message,
-                instruction_id: instructionId,
-                state: "MANUAL_CHECK"
-            });
+            const { instructionId } = req.body;
+            const result = await client.query(
+                'SELECT * FROM instructions WHERE instruction_id = $1',
+                [instructionId]
+            );
+            txn = result.rows[0];
         } finally {
-            finalClient.release();
+            client.release(); // ✅ RELEASED IMMEDIATELY
         }
-    } catch (err) {
-        logger.error(`[SAGA] Unexpected error for ${req.body.instructionId}: ${err.message}`);
-        res.status(500).json({
-            error: "System Error",
-            reason: err.message
-        });
+
+        if (!txn) {
+            // Handle not found if needed, or if txn was undefined from query
+            return res.status(404).json({ error: 'Instruction not found' });
+        }
+
+        if (txn.state !== 'PENDING_EXECUTION') {
+            return res.status(400).json({
+                error: 'Instruction not in PENDING_EXECUTION state',
+                current_state: txn.state,
+            });
+        }
+
+        const { instructionId, adapter } = req.body; // Redundant but clear
+
+        try {
+            logger.info(`[SAGA] SAGA_STARTED for instruction ${instructionId}`);
+
+            // Call adapter OUTSIDE transaction (prevents Ghost Money timeout issue)
+            // If server crashes here, reconciler will find it in PENDING_EXECUTION state
+            let adapterResult;
+            try {
+                adapterResult = await executeAdapter(adapter, txn);
+                logger.info({ msg: '[ADAPTER] Result', result: adapterResult });
+
+                // Save external intent ID for reconciler to query status later
+                if (adapterResult.intent_id) {
+                    // Need a fresh client for this update since we released the first one
+                    const updateClient = await pool.connect();
+                    try {
+                        await updateClient.query(
+                            'UPDATE instructions SET external_intent_id = $1 WHERE instruction_id = $2',
+                            [adapterResult.intent_id, instructionId]
+                        );
+                    } finally {
+                        updateClient.release();
+                    }
+                    logger.info(`[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`);
+                }
+            } catch (adapterErr) {
+                logger.error(`[ADAPTER] Failed for ${instructionId}: ${adapterErr.message}`);
+                // Don't rethrow - let final handler catch and mark state appropriately
+                adapterResult = { status: 'FAILED', error: adapterErr.message };
+            }
+
+            // Reconnect and do final update based on adapter result
+            const finalClient = await pool.connect();
+            try {
+                await finalClient.query('BEGIN');
+
+                if (adapterResult.status === 'SUCCESS') {
+                    // Step 2: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
+                    await writeLedger(
+                        finalClient,
+                        instructionId,
+                        txn.sender,
+                        txn.recipient,
+                        txn.amount,
+                        txn.currency
+                    );
+                    console.log(`[SAGA] Ledger writes completed for instruction ${instructionId}`);
+
+                    // Step 3: VERIFY DOUBLE-ENTRY INTEGRITY
+                    await verifyLedgerIntegrity(finalClient, instructionId, txn.currency);
+
+                    // Step 4: UPDATE STATE to SETTLED
+                    await finalClient.query(
+                        "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
+                        [instructionId]
+                    );
+
+                    await finalClient.query('COMMIT');
+                    logger.info(`[SAGA] SAGA_COMPLETED for instruction ${instructionId}`);
+                } else {
+                    // Adapter failed
+                    await finalClient.query(
+                        "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
+                        [instructionId]
+                    );
+
+                    await finalClient.query('COMMIT');
+                    logger.error(`[SAGA] SAGA_FAILED for instruction ${instructionId}`);
+                }
+
+                // Step 5: ASYNC GOVERNANCE (Post-Commit)
+                await notarizeToGovernance('SETTLEMENT_NOTARIZED', {
+                    txnId: instructionId,
+                    adapterUsed: adapter,
+                    adapterResult: adapterResult,
+                    amount: txn.amount,
+                    integrityHash: crypto.createHash('sha256').update(instructionId).digest('hex'),
+                });
+
+                const responseData = {
+                    instructionId,
+                    state: adapterResult.status === 'SUCCESS' ? 'SETTLED' : 'FAILED',
+                    adapter_result: adapterResult,
+                    ledger_proof:
+                        adapterResult.status === 'SUCCESS' ? 'DOUBLE_ENTRY_OK' : 'NOT_WRITTEN',
+                };
+
+                if (req.idempotencyKey) {
+                    await pool.query(
+                        'INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)',
+                        [req.idempotencyKey, JSON.stringify(responseData)]
+                    );
+                }
+
+                res.json(responseData);
+            } catch (err) {
+                await finalClient.query('ROLLBACK');
+                logger.error(`[SAGA] Ledger write failed for ${instructionId}: ${err.message}`);
+
+                // Mark as MANUAL_CHECK (not FAILED) - reconciler will investigate
+                try {
+                    await pool.query(
+                        "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                        [instructionId]
+                    );
+                    logger.info(
+                        `[SAGA] Moved to MANUAL_CHECK for manual investigation: ${instructionId}`
+                    );
+                } catch (updateErr) {
+                    logger.error('Failed to mark MANUAL_CHECK', updateErr);
+                }
+
+                res.status(500).json({
+                    error: 'Settlement Failed',
+                    reason: err.message,
+                    instruction_id: instructionId,
+                    state: 'MANUAL_CHECK',
+                });
+            } finally {
+                finalClient.release();
+            }
+        } catch (err) {
+            logger.error(`[SAGA] Unexpected error for ${req.body.instructionId}: ${err.message}`);
+            res.status(500).json({
+                error: 'System Error',
+                reason: err.message,
+            });
+        }
     }
-});
+);
 
 // --- RECONCILIATION WORKER ---
 setInterval(async () => {
@@ -612,8 +645,13 @@ setInterval(async () => {
             const intentId = row.external_intent_id;
 
             if (!intentId) {
-                logger.warn(`[RECONCILER] Instruction ${id} has no external_intent_id, marking for manual check`);
-                await pool.query("UPDATE instructions SET state = 'MANUAL_CHECK' WHERE instruction_id = $1", [id]);
+                logger.warn(
+                    `[RECONCILER] Instruction ${id} has no external_intent_id, marking for manual check`
+                );
+                await pool.query(
+                    "UPDATE instructions SET state = 'MANUAL_CHECK' WHERE instruction_id = $1",
+                    [id]
+                );
                 continue;
             }
 
@@ -622,18 +660,30 @@ setInterval(async () => {
             try {
                 const status = await require('./adapters/paymentsAdapters').queryStatus(intentId);
                 if (status === 'succeeded') {
-                    await pool.query("UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1", [id]);
+                    await pool.query(
+                        "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
+                        [id]
+                    );
                     logger.info(`[RECONCILER] Marked ${id} as SETTLED`);
                 } else if (status === 'canceled' || status === 'failed') {
-                    await pool.query("UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1", [id]);
+                    await pool.query(
+                        "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
+                        [id]
+                    );
                     logger.info(`[RECONCILER] Marked ${id} as FAILED`);
                 } else {
-                    await pool.query("UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1", [id]);
+                    await pool.query(
+                        "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                        [id]
+                    );
                     logger.warn(`[RECONCILER] Marked ${id} as MANUAL_CHECK (status: ${status})`);
                 }
             } catch (adapterErr) {
                 logger.error(`[RECONCILER] Error querying status for ${id}: ${adapterErr.message}`);
-                await pool.query("UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1", [id]);
+                await pool.query(
+                    "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                    [id]
+                );
             }
         }
     } catch (err) {
@@ -643,6 +693,51 @@ setInterval(async () => {
 }, 60000); // Run every 60 seconds
 
 // =====================================================
+// =====================================================
+// API 5: REGULATORY OBSERVABILITY (READ-ONLY)
+// =====================================================
+app.get('/api/observe', async (req, res) => {
+    try {
+        const { limit = 50 } = req.query;
+
+        // Fetch recent instructions
+        const result = await pool.query(
+            'SELECT * FROM instructions ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
+
+        // PII Scrubbing (Privacy Preservation)
+        const sanitizedData = result.rows.map((txn) => ({
+            instruction_id: txn.instruction_id,
+            amount: txn.amount,
+            currency: txn.currency,
+            state: txn.state,
+            purpose: txn.purpose,
+            // SCRUBBED: sender, recipient (PII)
+            sender_hash:
+                crypto.createHash('sha256').update(txn.sender).digest('hex').substring(0, 8) +
+                '...',
+            recipient_hash:
+                crypto.createHash('sha256').update(txn.recipient).digest('hex').substring(0, 8) +
+                '...',
+            timestamp: txn.created_at,
+            trace_id: txn.external_intent_id || 'N/A',
+        }));
+
+        res.json({
+            meta: {
+                timestamp: new Date().toISOString(),
+                record_count: sanitizedData.length,
+                compliance_standard: 'MAS-TRM-2025',
+            },
+            data: sanitizedData,
+        });
+    } catch (err) {
+        logger.error(`[AUDIT ERROR] ${err.message}`);
+        res.status(500).json({ error: 'Audit System Unavailable' });
+    }
+});
+
 // START SERVER (HTTPS + mTLS ENFORCED)
 // =====================================================
 const httpsOptions = {
@@ -650,11 +745,13 @@ const httpsOptions = {
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'server.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
     requestCert: true, // Request a certificate from the client (mTLS)
-    rejectUnauthorized: true // Reject any connection without a valid CA-signed certificate
+    rejectUnauthorized: true, // Reject any connection without a valid CA-signed certificate
 };
 
 https.createServer(httpsOptions, app).listen(PORT, () => {
-    logger.info(`[STARTUP] Project Fusion Enterprise Core (SECURE) running on https://localhost:${PORT}`);
+    logger.info(
+        `[STARTUP] Project Fusion Enterprise Core (SECURE) running on https://localhost:${PORT}`
+    );
     logger.info('[STARTUP] mTLS SECURITY ENFORCED: Mutual identity required for all API calls');
     logger.info('[STARTUP] HSM SIMULATION ACTIVE: Sensitive keys isolated in Vault');
     logger.info('[STARTUP] Ready for high-security regulatory discussion');

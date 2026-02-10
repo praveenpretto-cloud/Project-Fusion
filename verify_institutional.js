@@ -13,7 +13,7 @@ const httpsAgent = new https.Agent({
     key: fs.readFileSync(path.join(__dirname, 'certs', 'client.key')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
 });
 
 function makeRequest(path, method = 'GET', body = null) {
@@ -26,14 +26,14 @@ function makeRequest(path, method = 'GET', body = null) {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `verify_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `verify_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', (chunk) => data += chunk);
+            res.on('data', (chunk) => (data += chunk));
             res.on('end', () => {
                 try {
                     const parsed = path.includes('/metrics') ? data : JSON.parse(data);
@@ -111,11 +111,11 @@ async function runVerification() {
     try {
         // Initiate
         const initResult = await makeRequest('/api/instruction/initiate', 'POST', {
-            amount: 5.00,
+            amount: 5.0,
             currency: 'XLM',
             sender: 'Verification_Test_Sender',
             recipient: 'Verification_Test_Recipient',
-            purpose: 'INSTITUTIONAL_GRADE_TEST'
+            purpose: 'INSTITUTIONAL_GRADE_TEST',
         });
 
         const instructionId = initResult.data.instructionId;
@@ -140,12 +140,14 @@ async function runVerification() {
         // Execute
         const execResult = await makeRequest('/api/adapter/execute', 'POST', {
             instructionId,
-            adapter: 'ADAPTER_CRYPTO_CUSTODIAN'
+            adapter: 'ADAPTER_CRYPTO_CUSTODIAN',
         });
 
         if (execResult.data.adapter_result && execResult.data.adapter_result.blockchain_hash) {
             console.log('✅ PASS: Stellar transaction succeeded with vault-signed keys');
-            console.log(`  → Blockchain Hash: ${execResult.data.adapter_result.blockchain_hash.substring(0, 16)}...`);
+            console.log(
+                `  → Blockchain Hash: ${execResult.data.adapter_result.blockchain_hash.substring(0, 16)}...`
+            );
             passed++;
         } else {
             console.log('❌ FAIL: Stellar transaction failed');
@@ -161,18 +163,20 @@ async function runVerification() {
     console.log('\n📋 TEST 5: Input Validation Middleware (Joi)');
     try {
         const result = await makeRequest('/api/instruction/initiate', 'POST', {
-            amount: -100,  // Should be rejected by Joi
+            amount: -100, // Should be rejected by Joi
             currency: 'USD',
             sender: 'Alice',
             recipient: 'Bob',
-            purpose: 'TEST'
+            purpose: 'TEST',
         });
 
         if (result.status === 400 && result.data.error === 'Validation Failed') {
             console.log('✅ PASS: Joi middleware correctly rejected invalid amount (-100)');
             passed++;
         } else {
-            console.log('❌ FAIL: Validation middleware did not reject negative amount or returned wrong status');
+            console.log(
+                '❌ FAIL: Validation middleware did not reject negative amount or returned wrong status'
+            );
             console.log('   Status:', result.status, 'Data:', result.data);
             failed++;
         }

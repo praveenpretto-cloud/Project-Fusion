@@ -6,7 +6,6 @@ const Stellar = require('@stellar/stellar-sdk');
 const server = new Stellar.Horizon.Server('https://horizon-testnet.stellar.org');
 const NET_PASSPHRASE = 'Test SDF Network ; September 2015'; // Explicit Testnet
 
-
 async function executeCryptoTransfer(instruction, adapterConfig) {
     const { instructionId, amount, currency, sender, recipient } = instruction;
 
@@ -29,7 +28,7 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
             console.log('[STELLAR] Source not found. Funding via Friendbot...');
             await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
             console.log('[STELLAR] Waiting for ledger (8s)...');
-            await new Promise(r => setTimeout(r, 8000));
+            await new Promise((r) => setTimeout(r, 8000));
         }
 
         // 3. Load Source Account for Sequence Number
@@ -79,9 +78,8 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
             blockchain_hash: result.hash,
             ledger: result.ledger,
             explorer_url: `https://stellar.expert/explorer/testnet/tx/${result.hash}`,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
-
     } catch (err) {
         let stellarError = err.message;
         if (err.response && err.response.data && err.response.data.extras) {
@@ -91,7 +89,7 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         return {
             status: 'FAILED',
             error: stellarError,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
     }
 }

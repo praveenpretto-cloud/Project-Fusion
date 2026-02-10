@@ -5,7 +5,7 @@ async function executeBrokerageTrade(instruction, adapterConfig) {
 
     console.log(`[ADAPTER] BROKERAGE executing ${purpose} trade with ${amount} ${currency}`);
 
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     return {
         adapter_type: 'BROKERAGE',
@@ -13,7 +13,7 @@ async function executeBrokerageTrade(instruction, adapterConfig) {
         order_id: `ORD-${Date.now()}`,
         filled_quantity: amount,
         average_price: (Math.random() * 100).toFixed(2),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
     };
 }
 

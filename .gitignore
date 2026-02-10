@@ -19,3 +19,6 @@ build/
 certs/
 *.pem
 *.p12
+
+#Testing
+coverage/

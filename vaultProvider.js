@@ -16,16 +16,14 @@ async function signStellarTransaction(senderName, transaction, networkPassphrase
     console.log(`[VAULT-HSM] Signing request received for: ${senderName}`);
 
     // Simulate HSM hardware latency
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // SECURE KEY DERIVATION (HMAC-based, not weak Buffer.write)
     // In production, this would retrieve a pre-generated seed from encrypted storage
     // For testnet, we derive deterministically but with full 32-byte entropy
     const masterSecret = process.env.VAULT_MASTER_SECRET;
     if (!masterSecret) throw new Error('VAULT_MASTER_SECRET not set');
-    const derivedSeed = crypto.createHmac('sha256', masterSecret)
-        .update(senderName)
-        .digest(); // Returns full 32 bytes
+    const derivedSeed = crypto.createHmac('sha256', masterSecret).update(senderName).digest(); // Returns full 32 bytes
 
     const keypair = Stellar.Keypair.fromRawEd25519Seed(derivedSeed);
 
@@ -40,9 +38,7 @@ async function signStellarTransaction(senderName, transaction, networkPassphrase
 async function getStellarPublicKey(senderName) {
     const masterSecret = process.env.VAULT_MASTER_SECRET;
     if (!masterSecret) throw new Error('VAULT_MASTER_SECRET not set');
-    const derivedSeed = crypto.createHmac('sha256', masterSecret)
-        .update(senderName)
-        .digest();
+    const derivedSeed = crypto.createHmac('sha256', masterSecret).update(senderName).digest();
 
     const keypair = Stellar.Keypair.fromRawEd25519Seed(derivedSeed);
     return keypair.publicKey();
@@ -61,5 +57,5 @@ function getAdapterCredential(keyName) {
 module.exports = {
     signStellarTransaction,
     getStellarPublicKey,
-    getAdapterCredential
+    getAdapterCredential,
 };

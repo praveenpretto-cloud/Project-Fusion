@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 
@@ -14,56 +15,54 @@
         }
     </style>
 </head>
-
+    
 <body>
-    <div class='wrapper'>
-        <div class='pad1'>
-            <h1><a href="../index.html">All files</a> / <a href="index.html">Project-Fusion</a>
-                demo_stellar_transaction.js</h1>
-            <div class='clearfix'>
-
-                <div class='fl pad1y space-right2'>
-                    <span class="strong">0% </span>
-                    <span class="quiet">Statements</span>
-                    <span class='fraction'>0/68</span>
-                </div>
-
-
-                <div class='fl pad1y space-right2'>
-                    <span class="strong">0% </span>
-                    <span class="quiet">Branches</span>
-                    <span class='fraction'>0/19</span>
-                </div>
-
-
-                <div class='fl pad1y space-right2'>
-                    <span class="strong">0% </span>
-                    <span class="quiet">Functions</span>
-                    <span class='fraction'>0/6</span>
-                </div>
-
-
-                <div class='fl pad1y space-right2'>
-                    <span class="strong">0% </span>
-                    <span class="quiet">Lines</span>
-                    <span class='fraction'>0/66</span>
-                </div>
-
-
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../index.html">All files</a> / <a href="index.html">Project-Fusion</a> demo_stellar_transaction.js</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>0/68</span>
             </div>
-            <p class="quiet">
-                Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em>
-                for the previous block.
-            </p>
-            <template id="filterTemplate">
-                <div class="quiet">
-                    Filter:
-                    <input type="search" id="fileSearch">
-                </div>
-            </template>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/18</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/6</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>0/66</span>
+            </div>
+        
+            
         </div>
-        <div class='status-line low'></div>
-        <pre><table class="coverage">
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
 <a name='L3'></a><a href='#L3'>3</a>
@@ -195,7 +194,8 @@
 <a name='L129'></a><a href='#L129'>129</a>
 <a name='L130'></a><a href='#L130'>130</a>
 <a name='L131'></a><a href='#L131'>131</a>
-<a name='L132'></a><a href='#L132'>132</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -219,6 +219,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -356,7 +357,8 @@ function <span class="fstat-no" title="function not covered" >makeRequest(</span
             method: method,
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': API_KEY
+                'x-api-key': API_KEY,
+                'x-idempotency-key': `stellar_${Date.now()}_${Math.random().toString(36).substring(7)}`
             },
             agent: httpsAgent
         };
@@ -387,7 +389,7 @@ async function <span class="fstat-no" title="function not covered" >executeStell
         // Step 1: Initiate
 <span class="cstat-no" title="statement not covered" >        console.log('Step 1: Initiating instruction...');</span>
         const initResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/instruction/initiate', 'POST', {</span>
-            amount: '5.00',  // Under AML threshold
+            amount: 5.00,  // Under AML threshold
             currency: 'XLM',
             sender: 'Demo_Sender_XLM',
             recipient: 'Demo_Recipient_XLM',
@@ -407,7 +409,7 @@ async function <span class="fstat-no" title="function not covered" >executeStell
 <span class="cstat-no" title="statement not covered" >        console.log(`✅ Policy: ${isApproved ? 'APPROVED ✓' : 'REJECTED ✗'}`);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        if (!isApproved) {</span>
-<span class="cstat-no" title="statement not covered" >            console.log(`   Reason: ${permit?.rationale || policyResponse.data.error || 'Unknown error'}`);</span>
+<span class="cstat-no" title="statement not covered" >            console.log(`   Reason: ${permit?.rationale || JSON.stringify(policyResponse.data)}`);</span>
 <span class="cstat-no" title="statement not covered" >            console.log('\n❌ Transaction cannot proceed - policy rejection\n');</span>
 <span class="cstat-no" title="statement not covered" >            return;</span>
         }
@@ -457,27 +459,23 @@ async function <span class="fstat-no" title="function not covered" >executeStell
 }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >executeStellarTransaction();</span>
-&nbsp;</pre>
-        </td>
-        </tr>
-        </table>
-        </pre>
+&nbsp;</pre></td></tr></table></pre>
 
-        <div class='push'></div><!-- for sticky footer -->
-    </div><!-- /wrapper -->
-    <div class='footer quiet pad2 space-top1 center small'>
-        Code coverage generated by
-        <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-        at 2026-02-01T07:55:49.242Z
-    </div>
-    <script src="../prettify.js"></script>
-    <script>
-        window.onload = function () {
-            prettyPrint();
-        };
-    </script>
-    <script src="../sorter.js"></script>
-    <script src="../block-navigation.js"></script>
-</body>
-
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-02-02T10:20:48.354Z
+            </div>
+        <script src="../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../sorter.js"></script>
+        <script src="../block-navigation.js"></script>
+    </body>
 </html>
+    
