@@ -1,55 +1,54 @@
 version: '3.8'
 
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - DB_HOST=db
-      - DB_USER=fusion_user
-      - DB_PASSWORD=fusion_pass
-      - DB_NAME=fusion_db
-    depends_on:
-      - db
-    networks:
-      - fusion-net
+    app:
+        build: .
+        ports:
+            - '3000:3000'
+        environment:
+            - DB_HOST=db
+            - DB_USER=fusion_user
+            - DB_PASSWORD=fusion_pass
+            - DB_NAME=fusion_db
+        depends_on:
+            - db
+        networks:
+            - fusion-net
 
-  db:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=fusion_user
-      - POSTGRES_PASSWORD=fusion_pass
-      - POSTGRES_DB=fusion_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
-    networks:
-    networks:
-      - fusion-net
+    db:
+        image: postgres:15-alpine
+        environment:
+            - POSTGRES_USER=fusion_user
+            - POSTGRES_PASSWORD=fusion_pass
+            - POSTGRES_DB=fusion_db
+        ports:
+            - '5432:5432'
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+            - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+        networks:
+            - fusion-net
 
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    networks:
-      - fusion-net
+    prometheus:
+        image: prom/prometheus:latest
+        volumes:
+            - ./prometheus.yml:/etc/prometheus/prometheus.yml
+        ports:
+            - '9090:9090'
+        networks:
+            - fusion-net
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3002:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    networks:
-      - fusion-net
+    grafana:
+        image: grafana/grafana:latest
+        ports:
+            - '3002:3000'
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+        networks:
+            - fusion-net
 
 volumes:
-  pgdata:
+    pgdata:
 
 networks:
-  fusion-net:
+    fusion-net:
