@@ -4,7 +4,7 @@ First off, thank you for considering contributing to Project Fusion! It's people
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by the [Project Fusion Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [security@project-fusion.io].
+This project and everyone participating in it is governed by the [Project Fusion Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [INSERT_YOUR_CONTACT_EMAIL].
 
 ## How Can I Contribute?
 
