@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/30</span>
+                <span class='fraction'>0/31</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/12</span>
+                <span class='fraction'>0/14</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/28</span>
+                <span class='fraction'>0/29</span>
             </div>
         
             
@@ -137,7 +137,8 @@
 <a name='L72'></a><a href='#L72'>72</a>
 <a name='L73'></a><a href='#L73'>73</a>
 <a name='L74'></a><a href='#L74'>74</a>
-<a name='L75'></a><a href='#L75'>75</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -160,6 +161,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -220,27 +222,28 @@ async function <span class="fstat-no" title="function not covered" >executePayme
     const logger = <span class="cstat-no" title="statement not covered" >require('../logger');</span>
     const { instructionId, amount, currency, sender, recipient } = <span class="cstat-no" title="statement not covered" >instruction;</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    logger.info(`[STRIPE] Creating PaymentIntent for ${amount} ${currency}`);</span>
+<span class="cstat-no" title="statement not covered" >    logger.info(`[STRIPE] Executing PaymentIntent for ${amount} ${currency} (Rail: ${stripeKey ? 'LIVE' : 'MOCK'})`);</span>
 &nbsp;
     // MOCK BYPASS FOR LOAD TESTING
 <span class="cstat-no" title="statement not covered" >    if (instruction.purpose === 'STRIPE_SCALE_TEST') {</span>
         const mockDelay = <span class="cstat-no" title="statement not covered" >Math.floor(Math.random() * 200) + 50;</span> // 50-250ms delay
-<span class="cstat-no" title="statement not covered" >        await new Promise(<span class="fstat-no" title="function not covered" >re</span>solve =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, mockDelay))</span>;</span>
+<span class="cstat-no" title="statement not covered" >        await new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, mockDelay))</span>;</span>
 <span class="cstat-no" title="statement not covered" >        logger.info(`[STRIPE MOCK] Simulated success for ${instructionId}`);</span>
 <span class="cstat-no" title="statement not covered" >        return {</span>
             status: 'SUCCESS',
             intent_id: `mock_pi_${instructionId}_${Date.now()}`,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
     }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    try {</span>
+<span class="cstat-no" title="statement not covered" >        logger.info(`[STRIPE REAL] 🟢 Initiating REAL API call to Stripe for ${amount} ${currency}...`);</span>
         // Simulate different payment brands/types based on purpose or random
         const paymentMethods = <span class="cstat-no" title="statement not covered" >{</span>
-            'CARD': 'pm_card_visa',
-            'BANK_TRANSFER': 'pm_card_mastercard', // Simulated as Mastercard for demo
-            'NEFT': 'pm_card_amex',              // Simulated as Amex for demo
-            'SWIFT': 'pm_card_unionpay'          // Simulated as UnionPay for demo
+            CARD: 'pm_card_visa',
+            BANK_TRANSFER: 'pm_card_mastercard', // Simulated as Mastercard for demo
+            NEFT: 'pm_card_amex', // Simulated as Amex for demo
+            SWIFT: 'pm_card_unionpay', // Simulated as UnionPay for demo
         };
 &nbsp;
         const methodKey = <span class="cstat-no" title="statement not covered" >(instruction.purpose || 'CARD').toUpperCase();</span>
@@ -256,14 +259,14 @@ async function <span class="fstat-no" title="function not covered" >executePayme
                 instructionId,
                 sender,
                 recipient,
-                simulated_rail: methodKey === 'CARD' ? 'VISA' : methodKey
+                simulated_rail: methodKey === 'CARD' ? 'VISA' : methodKey,
             },
         });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        return {</span>
             status: intent.status === 'succeeded' ? 'SUCCESS' : intent.status.toUpperCase(),
             intent_id: intent.id,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         };
     } catch (err) {
 <span class="cstat-no" title="statement not covered" >        logger.error(`[STRIPE ERROR] ${err.message}`);</span>
@@ -292,7 +295,7 @@ async function <span class="fstat-no" title="function not covered" >queryStatus(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T10:20:48.354Z
+                at 2026-02-11T14:23:03.492Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

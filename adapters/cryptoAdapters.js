@@ -9,7 +9,8 @@ const NET_PASSPHRASE = 'Test SDF Network ; September 2015'; // Explicit Testnet
 async function executeCryptoTransfer(instruction, adapterConfig) {
     const { instructionId, amount, currency, sender, recipient } = instruction;
 
-    console.log(`[STELLAR] Executing: ${amount} XLM from ${sender} to ${recipient}`);
+    const logger = require('../logger');
+    logger.info(`[STELLAR] Executing: ${amount} XLM from ${sender} to ${recipient}`);
 
     try {
         // 1. Get Secure Public Keys from Vault (Keys remain isolated)
@@ -18,16 +19,18 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         const sourcePublicKey = await getStellarPublicKey(sender);
         const destinationPublicKey = await getStellarPublicKey(recipient);
 
-        console.log(`[STELLAR] Source: ${sourcePublicKey}`);
-        console.log(`[STELLAR] Dest:   ${destinationPublicKey}`);
+        const isRedacted = process.env.PII_REDACTION !== 'false';
+
+        logger.info(`[STELLAR] Source: ${isRedacted ? sourcePublicKey.substring(0, 4) + '...' + sourcePublicKey.substring(52) : sourcePublicKey}`);
+        logger.info(`[STELLAR] Dest:   ${isRedacted ? destinationPublicKey.substring(0, 4) + '...' + destinationPublicKey.substring(52) : destinationPublicKey}`);
 
         // 2. Ensure Source Account Exists (Fund via Friendbot if Demo)
         try {
             await server.loadAccount(sourcePublicKey);
         } catch (e) {
-            console.log('[STELLAR] Source not found. Funding via Friendbot...');
+            logger.info('[STELLAR] Source not found. Funding via Friendbot...');
             await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
-            console.log('[STELLAR] Waiting for ledger (8s)...');
+            logger.info('[STELLAR] Waiting for ledger (8s)...');
             await new Promise((r) => setTimeout(r, 8000));
         }
 
@@ -67,9 +70,9 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         await signStellarTransaction(sender, transaction, NET_PASSPHRASE);
 
         // 8. Submit to Network
-        console.log('[STELLAR] Submitting to Horizon Testnet...');
+        logger.info('[STELLAR] Submitting to Horizon Testnet...');
         const result = await server.submitTransaction(transaction);
-        console.log(`[STELLAR] SUCCESS! Hash: ${result.hash}`);
+        logger.info(`[STELLAR] SUCCESS! Hash: ${result.hash}`);
 
         return {
             adapter_type: 'CRYPTO_CUSTODIAN',
@@ -85,7 +88,7 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         if (err.response && err.response.data && err.response.data.extras) {
             stellarError = `Stellar ${err.response.data.title}: ${JSON.stringify(err.response.data.extras.result_codes)}`;
         }
-        console.error('[STELLAR ERROR]', stellarError);
+        logger.error(`[STELLAR ERROR] ${stellarError}`);
         return {
             status: 'FAILED',
             error: stellarError,

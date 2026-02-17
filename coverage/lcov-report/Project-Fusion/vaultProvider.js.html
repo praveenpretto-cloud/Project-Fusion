@@ -124,11 +124,7 @@
 <a name='L59'></a><a href='#L59'>59</a>
 <a name='L60'></a><a href='#L60'>60</a>
 <a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a>
-<a name='L66'></a><a href='#L66'>66</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L62'></a><a href='#L62'>62</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -155,8 +151,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -171,8 +165,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -211,16 +203,14 @@ async function <span class="fstat-no" title="function not covered" >signStellarT
 <span class="cstat-no" title="statement not covered" >    console.log(`[VAULT-HSM] Signing request received for: ${senderName}`);</span>
 &nbsp;
     // Simulate HSM hardware latency
-<span class="cstat-no" title="statement not covered" >    await new Promise(<span class="fstat-no" title="function not covered" >re</span>solve =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 50))</span>;</span>
+<span class="cstat-no" title="statement not covered" >    await new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 50))</span>;</span>
 &nbsp;
     // SECURE KEY DERIVATION (HMAC-based, not weak Buffer.write)
     // In production, this would retrieve a pre-generated seed from encrypted storage
     // For testnet, we derive deterministically but with full 32-byte entropy
     const masterSecret = <span class="cstat-no" title="statement not covered" >process.env.VAULT_MASTER_SECRET;</span>
 <span class="cstat-no" title="statement not covered" >    if (!masterSecret) <span class="cstat-no" title="statement not covered" >throw new Error('VAULT_MASTER_SECRET not set');</span></span>
-    const derivedSeed = <span class="cstat-no" title="statement not covered" >crypto.createHmac('sha256', masterSecret)</span>
-        .update(senderName)
-        .digest(); // Returns full 32 bytes
+    const derivedSeed = <span class="cstat-no" title="statement not covered" >crypto.createHmac('sha256', masterSecret).update(senderName).digest();</span> // Returns full 32 bytes
 &nbsp;
     const keypair = <span class="cstat-no" title="statement not covered" >Stellar.Keypair.fromRawEd25519Seed(derivedSeed);</span>
 &nbsp;
@@ -235,9 +225,7 @@ async function <span class="fstat-no" title="function not covered" >signStellarT
 async function <span class="fstat-no" title="function not covered" >getStellarPublicKey(</span>senderName) {
     const masterSecret = <span class="cstat-no" title="statement not covered" >process.env.VAULT_MASTER_SECRET;</span>
 <span class="cstat-no" title="statement not covered" >    if (!masterSecret) <span class="cstat-no" title="statement not covered" >throw new Error('VAULT_MASTER_SECRET not set');</span></span>
-    const derivedSeed = <span class="cstat-no" title="statement not covered" >crypto.createHmac('sha256', masterSecret)</span>
-        .update(senderName)
-        .digest();
+    const derivedSeed = <span class="cstat-no" title="statement not covered" >crypto.createHmac('sha256', masterSecret).update(senderName).digest();</span>
 &nbsp;
     const keypair = <span class="cstat-no" title="statement not covered" >Stellar.Keypair.fromRawEd25519Seed(derivedSeed);</span>
 <span class="cstat-no" title="statement not covered" >    return keypair.publicKey();</span>
@@ -256,7 +244,7 @@ function <span class="fstat-no" title="function not covered" >getAdapterCredenti
 <span class="cstat-no" title="statement not covered" >module.exports = {</span>
     signStellarTransaction,
     getStellarPublicKey,
-    getAdapterCredential
+    getAdapterCredential,
 };
 &nbsp;</pre></td></tr></table></pre>
 
@@ -265,7 +253,7 @@ function <span class="fstat-no" title="function not covered" >getAdapterCredenti
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T10:20:48.354Z
+                at 2026-02-11T14:23:03.492Z
             </div>
         <script src="../prettify.js"></script>
         <script>

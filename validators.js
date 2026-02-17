@@ -65,6 +65,7 @@ const adapterExecuteSchema = Joi.object({
         .valid(
             'ADAPTER_PAYNOW',
             'ADAPTER_SWIFT',
+            'ADAPTER_STRIPE', // ✅ Added
             'ADAPTER_CRYPTO_CUSTODIAN',
             'ADAPTER_BROKERAGE_SETTLEMENT'
         )

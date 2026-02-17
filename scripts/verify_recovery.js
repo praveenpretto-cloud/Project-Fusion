@@ -113,8 +113,9 @@ async function runRecoveryProof() {
         console.log('\n3. ⏳ Waiting for Auto-Healing Worker (Runs every 60s)...');
 
         // Poll every 5 seconds until fixed
+        // Poll every 5 seconds until fixed (Max 125s, covering the 60s worker loop safely)
         let attempts = 0;
-        while (attempts < 15) {
+        while (attempts < 25) {
             await new Promise((r) => setTimeout(r, 5000));
             process.stdout.write('.');
 

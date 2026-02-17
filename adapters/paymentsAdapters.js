@@ -7,7 +7,7 @@ async function executePaymentRail(instruction, adapterConfig) {
     const logger = require('../logger');
     const { instructionId, amount, currency, sender, recipient } = instruction;
 
-    logger.info(`[STRIPE] Creating PaymentIntent for ${amount} ${currency}`);
+    logger.info(`[STRIPE] Executing PaymentIntent for ${amount} ${currency} (Rail: ${stripeKey ? 'LIVE' : 'MOCK'})`);
 
     // MOCK BYPASS FOR LOAD TESTING
     if (instruction.purpose === 'STRIPE_SCALE_TEST') {
@@ -22,6 +22,7 @@ async function executePaymentRail(instruction, adapterConfig) {
     }
 
     try {
+        logger.info(`[STRIPE REAL] 🟢 Initiating REAL API call to Stripe for ${amount} ${currency}...`);
         // Simulate different payment brands/types based on purpose or random
         const paymentMethods = {
             CARD: 'pm_card_visa',

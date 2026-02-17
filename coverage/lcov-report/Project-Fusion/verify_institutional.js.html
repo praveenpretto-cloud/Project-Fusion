@@ -265,7 +265,11 @@
 <a name='L200'></a><a href='#L200'>200</a>
 <a name='L201'></a><a href='#L201'>201</a>
 <a name='L202'></a><a href='#L202'>202</a>
-<a name='L203'></a><a href='#L203'>203</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -413,6 +417,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -440,6 +446,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -482,7 +490,7 @@ const httpsAgent = <span class="cstat-no" title="statement not covered" >new htt
     key: fs.readFileSync(path.join(__dirname, 'certs', 'client.key')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
 });
 &nbsp;
 function <span class="fstat-no" title="function not covered" >makeRequest(</span>path, method = <span class="branch-0 cbranch-no" title="branch not covered" >'GET',</span> body = <span class="branch-0 cbranch-no" title="branch not covered" >null)</span> {
@@ -495,14 +503,14 @@ function <span class="fstat-no" title="function not covered" >makeRequest(</span
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `verify_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `verify_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 &nbsp;
         const req = <span class="cstat-no" title="statement not covered" >https.request(options, <span class="fstat-no" title="function not covered" >(r</span>es) =&gt; {</span>
             let data = <span class="cstat-no" title="statement not covered" >'';</span>
-<span class="cstat-no" title="statement not covered" >            res.on('data', <span class="fstat-no" title="function not covered" >(c</span>hunk) =&gt; <span class="cstat-no" title="statement not covered" >data += chunk)</span>;</span>
+<span class="cstat-no" title="statement not covered" >            res.on('data', <span class="fstat-no" title="function not covered" >(c</span>hunk) =&gt; (<span class="cstat-no" title="statement not covered" >data += chunk)</span>);</span>
 <span class="cstat-no" title="statement not covered" >            res.on('end', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >                try {</span>
                     const parsed = <span class="cstat-no" title="statement not covered" >path.includes('/metrics') ? data : JSON.parse(data);</span>
@@ -580,11 +588,11 @@ async function <span class="fstat-no" title="function not covered" >runVerificat
 <span class="cstat-no" title="statement not covered" >    try {</span>
         // Initiate
         const initResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/instruction/initiate', 'POST', {</span>
-            amount: 5.00,
+            amount: 5.0,
             currency: 'XLM',
             sender: 'Verification_Test_Sender',
             recipient: 'Verification_Test_Recipient',
-            purpose: 'INSTITUTIONAL_GRADE_TEST'
+            purpose: 'INSTITUTIONAL_GRADE_TEST',
         });
 &nbsp;
         const instructionId = <span class="cstat-no" title="statement not covered" >initResult.data.instructionId;</span>
@@ -609,12 +617,14 @@ async function <span class="fstat-no" title="function not covered" >runVerificat
         // Execute
         const execResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/adapter/execute', 'POST', {</span>
             instructionId,
-            adapter: 'ADAPTER_CRYPTO_CUSTODIAN'
+            adapter: 'ADAPTER_CRYPTO_CUSTODIAN',
         });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        if (execResult.data.adapter_result &amp;&amp; execResult.data.adapter_result.blockchain_hash) {</span>
 <span class="cstat-no" title="statement not covered" >            console.log('✅ PASS: Stellar transaction succeeded with vault-signed keys');</span>
-<span class="cstat-no" title="statement not covered" >            console.log(`  → Blockchain Hash: ${execResult.data.adapter_result.blockchain_hash.substring(0, 16)}...`);</span>
+<span class="cstat-no" title="statement not covered" >            console.log(</span>
+                `  → Blockchain Hash: ${execResult.data.adapter_result.blockchain_hash.substring(0, 16)}...`
+            );
 <span class="cstat-no" title="statement not covered" >            passed++;</span>
         } else {
 <span class="cstat-no" title="statement not covered" >            console.log('❌ FAIL: Stellar transaction failed');</span>
@@ -630,18 +640,20 @@ async function <span class="fstat-no" title="function not covered" >runVerificat
 <span class="cstat-no" title="statement not covered" >    console.log('\n📋 TEST 5: Input Validation Middleware (Joi)');</span>
 <span class="cstat-no" title="statement not covered" >    try {</span>
         const result = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/instruction/initiate', 'POST', {</span>
-            amount: -100,  // Should be rejected by Joi
+            amount: -100, // Should be rejected by Joi
             currency: 'USD',
             sender: 'Alice',
             recipient: 'Bob',
-            purpose: 'TEST'
+            purpose: 'TEST',
         });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        if (result.status === 400 &amp;&amp; result.data.error === 'Validation Failed') {</span>
 <span class="cstat-no" title="statement not covered" >            console.log('✅ PASS: Joi middleware correctly rejected invalid amount (-100)');</span>
 <span class="cstat-no" title="statement not covered" >            passed++;</span>
         } else {
-<span class="cstat-no" title="statement not covered" >            console.log('❌ FAIL: Validation middleware did not reject negative amount or returned wrong status');</span>
+<span class="cstat-no" title="statement not covered" >            console.log(</span>
+                '❌ FAIL: Validation middleware did not reject negative amount or returned wrong status'
+            );
 <span class="cstat-no" title="statement not covered" >            console.log('   Status:', result.status, 'Data:', result.data);</span>
 <span class="cstat-no" title="statement not covered" >            failed++;</span>
         }
@@ -676,7 +688,7 @@ async function <span class="fstat-no" title="function not covered" >runVerificat
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T10:20:48.354Z
+                at 2026-02-11T14:23:03.492Z
             </div>
         <script src="../prettify.js"></script>
         <script>

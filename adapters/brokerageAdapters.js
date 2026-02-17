@@ -3,7 +3,8 @@
 async function executeBrokerageTrade(instruction, adapterConfig) {
     const { instructionId, amount, currency, purpose } = instruction;
 
-    console.log(`[ADAPTER] BROKERAGE executing ${purpose} trade with ${amount} ${currency}`);
+    const logger = require('../logger');
+    logger.info(`[ADAPTER] BROKERAGE executing ${purpose} trade with ${amount} ${currency}`);
 
     await new Promise((resolve) => setTimeout(resolve, 200));
 

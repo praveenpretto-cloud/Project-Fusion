@@ -1,5 +1,6 @@
 const request = require('supertest');
 const crypto = require('crypto');
+require('dotenv').config(); // ✅ Load .env variables for test authentication
 
 // Note: In a real environment, we'd mock the DB or spin up a test container.
 // Here we assume the server is running or we need to import app.

@@ -20,6 +20,11 @@ const logger = pino({
     base: {
         service: 'project-fusion',
     },
+    /* PII Redaction: Default to TRUE (Safe) unless explicitly disabled */
+    redact: process.env.PII_REDACTION !== 'false' ? {
+        paths: ['sender', 'recipient', 'account_id', 'email', '*.sender', '*.recipient'],
+        censor: '[REDACTED_PII]',
+    } : undefined,
 });
 
 module.exports = logger;

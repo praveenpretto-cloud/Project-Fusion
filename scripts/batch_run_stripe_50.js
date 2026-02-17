@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 
 const API_KEY = process.env.API_SECRET_KEY;
 const PORT = process.env.PORT || 3000;
-const TRANSACTION_COUNT = 5; // Reduced for debugging, will increase to 50 if successful
+const TRANSACTION_COUNT = 50; // Reduced for debugging, will increase to 50 if successful
 
 // DB Config
 const pool = new Pool({
@@ -65,6 +65,7 @@ function makeRequest(path, method = 'GET', body = null) {
                 'x-idempotency-key': `batch_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
             agent: httpsAgent,
+            timeout: 5000, // Fail fast after 5s
         };
 
         const req = https.request(options, (res) => {
@@ -100,7 +101,7 @@ async function runFullFlow(i) {
             currency: 'USD',
             sender,
             recipient,
-            purpose: 'STRIPE_SCALE_TEST',
+            purpose: 'PAYMENT', // 'PAYMENT' triggers real Stripe API, 'STRIPE_SCALE_TEST' triggers mock
         });
         if (init.status !== 200 && init.status !== 201)
             throw new Error(`Initiate failed: ${init.status}`);
@@ -118,7 +119,9 @@ async function runFullFlow(i) {
         console.log(`[${i}] Route OK`);
 
         // 4. Execute
-        const exec = await makeRequest('/api/adapter/execute', 'POST', { instructionId, adapter });
+        const adapterToUse = route.data.selectedAdapter; // ✅ Use dynamic adapter from Orchestrator
+        console.log(`[${i}] Selected Adapter: ${adapterToUse}`);
+        const exec = await makeRequest('/api/adapter/execute', 'POST', { instructionId, adapter: adapterToUse });
         if (exec.status !== 200) throw new Error(`Execute failed: ${exec.status}`);
 
         if (!exec.data || !exec.data.adapter_result) {

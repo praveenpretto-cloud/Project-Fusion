@@ -195,7 +195,8 @@
 <a name='L130'></a><a href='#L130'>130</a>
 <a name='L131'></a><a href='#L131'>131</a>
 <a name='L132'></a><a href='#L132'>132</a>
-<a name='L133'></a><a href='#L133'>133</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -288,6 +289,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -319,7 +322,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -345,7 +347,7 @@ const httpsAgent = <span class="cstat-no" title="statement not covered" >new htt
     key: fs.readFileSync(path.join(__dirname, 'certs', 'client.key')),
     cert: fs.readFileSync(path.join(__dirname, 'certs', 'client.crt')),
     ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-    rejectUnauthorized: true
+    rejectUnauthorized: true,
 });
 &nbsp;
 function <span class="fstat-no" title="function not covered" >makeRequest(</span>path, method = <span class="branch-0 cbranch-no" title="branch not covered" >'GET',</span> body = <span class="branch-0 cbranch-no" title="branch not covered" >null)</span> {
@@ -358,14 +360,14 @@ function <span class="fstat-no" title="function not covered" >makeRequest(</span
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': `stellar_${Date.now()}_${Math.random().toString(36).substring(7)}`
+                'x-idempotency-key': `stellar_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             },
-            agent: httpsAgent
+            agent: httpsAgent,
         };
 &nbsp;
         const req = <span class="cstat-no" title="statement not covered" >https.request(options, <span class="fstat-no" title="function not covered" >(r</span>es) =&gt; {</span>
             let data = <span class="cstat-no" title="statement not covered" >'';</span>
-<span class="cstat-no" title="statement not covered" >            res.on('data', <span class="fstat-no" title="function not covered" >(c</span>hunk) =&gt; <span class="cstat-no" title="statement not covered" >data += chunk)</span>;</span>
+<span class="cstat-no" title="statement not covered" >            res.on('data', <span class="fstat-no" title="function not covered" >(c</span>hunk) =&gt; (<span class="cstat-no" title="statement not covered" >data += chunk)</span>);</span>
 <span class="cstat-no" title="statement not covered" >            res.on('end', <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >                try {</span>
 <span class="cstat-no" title="statement not covered" >                    resolve({ status: res.statusCode, data: JSON.parse(data) });</span>
@@ -389,11 +391,11 @@ async function <span class="fstat-no" title="function not covered" >executeStell
         // Step 1: Initiate
 <span class="cstat-no" title="statement not covered" >        console.log('Step 1: Initiating instruction...');</span>
         const initResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/instruction/initiate', 'POST', {</span>
-            amount: 5.00,  // Under AML threshold
+            amount: 5.0, // Under AML threshold
             currency: 'XLM',
             sender: 'Demo_Sender_XLM',
             recipient: 'Demo_Recipient_XLM',
-            purpose: 'STELLAR_DEMO_TRANSACTION'
+            purpose: 'STELLAR_DEMO_TRANSACTION',
         });
 &nbsp;
         const instructionId = <span class="cstat-no" title="statement not covered" >initResult.data.instructionId;</span>
@@ -419,7 +421,9 @@ async function <span class="fstat-no" title="function not covered" >executeStell
 &nbsp;
         // Step 3: Routing
 <span class="cstat-no" title="statement not covered" >        console.log('Step 3: Routing to crypto adapter...');</span>
-        const routeResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/orchestration/route', 'POST', { instructionId });</span>
+        const routeResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/orchestration/route', 'POST', {</span>
+            instructionId,
+        });
 <span class="cstat-no" title="statement not covered" >        console.log(`✅ Adapter: ${routeResult.data.selectedAdapter}`);</span>
 <span class="cstat-no" title="statement not covered" >        console.log(`   State: ${routeResult.data.state}\n`);</span>
 &nbsp;
@@ -428,7 +432,7 @@ async function <span class="fstat-no" title="function not covered" >executeStell
 <span class="cstat-no" title="statement not covered" >        console.log('   (Using HMAC-SHA256 vault-signed keys)');</span>
         const execResult = <span class="cstat-no" title="statement not covered" >await makeRequest('/api/adapter/execute', 'POST', {</span>
             instructionId,
-            adapter: 'ADAPTER_CRYPTO_CUSTODIAN'
+            adapter: 'ADAPTER_CRYPTO_CUSTODIAN',
         });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        if (execResult.data.adapter_result &amp;&amp; execResult.data.adapter_result.blockchain_hash) {</span>
@@ -452,7 +456,6 @@ async function <span class="fstat-no" title="function not covered" >executeStell
 <span class="cstat-no" title="statement not covered" >            console.log('\n❌ Transaction failed');</span>
 <span class="cstat-no" title="statement not covered" >            console.log(JSON.stringify(execResult.data, null, 2));</span>
         }
-&nbsp;
     } catch (err) {
 <span class="cstat-no" title="statement not covered" >        console.error('\n❌ Error:', err.message);</span>
     }
@@ -466,7 +469,7 @@ async function <span class="fstat-no" title="function not covered" >executeStell
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T10:20:48.354Z
+                at 2026-02-11T14:23:03.492Z
             </div>
         <script src="../prettify.js"></script>
         <script>
