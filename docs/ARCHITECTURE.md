@@ -7,6 +7,7 @@ Project Fusion is designed as a **Universal Payment Orchestrator**. It abstracts
 ## 🧩 High-Level Design
 
 The system is composed of three primary layers:
+
 1.  **Control Plane (Node.js)**: The brain. Handles API requests, policy checks, and the shadow ledger.
 2.  **Data Plane (PostgreSQL)**: The memory. Stores the atomic state of every transaction.
 3.  **Adapter Plane**: The limbs. Connects to external worlds (Stripe, Stellar, etc.).
@@ -47,22 +48,23 @@ Traditional systems use "ACID" transactions. Distributed systems (like payments)
 Instead, we use **Sagas**: a sequence of local transactions.
 
 ### State Machine Lifecycle
+
 Every instruction travels through this strictly enforced path:
 
 1.  **`INITIATED`**: Request received, basic validation passed.
 2.  **`LOCKED`**: Internal ledger balance reserved (Double-Entry hold).
-    *   *Invariant*: User cannot double-spend these funds.
+    - _Invariant_: User cannot double-spend these funds.
 3.  **`PENDING_EXECUTION`**: Adapter has been called.
-    *   *Danger Zone*: If the server crashes here, we have "Ghost Money".
+    - _Danger Zone_: If the server crashes here, we have "Ghost Money".
 4.  **`SETTLED`** (Success) OR **`FAILED`** (Compensation).
-    *   *Compensation*: If FAILED, the `LOCKED` funds are released back to the user.
+    - _Compensation_: If FAILED, the `LOCKED` funds are released back to the user.
 
 ```mermaid
 stateDiagram-v2
     [*] --> INITIATED
     INITIATED --> LOCKED: Reserve Balance
     LOCKED --> PENDING_EXECUTION: Call Adapter
-    
+
     state "External Execution" as Ext {
         PENDING_EXECUTION --> SETTLED: Adapter Success
         PENDING_EXECUTION --> FAILED: Adapter Fail / Timeout
@@ -74,28 +76,34 @@ stateDiagram-v2
 ```
 
 ### 👻 Ghost Money Reconciliation
+
 If a transaction stays in `PENDING_EXECUTION` for > 60 seconds (due to crash or timeout), the **Reconciliation Worker**:
+
 1.  Wakes up.
 2.  Calls the Adapter's `checkStatus(id)` function.
 3.  **Repair**:
-    *   If Provider says "Success" -> Update DB to `SETTLED`.
-    *   If Provider says "Failed" -> Update DB to `FAILED` and Refund.
-    *   If Provider says "Unknown" -> Move to `MANUAL_CHECK`.
+    - If Provider says "Success" -> Update DB to `SETTLED`.
+    - If Provider says "Failed" -> Update DB to `FAILED` and Refund.
+    - If Provider says "Unknown" -> Move to `MANUAL_CHECK`.
 
 ---
 
 ## 🔐 Security Architecture
 
 ### 1. Zero Trust Network (mTLS)
+
 We assume the internal network is hostile.
-*   **Authentication**: Mutual TLS. The Client must present a valid certificate signed by our CA.
-*   **Authorization**: API Keys scoped to specific roles.
+
+- **Authentication**: Mutual TLS. The Client must present a valid certificate signed by our CA.
+- **Authorization**: API Keys scoped to specific roles.
 
 ### 2. Vault Simulation (HSM)
+
 Private keys (for signing Crypto transactions or Bank instructions) are **never** exposed to the application code.
-*   **vaultProvider.js** acts as a simulated Hardware Security Module (HSM).
-*   App requests: "Please sign this payload."
-*   Vault responds: "Here is the signature."
+
+- **vaultProvider.js** acts as a simulated Hardware Security Module (HSM).
+- App requests: "Please sign this payload."
+- Vault responds: "Here is the signature."
 
 ---
 

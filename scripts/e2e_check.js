@@ -44,25 +44,32 @@ async function run() {
         // 1. Seed
         console.log('1️⃣ Seeding DB...');
         const client = await pool.connect();
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO balances (account_id, balance, currency)
             VALUES ($1, 5000.00, 'USD')
             ON CONFLICT (account_id, currency) DO UPDATE SET balance = 5000.00
-        `, [testUser]);
+        `,
+            [testUser]
+        );
         client.release();
         console.log('✅ Seeded.');
 
         // 2. Initiate
         console.log('2️⃣ Initiating Transaction...');
-        const initRes = await api.post('/api/instruction/initiate', {
-            amount: 100.00,
-            currency: 'USD',
-            sender: testUser,
-            recipient: testRecipient,
-            purpose: 'PAYMENT',
-        }, {
-            headers: { 'x-idempotency-key': `e2e_init_${Date.now()}` }
-        });
+        const initRes = await api.post(
+            '/api/instruction/initiate',
+            {
+                amount: 100.0,
+                currency: 'USD',
+                sender: testUser,
+                recipient: testRecipient,
+                purpose: 'PAYMENT',
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_init_${Date.now()}` },
+            }
+        );
         console.log('Init Response:', initRes.status, initRes.data);
         if (initRes.status !== 200) throw new Error(`Init Failed: ${initRes.status}`);
         instructionId = initRes.data.instructionId;
@@ -70,41 +77,57 @@ async function run() {
 
         // 3. Policy
         console.log('3️⃣ Evaluating Policy...');
-        const polRes = await api.post('/api/policy/evaluate', {
-            instructionId,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_pol_${Date.now()}` }
-        });
+        const polRes = await api.post(
+            '/api/policy/evaluate',
+            {
+                instructionId,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_pol_${Date.now()}` },
+            }
+        );
         console.log('Policy Response:', polRes.status, JSON.stringify(polRes.data));
         if (polRes.status !== 200) throw new Error(`Policy Failed: ${polRes.status}`);
         console.log(`✅ Policy: ${polRes.data.state}`);
 
         // 4. Route
         console.log('4️⃣ Routing...');
-        const routeRes = await api.post('/api/orchestration/route', {
-            instructionId,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_route_${Date.now()}` }
-        });
+        const routeRes = await api.post(
+            '/api/orchestration/route',
+            {
+                instructionId,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_route_${Date.now()}` },
+            }
+        );
         console.log('Route Response:', routeRes.status, routeRes.data);
         const adapter = routeRes.data.selectedAdapter;
         console.log(`✅ Routed to: ${adapter}`);
 
         // 5. Execute
         console.log('5️⃣ Executing...');
-        const execRes = await api.post('/api/adapter/execute', {
-            instructionId,
-            adapter,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_exec_${Date.now()}` }
-        });
+        const execRes = await api.post(
+            '/api/adapter/execute',
+            {
+                instructionId,
+                adapter,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_exec_${Date.now()}` },
+            }
+        );
         console.log('Execute Response:', execRes.status, execRes.data);
-        if (execRes.data.adapter_result.status !== 'SUCCESS') throw new Error(`Execution Failed: ${JSON.stringify(execRes.data)}`);
+        if (execRes.data.adapter_result.status !== 'SUCCESS')
+            throw new Error(`Execution Failed: ${JSON.stringify(execRes.data)}`);
         console.log(`✅ Executed: ${execRes.data.status}`);
 
         // 6. Verify
         console.log('6️⃣ Verifying DB State...');
-        const verRes = await pool.query('SELECT state FROM instructions WHERE instruction_id = $1', [instructionId]);
+        const verRes = await pool.query(
+            'SELECT state FROM instructions WHERE instruction_id = $1',
+            [instructionId]
+        );
         const finalState = verRes.rows[0].state;
         console.log('DB State:', finalState);
         if (finalState !== 'SETTLED') throw new Error(`DB State mismatch: ${finalState}`);

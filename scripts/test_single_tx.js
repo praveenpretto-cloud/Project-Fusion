@@ -26,7 +26,10 @@ console.log('--- STARTING DIAGNOSTIC TX ---');
 const req = https.request(options, (res) => {
     console.log(`STATUS: ${res.statusCode}`);
     let data = '';
-    res.on('data', chunk => { console.log('CHUNK Received'); data += chunk; });
+    res.on('data', (chunk) => {
+        console.log('CHUNK Received');
+        data += chunk;
+    });
     res.on('end', () => {
         console.log('BODY:', data);
         console.log('--- END DIAGNOSTIC TX ---');
@@ -43,12 +46,14 @@ req.on('socket', (s) => {
     s.on('secureConnect', () => console.log('Socket secureConnect'));
 });
 
-req.write(JSON.stringify({
-    amount: 100.00,
-    currency: 'USD',
-    sender: 'user_diag',
-    recipient: 'user_diag_r',
-    purpose: 'PAYMENT'
-}));
+req.write(
+    JSON.stringify({
+        amount: 100.0,
+        currency: 'USD',
+        sender: 'user_diag',
+        recipient: 'user_diag_r',
+        purpose: 'PAYMENT',
+    })
+);
 req.end();
 console.log('Request sent, waiting...');

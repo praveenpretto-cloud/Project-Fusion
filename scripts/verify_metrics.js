@@ -7,19 +7,22 @@ const options = {
     hostname: 'localhost',
     port: 3000,
     path: '/metrics',
-    method: 'GET'
+    method: 'GET',
 };
 
-const req = https.request(options, res => {
+const req = https.request(options, (res) => {
     console.log(`StatusCode: ${res.statusCode}`);
     let data = '';
 
-    res.on('data', chunk => {
+    res.on('data', (chunk) => {
         data += chunk;
     });
 
     res.on('end', () => {
-        if (data.includes('fusion_http_request_duration_seconds') && data.includes('fusion_transaction_total')) {
+        if (
+            data.includes('fusion_http_request_duration_seconds') &&
+            data.includes('fusion_transaction_total')
+        ) {
             console.log('✅ Metrics Verification PASSED');
             console.log('   Found expected metrics keys.');
         } else {
@@ -31,7 +34,7 @@ const req = https.request(options, res => {
     });
 });
 
-req.on('error', error => {
+req.on('error', (error) => {
     console.error('❌ Config Verification FAILED: ' + error.message);
     process.exit(1);
 });

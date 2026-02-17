@@ -10,6 +10,7 @@
 ---
 
 ## 🚀 The Problem: Ghost Money
+
 In distributed financial systems, API failures are inevitable. A "Ghost Transaction" occurs when money leaves the sender (Stripe Charge: Success) but the database crashes before recording it.
 **Result**: The user paid, but the system doesn't know.
 
@@ -30,7 +31,7 @@ npm run setup
 npm start
 ```
 
-*The system will self-heal if the database is missing.*
+_The system will self-heal if the database is missing._
 
 ---
 
@@ -41,6 +42,7 @@ See full details in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and the **[
 Fusion acts as a **Universal Adapter**. It doesn't care if the money moves via Swift, Blockchain, or Credit Card. It normalizes all rails into a single `Instruction` lifecycle.
 
 ### Core Components
+
 1.  **Saga Manager**: Coordinates multi-step transactions (Lock -> Execute -> Settle).
 2.  **Shadow Ledger**: Double-entry accounting system that mirrors external reality.
 3.  **Vault Simulator**: Isolated module for cryptographic signing (simulates an HSM).
@@ -52,7 +54,7 @@ graph LR
     Fusion -->|SQL| Ledger[(Shadow Ledger)]
     Fusion -->|HTTP| Stripe[Stripe Adapter]
     Fusion -->|RPC| Stellar[Stellar Adapter]
-    
+
     Worker[Reconciler] -.->|Scan| Ledger
     Worker -.->|Recover| Stripe
 ```
@@ -61,10 +63,10 @@ graph LR
 
 ## 🛡️ Security Features (Institutional Grade)
 
-*   **Mutual TLS (mTLS)**: Zero Trust networking. Both client and server verify identity certificates.
-*   **Idempotency Keys**: `x-idempotency-key` header enforcement prevents double-spending on retries.
-*   **PII Redaction**: Logs are structured (JSON) but strictly sanitized of user data.
-*   **Rate Limiting**: Token bucket algorithm prevents DDoS attacks.
+- **Mutual TLS (mTLS)**: Zero Trust networking. Both client and server verify identity certificates.
+- **Idempotency Keys**: `x-idempotency-key` header enforcement prevents double-spending on retries.
+- **PII Redaction**: Logs are structured (JSON) but strictly sanitized of user data.
+- **Rate Limiting**: Token bucket algorithm prevents DDoS attacks.
 
 ---
 
@@ -73,15 +75,18 @@ graph LR
 The system exports metrics for Prometheus at `/metrics` and provides a **Real-Time Operations Dashboard** for tracking Saga states.
 
 ### 1. Dashboard (React/Next.js)
+
 Visualize the state machine in real-time.
 
 ![Stripe Dashboard Proof](docs/images/stripe_dashboard.png)
 
 ### 2. Evidence of Settlement
+
 Verified Stripe Testnet Integration:
 ![Stripe Transaction List](docs/images/stripe_transactions_list.png)
 
 ### 3. Evidence of Crypto Settlement
+
 Verified Blockchain Integration:
 ![Crypto Proof 1](image.png)
 ![Crypto Proof 2](image-1.png)
@@ -90,12 +95,13 @@ Verified Blockchain Integration:
 
 ## 🧪 Testing Strategy
 
-*   **Unit Tests**: Logic verification (`npm test:unit`)
-*   **Integration**: Full API flow (`npm test:integration`)
-*   **Load Testing**: 800+ TPS verified on local hardware (`node load_test_scale.js`)
-*   **End-to-End**: Full Settlement Lifecycle (`npm test tests/e2e/settlement.test.js`)
+- **Unit Tests**: Logic verification (`npm test:unit`)
+- **Integration**: Full API flow (`npm test:integration`)
+- **Load Testing**: 800+ TPS verified on local hardware (`node load_test_scale.js`)
+- **End-to-End**: Full Settlement Lifecycle (`npm test tests/e2e/settlement.test.js`)
 
 ---
 
 ## 📜 License
+
 MIT License. Open Source Prototype.

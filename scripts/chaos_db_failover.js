@@ -5,7 +5,7 @@ const BASE_URL = 'https://localhost:3000';
 const HEALTH_URL = `${BASE_URL}/health/detailed`;
 
 async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function checkHealth() {
@@ -72,7 +72,8 @@ async function runChaos() {
     // 5. VERIFY RECOVERY
     console.log('\n5️⃣  Verifying Recovery (Expect 200)...');
     let recovered = false;
-    for (let i = 0; i < 15; i++) { // Wait up to 30s
+    for (let i = 0; i < 15; i++) {
+        // Wait up to 30s
         await sleep(2000);
         const result = await checkHealth();
         if (result.status === 200) {

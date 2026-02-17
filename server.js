@@ -126,13 +126,13 @@ const httpRequestDurationMicroseconds = new client.Histogram({
     name: 'fusion_http_request_duration_seconds',
     help: 'Duration of HTTP requests in seconds',
     labelNames: ['method', 'route', 'code'],
-    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10]
+    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
 });
 
 const transactionCounter = new client.Counter({
     name: 'fusion_transaction_total',
     help: 'Total number of transactions processed',
-    labelNames: ['status', 'type']
+    labelNames: ['status', 'type'],
 });
 
 register.registerMetric(httpRequestDurationMicroseconds);
@@ -208,7 +208,7 @@ const authenticateClient = (req, res, next) => {
             console.warn(`[AUTH] Blocked non-mTLS request to ${req.path}`);
             return res.status(401).json({
                 error: 'mTLS Certificate Required',
-                detail: 'You must present a valid client certificate for this operation.'
+                detail: 'You must present a valid client certificate for this operation.',
             });
         }
     }
@@ -306,7 +306,7 @@ async function writeLedger(client, instructionId, sender, recipient, amount, cur
     const entryId2 = crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
-    // 1. Fetch Previous Hash (Locking unnecessary if we accept eventual consistency for audit, 
+    // 1. Fetch Previous Hash (Locking unnecessary if we accept eventual consistency for audit,
     // but for prototype strictness we could lock. For now, we select latest.)
     const lastEntry = await client.query(
         'SELECT hash FROM ledger_journal ORDER BY timestamp DESC, entry_id DESC LIMIT 1'
@@ -551,7 +551,7 @@ app.post(
             // If server crashes here, reconciler will find it in PENDING_EXECUTION state
             let adapterResult;
             try {
-                // logger.info(`[SAGA] Executing adapter: ${adapter} for instruction ${instructionId}`); 
+                // logger.info(`[SAGA] Executing adapter: ${adapter} for instruction ${instructionId}`);
                 adapterResult = await executeAdapter(adapter, txn);
                 logger.info({ msg: '[ADAPTER] Result', result: adapterResult });
 

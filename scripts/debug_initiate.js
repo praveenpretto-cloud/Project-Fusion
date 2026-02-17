@@ -13,15 +13,15 @@ async function test() {
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': API_KEY,
-                'x-idempotency-key': 'debug-' + Date.now()
+                'x-idempotency-key': 'debug-' + Date.now(),
             },
             body: JSON.stringify({
-                amount: 100.50,
-                currency: "USD",
-                sender: "user_123",
-                recipient: "user_456",
-                purpose: "DEBUG_PAYMENT"
-            })
+                amount: 100.5,
+                currency: 'USD',
+                sender: 'user_123',
+                recipient: 'user_456',
+                purpose: 'DEBUG_PAYMENT',
+            }),
         });
 
         console.log('Status:', response.status);

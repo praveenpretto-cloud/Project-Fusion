@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -149,12 +149,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -197,13 +195,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -216,7 +216,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -228,10 +228,10 @@
  * Prevents garbage data from entering the system.
  */
 &nbsp;
-const Joi = <span class="cstat-no" title="statement not covered" >require('joi');</span>
-const { CURRENCIES, LIMITS } = <span class="cstat-no" title="statement not covered" >require('./constants');</span>
+const Joi = require('joi');
+const { CURRENCIES, LIMITS } = require('./constants');
 &nbsp;
-const instructionInitiateSchema = <span class="cstat-no" title="statement not covered" >Joi.object({</span>
+const instructionInitiateSchema = Joi.object({
     amount: Joi.number()
         .positive()
         .max(LIMITS.MAX_TRANSACTION_AMOUNT)
@@ -276,13 +276,13 @@ const instructionInitiateSchema = <span class="cstat-no" title="statement not co
     purpose: Joi.string().max(50).required(),
 });
 &nbsp;
-const instructionIdSchema = <span class="cstat-no" title="statement not covered" >Joi.object({</span>
+const instructionIdSchema = Joi.object({
     instructionId: Joi.string().uuid().required().messages({
         'string.guid': 'Instruction ID must be a valid UUID',
     }),
 });
 &nbsp;
-const adapterExecuteSchema = <span class="cstat-no" title="statement not covered" >Joi.object({</span>
+const adapterExecuteSchema = Joi.object({
     instructionId: Joi.string().uuid().required(),
     adapter: Joi.string()
         .valid(
@@ -295,7 +295,7 @@ const adapterExecuteSchema = <span class="cstat-no" title="statement not covered
         .required(),
 });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >module.exports = {</span>
+module.exports = {
     instructionInitiateSchema,
     instructionIdSchema,
     adapterExecuteSchema,
@@ -307,7 +307,7 @@ const adapterExecuteSchema = <span class="cstat-no" title="statement not covered
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-11T14:23:03.492Z
+                at 2026-02-17T04:56:02.926Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -14,13 +14,17 @@ async function check() {
     console.log('🔍 Checking Ledger Hash Chain...');
     const client = await pool.connect();
     try {
-        const res = await client.query('SELECT entry_id, hash, prev_hash, timestamp FROM ledger_journal ORDER BY timestamp DESC LIMIT 5');
-        console.table(res.rows.map(r => ({
-            id: r.entry_id.substring(0, 8),
-            hash: r.hash ? r.hash.substring(0, 16) + '...' : 'NULL',
-            prev: r.prev_hash ? r.prev_hash.substring(0, 16) + '...' : 'NULL',
-            time: r.timestamp
-        })));
+        const res = await client.query(
+            'SELECT entry_id, hash, prev_hash, timestamp FROM ledger_journal ORDER BY timestamp DESC LIMIT 5'
+        );
+        console.table(
+            res.rows.map((r) => ({
+                id: r.entry_id.substring(0, 8),
+                hash: r.hash ? r.hash.substring(0, 16) + '...' : 'NULL',
+                prev: r.prev_hash ? r.prev_hash.substring(0, 16) + '...' : 'NULL',
+                time: r.timestamp,
+            }))
+        );
     } finally {
         client.release();
         await pool.end();

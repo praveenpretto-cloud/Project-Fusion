@@ -21,8 +21,12 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
 
         const isRedacted = process.env.PII_REDACTION !== 'false';
 
-        logger.info(`[STELLAR] Source: ${isRedacted ? sourcePublicKey.substring(0, 4) + '...' + sourcePublicKey.substring(52) : sourcePublicKey}`);
-        logger.info(`[STELLAR] Dest:   ${isRedacted ? destinationPublicKey.substring(0, 4) + '...' + destinationPublicKey.substring(52) : destinationPublicKey}`);
+        logger.info(
+            `[STELLAR] Source: ${isRedacted ? sourcePublicKey.substring(0, 4) + '...' + sourcePublicKey.substring(52) : sourcePublicKey}`
+        );
+        logger.info(
+            `[STELLAR] Dest:   ${isRedacted ? destinationPublicKey.substring(0, 4) + '...' + destinationPublicKey.substring(52) : destinationPublicKey}`
+        );
 
         // 2. Ensure Source Account Exists (Fund via Friendbot if Demo)
         try {
@@ -48,14 +52,14 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         // 5. Build Operation (Create or Pay)
         const op = destExists
             ? Stellar.Operation.payment({
-                destination: destinationPublicKey,
-                asset: Stellar.Asset.native(),
-                amount: amount.toString(),
-            })
+                  destination: destinationPublicKey,
+                  asset: Stellar.Asset.native(),
+                  amount: amount.toString(),
+              })
             : Stellar.Operation.createAccount({
-                destination: destinationPublicKey,
-                startingBalance: amount.toString(),
-            });
+                  destination: destinationPublicKey,
+                  startingBalance: amount.toString(),
+              });
 
         // 6. Build Transaction (Using secure source public key)
         const transaction = new Stellar.TransactionBuilder(sourceAccount, {

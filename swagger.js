@@ -8,7 +8,7 @@ const options = {
             version: '1.0.0',
             description: 'Universal Multi-Rail Settlement Orchestration API',
             contact: {
-                name: 'Project Maintainer'
+                name: 'Project Maintainer',
             },
         },
         servers: [
@@ -22,18 +22,20 @@ const options = {
                 ApiKeyAuth: {
                     type: 'apiKey',
                     in: 'header',
-                    name: 'x-api-key'
+                    name: 'x-api-key',
                 },
                 IdempotencyKey: {
                     type: 'apiKey',
                     in: 'header',
-                    name: 'x-idempotency-key'
-                }
-            }
+                    name: 'x-idempotency-key',
+                },
+            },
         },
-        security: [{
-            ApiKeyAuth: []
-        }]
+        security: [
+            {
+                ApiKeyAuth: [],
+            },
+        ],
     },
     apis: ['./server.js', './routes/*.js'],
 };

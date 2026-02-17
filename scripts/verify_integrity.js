@@ -16,7 +16,9 @@ async function verifyChain() {
     const client = await pool.connect();
     try {
         // Fetch all entries in strict chronological order
-        const res = await client.query('SELECT * FROM ledger_journal ORDER BY timestamp ASC, entry_id ASC');
+        const res = await client.query(
+            'SELECT * FROM ledger_journal ORDER BY timestamp ASC, entry_id ASC'
+        );
         const chain = res.rows;
 
         console.log(`Scanning ${chain.length} ledger entries...`);
@@ -67,7 +69,6 @@ async function verifyChain() {
             console.error(`\n❌ VERIFICATION FAILED: ${errors} integrity violations found.`);
             process.exit(1);
         }
-
     } catch (err) {
         console.error('System Error:', err.message);
     } finally {

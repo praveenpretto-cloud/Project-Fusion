@@ -121,7 +121,10 @@ async function runFullFlow(i) {
         // 4. Execute
         const adapterToUse = route.data.selectedAdapter; // ✅ Use dynamic adapter from Orchestrator
         console.log(`[${i}] Selected Adapter: ${adapterToUse}`);
-        const exec = await makeRequest('/api/adapter/execute', 'POST', { instructionId, adapter: adapterToUse });
+        const exec = await makeRequest('/api/adapter/execute', 'POST', {
+            instructionId,
+            adapter: adapterToUse,
+        });
         if (exec.status !== 200) throw new Error(`Execute failed: ${exec.status}`);
 
         if (!exec.data || !exec.data.adapter_result) {

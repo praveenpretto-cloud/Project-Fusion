@@ -7,6 +7,7 @@ To add a new rail (e.g., Solana, PayPal, FedNow) to Project Fusion, you must imp
 All adapters must export an `execute` function that returns a standard result object.
 
 ### Function Signature
+
 ```javascript
 async function executeCustomRail(instruction, adapterConfig) {
     // ... logic ...
@@ -21,10 +22,12 @@ async function executeCustomRail(instruction, adapterConfig) {
 ```
 
 ## 2. Required Files
+
 1.  **Implementation**: Create `adapters/customAdapter.js`.
 2.  **Registration**: Import and add to `server.js` switch-case in `executeAdapter`.
 
 ## 3. Reconciliation Support
+
 Your adapter must also export a `queryStatus(intentId)` function if possible.
 
 ```javascript
@@ -35,6 +38,7 @@ async function queryStatus(intentId) {
 ```
 
 ## 4. Key Security Rules
+
 - **Never handle private keys directly**. Use `vaultProvider.js`.
 - **Use Idempotency Keys** when calling external APIs.
 - **Log structured data** using the project logger, not `console.log`.

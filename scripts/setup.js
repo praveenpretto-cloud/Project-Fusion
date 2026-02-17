@@ -46,7 +46,7 @@ if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
         // Let's just copy server cert as CA for simplicity in "Zero Budget" mode unless we want full chain.
         // Full chain is better.
         // Let's just generate a CA and then a client cert signed by it?
-        // Too complex for a 1-click script. 
+        // Too complex for a 1-click script.
         // Let's just assume the user accepts the server cert as CA for client auth testing.
         if (!fs.existsSync(caPath)) {
             fs.copyFileSync(certPath, caPath);
@@ -55,12 +55,17 @@ if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
         const clientKey = path.join(certDir, 'client.key');
         const clientCert = path.join(certDir, 'client.crt');
         if (!fs.existsSync(clientKey)) {
-            execSync(`openssl req -nodes -new -x509 -keyout "${clientKey}" -out "${clientCert}" -days 365 -subj "/CN=client"`, { stdio: 'ignore' });
+            execSync(
+                `openssl req -nodes -new -x509 -keyout "${clientKey}" -out "${clientCert}" -days 365 -subj "/CN=client"`,
+                { stdio: 'ignore' }
+            );
         }
 
         console.log('✅ Certificates generated in certs/');
     } catch (e) {
-        console.warn('⚠️ OpenSSL failed or not found. Please install OpenSSL or manually generate certs.');
+        console.warn(
+            '⚠️ OpenSSL failed or not found. Please install OpenSSL or manually generate certs.'
+        );
     }
 } else {
     console.log('ℹ️ Certificates already exist');

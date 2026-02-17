@@ -42,11 +42,14 @@ describe('💰 End-to-End Settlement Flow', () => {
     beforeAll(async () => {
         const client = await pool.connect();
         try {
-            await client.query(`
+            await client.query(
+                `
                 INSERT INTO balances (account_id, balance, currency)
                 VALUES ($1, 5000.00, 'USD')
                 ON CONFLICT (account_id, currency) DO UPDATE SET balance = 5000.00
-            `, [testUser]);
+            `,
+                [testUser]
+            );
         } finally {
             client.release();
         }
@@ -57,53 +60,71 @@ describe('💰 End-to-End Settlement Flow', () => {
     });
 
     test('1. Initiate Instruction', async () => {
-        const res = await api.post('/api/instruction/initiate', {
-            amount: 100.00,
-            currency: 'USD',
-            sender: testUser,
-            recipient: testRecipient,
-            purpose: 'PAYMENT',
-        }, {
-            headers: { 'x-idempotency-key': `e2e_init_${Date.now()}` }
-        });
+        const res = await api.post(
+            '/api/instruction/initiate',
+            {
+                amount: 100.0,
+                currency: 'USD',
+                sender: testUser,
+                recipient: testRecipient,
+                purpose: 'PAYMENT',
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_init_${Date.now()}` },
+            }
+        );
         expect(res.status).toBe(200);
         expect(res.data.instructionId).toBeDefined();
         instructionId = res.data.instructionId;
     });
 
     test('2. Evaluate Policy', async () => {
-        const res = await api.post('/api/policy/evaluate', {
-            instructionId,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_pol_${Date.now()}` }
-        });
+        const res = await api.post(
+            '/api/policy/evaluate',
+            {
+                instructionId,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_pol_${Date.now()}` },
+            }
+        );
         expect(res.status).toBe(200);
         expect(res.data.state).toBe('LOCKED');
     });
 
     test('3. Route & Execute', async () => {
         // Step A: Route
-        const routeRes = await api.post('/api/orchestration/route', {
-            instructionId,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_route_${Date.now()}` }
-        });
+        const routeRes = await api.post(
+            '/api/orchestration/route',
+            {
+                instructionId,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_route_${Date.now()}` },
+            }
+        );
         expect(routeRes.status).toBe(200);
         const adapter = routeRes.data.selectedAdapter;
 
         // Step B: Execute
-        const execRes = await api.post('/api/adapter/execute', {
-            instructionId,
-            adapter,
-        }, {
-            headers: { 'x-idempotency-key': `e2e_exec_${Date.now()}` }
-        });
+        const execRes = await api.post(
+            '/api/adapter/execute',
+            {
+                instructionId,
+                adapter,
+            },
+            {
+                headers: { 'x-idempotency-key': `e2e_exec_${Date.now()}` },
+            }
+        );
         expect(execRes.status).toBe(200);
         expect(execRes.data.adapter_result.status).toBe('SUCCESS');
     });
 
     test('4. Verify Final State (DB)', async () => {
-        const res = await pool.query('SELECT state FROM instructions WHERE instruction_id = $1', [instructionId]);
+        const res = await pool.query('SELECT state FROM instructions WHERE instruction_id = $1', [
+            instructionId,
+        ]);
         expect(res.rows[0].state).toBe('SETTLED');
     });
 });

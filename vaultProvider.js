@@ -13,7 +13,7 @@ const KEY_STORE = {
         latest_version: 1,
         versions: {
             1: process.env.STRIPE_TEST_SECRET_KEY || 'sk_test_mock_key_v1',
-        }
+        },
     },
     // We deterministically derive keys from sender names for the prototype
     // but in a real system, the Vault would hold unique cold/hot seeds.
@@ -21,8 +21,8 @@ const KEY_STORE = {
         latest_version: 1,
         versions: {
             1: process.env.VAULT_MASTER_SECRET || 'project_fusion_master_seed_v1',
-        }
-    }
+        },
+    },
 };
 
 // SIMULATED HSM SIGNING
@@ -90,7 +90,7 @@ function rotateKey(keyName) {
 
     // In a real system, we would generate a new cryptographically secure key here.
     // For the prototype simulation, we'll append the version number to a mock string
-    // or use a dummy value, unless it's the Stripe key where we might just keep the old one 
+    // or use a dummy value, unless it's the Stripe key where we might just keep the old one
     // if we don't have a real second key.
 
     // For safety in this demo, we will just simulate the existence of a new key.
@@ -105,5 +105,5 @@ module.exports = {
     signStellarTransaction,
     getStellarPublicKey,
     getAdapterCredential,
-    rotateKey
+    rotateKey,
 };

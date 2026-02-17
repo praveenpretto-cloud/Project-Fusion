@@ -58,9 +58,9 @@ Please follow these steps to have your contribution considered by the maintainer
 
 This section lists the labels we use to help us track and manage issues and pull requests.
 
-*   `bug` - Issues that mean something is broken.
-*   `enhancement` - Issues that request a new feature.
-*   `documentation` - Issues or PRs related to documentation improvements.
-*   `good first issue` - Good for newcomers.
+- `bug` - Issues that mean something is broken.
+- `enhancement` - Issues that request a new feature.
+- `documentation` - Issues or PRs related to documentation improvements.
+- `good first issue` - Good for newcomers.
 
 Thank you for contributing!
