@@ -2,239 +2,298 @@
 
 import { useState, useEffect } from 'react';
 
-// Types matching the backend API
+// --- TYPES ---
 interface Instruction {
     instruction_id: string;
     amount: string;
     currency: string;
-    sender_hash: string; // API sends hash
-    recipient_hash: string; // API sends hash
+    sender_hash: string;
+    recipient_hash: string;
     purpose: string;
     state: 'INITIATED' | 'LOCKED' | 'PENDING_EXECUTION' | 'SETTLED' | 'FAILED' | 'MANUAL_CHECK';
-    timestamp: string; // API sends timestamp (created_at)
-    trace_id?: string; // External Intent ID
+    timestamp: string;
+    trace_id?: string;
 }
 
+// --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
     const [instructions, setInstructions] = useState<Instruction[]>([]);
+    const [activeTab, setActiveTab] = useState<'home' | 'payments' | 'crypto' | 'wealth'>('home');
     const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
-    const [page, setPage] = useState<number>(1);
-    const [totalVolume, setTotalVolume] = useState<number>(0); // NEW STATE
-    const PAGE_SIZE = 50;
+    const [totalVolume, setTotalVolume] = useState<number>(0);
 
-    // Poll the API every 2 seconds
+    // Poll API
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const offset = (page - 1) * PAGE_SIZE;
-                // Fetch from our local Next.js proxy
-                const res = await fetch(`/api/observe?limit=${PAGE_SIZE}&offset=${offset}`);
-
+                // Fetch ALL recent txns for client-side filtering (Simulating "Smart Sync")
+                const res = await fetch(`/api/observe?limit=100`);
                 if (res.ok) {
                     const data = await res.json();
-
-                    // Update Instructions
-                    const apiInstructions = data.data || [];
-                    const sorted = apiInstructions.sort(
+                    const sorted = (data.data || []).sort(
                         (a: Instruction, b: Instruction) =>
                             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
                     );
                     setInstructions(sorted);
-
-                    // Update Global Metrics from Backend
-                    if (data.meta && data.meta.total_volume) {
-                        setTotalVolume(data.meta.total_volume);
-                    }
-
+                    if (data.meta?.total_volume) setTotalVolume(data.meta.total_volume);
                     setLastUpdated(new Date().toLocaleTimeString());
                 }
             } catch (err) {
-                console.error('Failed to fetch instructions:', err);
+                console.error(err);
             }
         };
-
-        fetchData(); // Initial call
-        const interval = setInterval(fetchData, 2000); // Poll
+        fetchData();
+        const interval = setInterval(fetchData, 2000);
         return () => clearInterval(interval);
-    }, [page]); // Re-run when page changes
+    }, []);
+
+    // --- FILTERING LOGIC ---
+    const getFilteredInstructions = () => {
+        switch (activeTab) {
+            case 'payments':
+                return instructions.filter(i => ['USD', 'EUR', 'SGD'].includes(i.currency) && i.purpose !== 'INVESTMENT');
+            case 'crypto':
+                return instructions.filter(i => ['XLM', 'USDC', 'BTC', 'ETH'].includes(i.currency));
+            case 'wealth':
+                return instructions.filter(i => i.purpose === 'INVESTMENT' || i.currency === 'AAPL' || i.currency === 'GOOGL');
+            default:
+                return instructions; // Home shows everything (Global Feed)
+        }
+    };
+
+    const filteredData = getFilteredInstructions();
+    const assets = calculateAssets(instructions);
 
     return (
-        <div className="min-h-screen bg-gray-900 text-gray-100 p-8 font-sans">
-            <header className="mb-8 flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-                        Project Fusion
-                    </h1>
-                    <p className="text-gray-400 text-sm mt-1">
-                        Institutional Orchestration Control Plane
-                    </p>
-                </div>
-                <div className="text-right">
-                    <div className="text-xs text-green-400 font-mono">● SYSTEM ACTIVE</div>
-                    <div className="text-xs text-gray-500">Last Sync: {lastUpdated}</div>
-                </div>
-            </header>
-
-            <div className="grid grid-cols-1 gap-6">
-                {/* METRICS ROW */}
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                    <MetricCard
-                        label="Total Volume (Global)"
-                        value={`$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        color="blue"
-                    />
-                    <MetricCard
-                        label="Active Sagas"
-                        value={instructions
-                            .filter((i) => i.state !== 'SETTLED' && i.state !== 'FAILED')
-                            .length.toString()}
-                        color="yellow"
-                    />
-                    <MetricCard
-                        label="Settled (Page)"
-                        value={instructions.filter((i) => i.state === 'SETTLED').length.toString()}
-                        color="green"
-                    />
-                    <MetricCard
-                        label="Failed (Page)"
-                        value={instructions.filter((i) => i.state === 'FAILED').length.toString()}
-                        color="red"
-                    />
-                </div>
-
-                {/* TRANSACTIONS TABLE */}
-                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-2xl">
-                    <div className="px-6 py-4 border-b border-gray-700 bg-gray-800/50 flex justify-between">
-                        <h2 className="font-semibold text-gray-200">Live Instructions</h2>
-                        <div className="flex gap-4 items-center">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                                    disabled={page === 1}
-                                    className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50"
-                                >
-                                    Previous
-                                </button>
-                                <span className="text-xs text-gray-400 self-center">
-                                    Page {page}
-                                </span>
-                                <button
-                                    onClick={() => setPage((p) => p + 1)}
-                                    disabled={instructions.length < PAGE_SIZE}
-                                    className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50"
-                                >
-                                    Next
-                                </button>
-                            </div>
-                            <span className="text-xs text-gray-400 self-center">
-                                Polling (2s)
-                            </span>
+        <div className="min-h-screen bg-[#0F1115] text-white font-sans selection:bg-blue-500/30">
+            {/* TOP NAVIGATION (REVOLUT STYLE) */}
+            <nav className="border-b border-gray-800 bg-[#0F1115] sticky top-0 z-50">
+                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+                    <div className="flex items-center gap-8">
+                        <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+                            Fusion<span className="text-gray-600 font-light">|Core</span>
+                        </h1>
+                        <div className="hidden md:flex gap-1 bg-gray-900/50 p-1 rounded-full border border-gray-800">
+                            <TabButton label="Home" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
+                            <TabButton label="Payments" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
+                            <TabButton label="Crypto" active={activeTab === 'crypto'} onClick={() => setActiveTab('crypto')} />
+                            <TabButton label="Wealth" active={activeTab === 'wealth'} onClick={() => setActiveTab('wealth')} />
                         </div>
                     </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-800 text-gray-400 uppercase font-medium text-xs">
-                                <tr>
-                                    <th className="px-6 py-3">ID / Purpose</th>
-                                    <th className="px-6 py-3">Amount</th>
-                                    <th className="px-6 py-3">Entities (Hash)</th>
-                                    <th className="px-6 py-3">External Trace</th>
-                                    <th className="px-6 py-3">State</th>
-                                    <th className="px-6 py-3 text-right">Timestamp</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700">
-                                {instructions.map((inst) => (
-                                    <tr
-                                        key={inst.instruction_id}
-                                        className="hover:bg-gray-700/50 transition-colors"
-                                    >
-                                        <td className="px-6 py-4 font-mono text-gray-300">
-                                            <div className="font-bold text-white">
-                                                {inst.instruction_id.slice(0, 8)}...
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {inst.purpose}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-gray-200">
-                                            {inst.amount} {inst.currency}
-                                        </td>
-                                        <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                            <div>From: {inst.sender_hash?.slice(0, 10)}...</div>
-                                            <div>To: {inst.recipient_hash?.slice(0, 10)}...</div>
-                                        </td>
-                                        <td className="px-6 py-4 text-xs font-mono">
-                                            {inst.trace_id && inst.trace_id !== 'N/A' ? (
-                                                <span className="text-blue-400 bg-blue-900/30 px-2 py-1 rounded">
-                                                    {inst.trace_id.slice(0, 16)}...
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-600">-</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <StatusBadge state={inst.state} />
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-gray-400 font-mono text-xs">
-                                            {new Date(inst.timestamp).toLocaleTimeString()}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {instructions.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className="px-6 py-8 text-center text-gray-500 italic"
-                                        >
-                                            No transactions found on this page.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                    <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
+                        <span className="flex items-center gap-1.5 text-green-500">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            LIVE
+                        </span>
+                        <span>{lastUpdated}</span>
                     </div>
                 </div>
+            </nav>
+
+            <main className="max-w-6xl mx-auto px-6 py-8">
+                {/* DYNAMIC HEADER BASED ON TAB */}
+                <div className="mb-10">
+                    <h2 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">
+                        {activeTab === 'home' ? 'Total Liquidity' : `${activeTab} Balance`}
+                    </h2>
+                    <div className="flex items-baseline gap-4">
+                        <span className="text-5xl font-bold tracking-tight text-white">
+                            {activeTab === 'home' ? `$${totalVolume.toLocaleString()}` :
+                                activeTab === 'crypto' ? `${assets.crypto.toLocaleString()} XLM` :
+                                    activeTab === 'wealth' ? `$${assets.wealth.toLocaleString()}` :
+                                        `$${assets.fiat.toLocaleString()}`}
+                        </span>
+                        <span className="text-green-500 text-sm font-medium bg-green-900/20 px-2 py-0.5 rounded-full border border-green-900/30">
+                            +2.4% today
+                        </span>
+                    </div>
+                </div>
+
+                {/* ACTION BUTTONS */}
+                <div className="flex gap-4 mb-10">
+                    <ActionButton label="Add Money" icon="+" primary />
+                    <ActionButton label="Exchange" icon="⇄" />
+                    <ActionButton label="Send" icon="→" />
+                    <ActionButton label="More" icon="•••" />
+                </div>
+
+                {/* CONTENT GRID */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                    {/* LEFT: ASSET BREAKDOWN CARDS */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-lg font-semibold text-gray-200">Recent Activity</h3>
+                            <button className="text-sm text-blue-400 hover:text-blue-300">See All</button>
+                        </div>
+
+                        {filteredData.length === 0 ? (
+                            <div className="p-12 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500">
+                                No transactions found in this category.
+                            </div>
+                        ) : (
+                            <div className="bg-[#161920] rounded-2xl border border-gray-800/50 overflow-hidden shadow-xl">
+                                {filteredData.slice(0, 10).map((inst, i) => (
+                                    <TransactionRow key={inst.instruction_id} inst={inst} index={i} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT: WIDGETS */}
+                    <div className="space-y-6">
+                        <WidgetCard title="My Cards (Virtual)">
+                            <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-5 rounded-xl text-white shadow-lg transform transition hover:scale-105 cursor-pointer">
+                                <div className="flex justify-between items-start mb-8">
+                                    <div className="opacity-80 text-xs font-mono">FUSION BLACK</div>
+                                    <div className="text-xl font-bold italic">VISA</div>
+                                </div>
+                                <div className="font-mono text-lg tracking-widest mb-2">•••• 4242</div>
+                                <div className="flex justify-between text-xs opacity-75">
+                                    <span>Praveen K.</span>
+                                    <span>12/28</span>
+                                </div>
+                            </div>
+                        </WidgetCard>
+
+                        <WidgetCard title="Suggested Actions">
+                            <div className="space-y-3">
+                                <ActionItem title="Verify Identity" desc="Required for >$10k limits" alert />
+                                <ActionItem title="Connect Wallet" desc="Link MetaMask / Phantom" />
+                            </div>
+                        </WidgetCard>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+}
+
+// --- SUBCOMPONENTS ---
+
+function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
+    return (
+        <button
+            onClick={onClick}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${active
+                ? 'bg-gray-800 text-white shadow-sm ring-1 ring-white/10'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                }`}
+        >
+            {label}
+        </button>
+    );
+}
+
+function ActionButton({ label, icon, primary }: { label: string, icon: string, primary?: boolean }) {
+    return (
+        <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-200 ${primary
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 group-hover:bg-blue-500'
+                : 'bg-gray-800 text-blue-400 group-hover:bg-gray-700'
+                }`}>
+                {icon}
+            </div>
+            <span className="text-xs font-medium text-gray-400 group-hover:text-gray-200">{label}</span>
+        </div>
+    );
+}
+
+function TransactionRow({ inst, index }: { inst: Instruction, index: number }) {
+    const isCrypto = ['XLM', 'BTC', 'ETH'].includes(inst.currency);
+    const isWealth = inst.purpose === 'INVESTMENT';
+
+    // Icon Logic
+    let icon = '💸'; // Default Fiat
+    let bg = 'bg-blue-900/20 text-blue-400 border-blue-900/30';
+    if (isCrypto) { icon = '₿'; bg = 'bg-purple-900/20 text-purple-400 border-purple-900/30'; }
+    if (isWealth) { icon = '📈'; bg = 'bg-green-900/20 text-green-400 border-green-900/30 text-xs'; }
+
+    return (
+        <div className={`p-4 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-gray-800/50 last:border-0`}>
+            <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${bg}`}>
+                    {icon}
+                </div>
+                <div>
+                    <div className="text-sm font-medium text-gray-200">
+                        {inst.recipient_hash ? `Transfer to ...${inst.recipient_hash.slice(0, 4)}` : 'Top Up'}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                        {new Date(inst.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •
+                        <StatusDot state={inst.state} /> {inst.state}
+                    </div>
+                </div>
+            </div>
+            <div className="text-right">
+                <div className={`text-sm font-bold font-mono ${inst.state === 'FAILED' ? 'text-gray-500 line-through' : 'text-white'}`}>
+                    -{inst.amount} <span className="text-xs text-gray-500">{inst.currency}</span>
+                </div>
+                <div className="text-[10px] text-gray-500 uppercase tracking-wide">{inst.purpose}</div>
             </div>
         </div>
     );
 }
 
-function MetricCard({
-    label,
-    value,
-    color,
-}: {
-    label: string;
-    value: string;
-    color: 'blue' | 'green' | 'yellow' | 'red';
-}) {
+function StatusDot({ state }: { state: string }) {
     const colors = {
-        blue: 'text-blue-400',
-        green: 'text-green-400',
-        yellow: 'text-yellow-400',
-        red: 'text-red-400',
+        INITIATED: 'text-blue-500',
+        LOCKED: 'text-yellow-500',
+        PENDING_EXECUTION: 'text-purple-500',
+        SETTLED: 'text-green-500',
+        FAILED: 'text-red-500',
     };
+    const color = colors[state as keyof typeof colors] || 'text-gray-500';
+    return <span className={`text-[8px] ${color}`}>●</span>;
+}
+
+function WidgetCard({ title, children }: { title: string, children: React.ReactNode }) {
     return (
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-sm">
-            <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">{label}</div>
-            <div className={`text-2xl font-bold font-mono ${colors[color]}`}>{value}</div>
+        <div className="bg-[#161920] p-6 rounded-2xl border border-gray-800/50">
+            <h3 className="text-sm font-medium text-gray-400 mb-4 uppercase tracking-wider">{title}</h3>
+            {children}
         </div>
     );
 }
 
-function StatusBadge({ state }: { state: string }) {
-    const styles = {
-        INITIATED: 'bg-blue-900 text-blue-300 border-blue-700',
-        LOCKED: 'bg-yellow-900 text-yellow-300 border-yellow-700',
-        PENDING_EXECUTION: 'bg-purple-900 text-purple-300 border-purple-700', // SAGA Active
-        SETTLED: 'bg-green-900 text-green-300 border-green-700',
-        FAILED: 'bg-red-900 text-red-300 border-red-700',
-    };
-    const style = styles[state as keyof typeof styles] || 'bg-gray-800 text-gray-400';
-
+function ActionItem({ title, desc, alert }: { title: string, desc: string, alert?: boolean }) {
     return (
-        <span className={`px-2 py-1 rounded-full text-xs font-bold border ${style}`}>{state}</span>
+        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
+            <div className="flex items-center gap-3">
+                {alert && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+                <div>
+                    <div className="text-sm font-medium text-gray-200">{title}</div>
+                    <div className="text-xs text-gray-500 group-hover:text-gray-400">{desc}</div>
+                </div>
+            </div>
+            <span className="text-gray-600">→</span>
+        </div>
     );
+}
+
+// --- HELPER ---
+function calculateAssets(data: Instruction[]) {
+    // A simple mock calculation for the banner
+    let fiat = 0;
+    let crypto = 0;
+    let wealth = 0;
+
+    data.forEach(d => {
+        const val = parseFloat(d.amount);
+        if (d.state === 'SETTLED') {
+            if (['USD', 'EUR', 'SGD'].includes(d.currency)) fiat += val;
+            if (['XLM', 'BTC'].includes(d.currency)) crypto += val;
+            if (d.purpose === 'INVESTMENT') wealth += val;
+        }
+    });
+
+    // Seed with some initial values if empty for demo
+    if (fiat === 0) fiat = 12450.00;
+    if (crypto === 0) crypto = 50000;
+    if (wealth === 0) wealth = 8500.50;
+
+    return { fiat, crypto, wealth };
 }
