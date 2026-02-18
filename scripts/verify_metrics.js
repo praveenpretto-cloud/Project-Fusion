@@ -1,42 +1,35 @@
+const axios = require('axios');
 const https = require('https');
-const fs = require('fs');
-const path = require('path');
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'; // Allow self-signed certs
 
-const options = {
-    hostname: 'localhost',
-    port: 3000,
-    path: '/metrics',
-    method: 'GET',
-};
+const API_URL = 'https://localhost:3000/api';
+const API_KEY = 'fusion_bank_secret_key_2025';
 
-const req = https.request(options, (res) => {
-    console.log(`StatusCode: ${res.statusCode}`);
-    let data = '';
-
-    res.on('data', (chunk) => {
-        data += chunk;
-    });
-
-    res.on('end', () => {
-        if (
-            data.includes('fusion_http_request_duration_seconds') &&
-            data.includes('fusion_transaction_total')
-        ) {
-            console.log('✅ Metrics Verification PASSED');
-            console.log('   Found expected metrics keys.');
-        } else {
-            console.error('❌ Metrics Verification FAILED');
-            console.error('   Expected keys not found in response.');
-            console.log('Response Preview:', data.substring(0, 200));
-            process.exit(1);
-        }
-    });
+const agent = new https.Agent({ rejectUnauthorized: false });
+const client = axios.create({
+    httpsAgent: agent,
+    headers: { 'x-api-key': API_KEY },
+    validateStatus: () => true
 });
 
-req.on('error', (error) => {
-    console.error('❌ Config Verification FAILED: ' + error.message);
-    process.exit(1);
-});
+async function verifyMetrics() {
+    console.log('🔍 Verifying Global Metrics...');
 
-req.end();
+    const res = await client.get(`${API_URL}/observe?limit=1`);
+    if (res.status !== 200) {
+        console.error('❌ API Call failed');
+        process.exit(1);
+    }
+
+    const meta = res.data.meta;
+    if (meta && meta.total_volume !== undefined) {
+        console.log(`✅ Global Volume Found: $${meta.total_volume}`);
+        console.log(`✅ Total Count: ${meta.total_count}`);
+        process.exit(0);
+    } else {
+        console.error('❌ Global Metrics Missing in Response');
+        console.log('Response:', JSON.stringify(res.data, null, 2));
+        process.exit(1);
+    }
+}
+
+verifyMetrics();

@@ -1,0 +1,57 @@
+config:
+    target: 'https://localhost:3000'
+    tls:
+        rejectUnauthorized: false
+    phases:
+        - duration: 5
+          arrivalRate: 10
+          name: 'Warm up'
+        - duration: 10
+          arrivalRate: 10
+          rampTo: 50
+          name: 'Ramp to 50 TPS'
+        - duration: 30
+          arrivalRate: 50
+          name: 'Sustain 50 TPS'
+    defaults:
+        headers:
+            x-api-key: 'fusion_bank_secret_key_2025'
+            Content-Type: 'application/json'
+scenarios:
+    - name: 'Stripe Payment Flow (50 TPS)'
+      flow:
+          - post:
+                url: '/api/instruction/initiate'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    amount: 50.00
+                    currency: 'USD'
+                    sender: 'user_stripe_test'
+                    recipient: 'user_merchant'
+                    purpose: 'STRIPE_SCALE_TEST'
+                capture:
+                    - json: "$.instructionId"
+                      as: "instructionId"
+          - post:
+                url: '/api/policy/evaluate'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    instructionId: "{{ instructionId }}"
+          - post:
+                url: '/api/orchestration/route'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    instructionId: "{{ instructionId }}"
+                capture:
+                    - json: "$.selectedAdapter"
+                      as: "adapter"
+          - post:
+                url: '/api/adapter/execute'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    instructionId: "{{ instructionId }}"
+                    adapter: "{{ adapter }}"

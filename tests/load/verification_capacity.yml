@@ -1,0 +1,32 @@
+config:
+    target: 'https://localhost:3000'
+    tls:
+        rejectUnauthorized: false
+    phases:
+        - duration: 5
+          arrivalRate: 10
+          name: 'Warm up'
+        - duration: 20
+          arrivalRate: 100
+          rampTo: 850
+          name: 'Ramp to 850 TPS'
+        - duration: 15
+          arrivalRate: 850
+          name: 'Sustain 850 TPS'
+    defaults:
+        headers:
+            x-api-key: 'fusion_bank_secret_key_2025'
+            Content-Type: 'application/json'
+scenarios:
+    - name: 'Payment Instruction Flow'
+      flow:
+          - post:
+                url: '/api/instruction/initiate'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    amount: 100.50
+                    currency: 'USD'
+                    sender: 'user_123'
+                    recipient: 'user_456'
+                    purpose: 'PAYMENT'

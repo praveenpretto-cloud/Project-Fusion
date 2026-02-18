@@ -4,14 +4,12 @@ config:
         rejectUnauthorized: false
     phases:
         - duration: 10
-          arrivalRate: 5
+          arrivalRate: 10
           name: 'Warm up'
-        - duration: 30
+        - duration: 120
           arrivalRate: 50
-          name: 'Ramp up load'
-        - duration: 60
-          arrivalRate: 50
-          name: 'Spike: Institutional Load (50 TPS)'
+          rampTo: 500
+          name: 'Ramp to Capacity (50-500 TPS)'
     defaults:
         headers:
             x-api-key: 'fusion_bank_secret_key_2025'

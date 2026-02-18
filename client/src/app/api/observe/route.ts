@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import https from 'https';
 import fetch from 'node-fetch'; // Next.js polyfills this, but we need the agent
 
-export async function GET() {
+export async function GET(request: Request) {
+    const { searchParams } = new URL(request.url);
+    const limit = searchParams.get('limit') || '50';
+    const offset = searchParams.get('offset') || '0';
+
     const agent = new https.Agent({
         rejectUnauthorized: false, // Allow self-signed certs from backend
     });
 
     try {
-        const res = await fetch('https://localhost:3000/api/observe', {
+        const res = await fetch(`https://localhost:3000/api/observe?limit=${limit}&offset=${offset}`, {
             headers: {
                 'x-api-key': process.env.API_SECRET_KEY || '',
             },

@@ -10,30 +10,42 @@ interface Instruction {
     sender_hash: string; // API sends hash
     recipient_hash: string; // API sends hash
     purpose: string;
-    state: 'INITIATED' | 'LOCKED' | 'PENDING_EXECUTION' | 'SETTLED' | 'FAILED';
+    state: 'INITIATED' | 'LOCKED' | 'PENDING_EXECUTION' | 'SETTLED' | 'FAILED' | 'MANUAL_CHECK';
     timestamp: string; // API sends timestamp (created_at)
+    trace_id?: string; // External Intent ID
 }
 
 export default function Dashboard() {
     const [instructions, setInstructions] = useState<Instruction[]>([]);
     const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
+    const [page, setPage] = useState<number>(1);
+    const [totalVolume, setTotalVolume] = useState<number>(0); // NEW STATE
+    const PAGE_SIZE = 50;
 
     // Poll the API every 2 seconds
     useEffect(() => {
         const fetchData = async () => {
             try {
-                // Fetch from our local Next.js proxy (which handles the SSL handshake)
-                const res = await fetch('/api/observe');
+                const offset = (page - 1) * PAGE_SIZE;
+                // Fetch from our local Next.js proxy
+                const res = await fetch(`/api/observe?limit=${PAGE_SIZE}&offset=${offset}`);
 
                 if (res.ok) {
                     const data = await res.json();
-                    // Sort by timestamp desc (Fix: API returns 'data', not 'instructions')
+
+                    // Update Instructions
                     const apiInstructions = data.data || [];
                     const sorted = apiInstructions.sort(
                         (a: Instruction, b: Instruction) =>
                             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
                     );
                     setInstructions(sorted);
+
+                    // Update Global Metrics from Backend
+                    if (data.meta && data.meta.total_volume) {
+                        setTotalVolume(data.meta.total_volume);
+                    }
+
                     setLastUpdated(new Date().toLocaleTimeString());
                 }
             } catch (err) {
@@ -44,12 +56,7 @@ export default function Dashboard() {
         fetchData(); // Initial call
         const interval = setInterval(fetchData, 2000); // Poll
         return () => clearInterval(interval);
-    }, []);
-
-    // Calculate Dynamic Total Volume
-    const totalVolume = instructions
-        .filter((i) => i.state === 'SETTLED')
-        .reduce((acc, curr) => acc + parseFloat(curr.amount), 0);
+    }, [page]); // Re-run when page changes
 
     return (
         <div className="min-h-screen bg-gray-900 text-gray-100 p-8 font-sans">
@@ -72,7 +79,7 @@ export default function Dashboard() {
                 {/* METRICS ROW */}
                 <div className="grid grid-cols-4 gap-4 mb-4">
                     <MetricCard
-                        label="Total Volume"
+                        label="Total Volume (Global)"
                         value={`$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         color="blue"
                     />
@@ -84,12 +91,12 @@ export default function Dashboard() {
                         color="yellow"
                     />
                     <MetricCard
-                        label="Settled 24h"
+                        label="Settled (Page)"
                         value={instructions.filter((i) => i.state === 'SETTLED').length.toString()}
                         color="green"
                     />
                     <MetricCard
-                        label="Failed"
+                        label="Failed (Page)"
                         value={instructions.filter((i) => i.state === 'FAILED').length.toString()}
                         color="red"
                     />
@@ -99,9 +106,30 @@ export default function Dashboard() {
                 <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-2xl">
                     <div className="px-6 py-4 border-b border-gray-700 bg-gray-800/50 flex justify-between">
                         <h2 className="font-semibold text-gray-200">Live Instructions</h2>
-                        <span className="text-xs text-gray-400 self-center">
-                            Polling /api/observe (2s)
-                        </span>
+                        <div className="flex gap-4 items-center">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    disabled={page === 1}
+                                    className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50"
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-xs text-gray-400 self-center">
+                                    Page {page}
+                                </span>
+                                <button
+                                    onClick={() => setPage((p) => p + 1)}
+                                    disabled={instructions.length < PAGE_SIZE}
+                                    className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                            <span className="text-xs text-gray-400 self-center">
+                                Polling (2s)
+                            </span>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -111,6 +139,7 @@ export default function Dashboard() {
                                     <th className="px-6 py-3">ID / Purpose</th>
                                     <th className="px-6 py-3">Amount</th>
                                     <th className="px-6 py-3">Entities (Hash)</th>
+                                    <th className="px-6 py-3">External Trace</th>
                                     <th className="px-6 py-3">State</th>
                                     <th className="px-6 py-3 text-right">Timestamp</th>
                                 </tr>
@@ -136,6 +165,15 @@ export default function Dashboard() {
                                             <div>From: {inst.sender_hash?.slice(0, 10)}...</div>
                                             <div>To: {inst.recipient_hash?.slice(0, 10)}...</div>
                                         </td>
+                                        <td className="px-6 py-4 text-xs font-mono">
+                                            {inst.trace_id && inst.trace_id !== 'N/A' ? (
+                                                <span className="text-blue-400 bg-blue-900/30 px-2 py-1 rounded">
+                                                    {inst.trace_id.slice(0, 16)}...
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-600">-</span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <StatusBadge state={inst.state} />
                                         </td>
@@ -147,11 +185,10 @@ export default function Dashboard() {
                                 {instructions.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={6}
                                             className="px-6 py-8 text-center text-gray-500 italic"
                                         >
-                                            No transactions found. Initiate payments to see them
-                                            here.
+                                            No transactions found on this page.
                                         </td>
                                     </tr>
                                 )}
