@@ -40,9 +40,9 @@ graph LR
     Fusion -->|SQL| Ledger[(Shadow Ledger)]
     
     subgraph "Asset Rails"
-        Fusion -->|HTTP| Stripe[Fiat Adapter (Stripe)]
-        Fusion -->|RPC| Stellar[Crypto Adapter (Stellar)]
-        Fusion -->|API| Broker[Brokerage Adapter (Stocks)]
+        Fusion -->|HTTP| Stripe["Fiat Adapter (Stripe)"]
+        Fusion -->|RPC| Stellar["Crypto Adapter (Stellar)"]
+        Fusion -->|API| Broker["Brokerage Adapter (Stocks)"]
     end
 
     Worker[Reconciler] -.->|Scan| Ledger
