@@ -1,20 +1,103 @@
-# Project Fusion
+# Project Fusion: Enterprise Payment Orchestration
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
 [![Coverage](https://img.shields.io/badge/coverage-72%25-green)](#)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#)
 
-> **"Ghost Money Prevention Engine"**
-> An institutional-grade Payment Orchestration Platform designed to guarantee financial correctness across fragmented rails (Stripe, Stellar, Banks).
+> **"Financial Correctness at Scale"**
+> An institutional-grade Payment Orchestration Platform designed to guarantee atomic settlement across fragmented rails (Banks, Cards, Blockchain).
 
 ---
 
-## 🚀 The Problem: Ghost Money
+## 🚀 The Core Mission
 
-In distributed financial systems, API failures are inevitable. A "Ghost Transaction" occurs when money leaves the sender (Stripe Charge: Success) but the database crashes before recording it.
-**Result**: The user paid, but the system doesn't know.
+**Project Fusion** is an institutional-grade **Multi-Asset Orchestration Engine**. It solves the fragmentation problem in modern finance by providing a single, atomic interface to manage three distinct asset classes:
 
-**Project Fusion solves this** by implementing a **Saga-based State Machine** with an atomic shadow ledger and automated reconciliation workers that recover lost states.
+1.  **Fiat Payments**: Real-time settlement (USD, EUR, SGD).
+2.  **Digital Assets**: Blockchain-native transfers (XLM, USDC).
+3.  **Capital Markets**: Equity and ETF simulations (Brokerage Execution).
+
+### The Orchestration Problem
+Banks, Blockchains, and Brokerages speak different languages (ISO20022, RPC, FIX).
+**Fusion acts as the Universal Translator.** It normalizes these fragmented protocols into a standard `Instruction` lifecycle, guaranteeing that a complex flow (e.g., "Sell Apple Stock -> Convert USD to USDC -> Send to Wallet") either **succeeds atomically** or **fails safely** without "Ghost Money" states.
+
+---
+
+## 🏗️ Enterprise Architecture
+
+The system uses a **Saga-based State Machine** to coordinate these distributed transactions.
+
+### Core Components
+
+1.  **Saga Orchestrator**: Manages long-running transactions across the three rails.
+2.  **Shadow Ledger**: Double-entry accounting system that provides an immutable internal source of truth.
+3.  **Vault Simulator**: Isolated cryptographic signing module (HSM).
+4.  **Reconciler**: Self-healing worker that fixes stuck transactions.
+
+```mermaid
+graph LR
+    Client -->|mTLS| Fusion[Fusion Core]
+    Fusion -->|SQL| Ledger[(Shadow Ledger)]
+    
+    subgraph "Asset Rails"
+        Fusion -->|HTTP| Stripe[Fiat Adapter (Stripe)]
+        Fusion -->|RPC| Stellar[Crypto Adapter (Stellar)]
+        Fusion -->|API| Broker[Brokerage Adapter (Stocks)]
+    end
+
+    Worker[Reconciler] -.->|Scan| Ledger
+    Worker -.->|Recover| Stripe
+    Worker -.->|Recover| Stellar
+    Worker -.->|Recover| Broker
+```
+
+---
+
+## ⚡ Key Capabilities
+
+### 1. Universal Asset Support
+Seamlessly route value between any supported asset class. The "Smart Router" selects the optimal path.
+
+*   **Fiat Implementation**: High-speed processing via **Stripe** (USD, EUR).
+    > *Note: Stripe is used as the reference fiat rail for its developer-friendly Testnet. The adapter pattern supports any banking API (SWIFT, ACH, SEPA) or payment processor.*
+*   **Crypto Implementation**: Low-latency settlement via **Stellar Horizon** (XLM).
+    > *Note: Stellar is currently used as the reference implementation for the crypto rail due to its accessible Testnet. The architecture is blockchain-agnostic and can support any RPC-based protocol (Ethereum, Solana, etc).*
+*   **Investment Implementation**: Trade execution interface for **Stocks/ETFs** (Brokerage Simulation).
+
+### 2. Regulatory Observability
+Built for compliance from day one.
+- **PII Redaction**: Logs are structured (JSON) but strictly sanitized of user data (names, account numbers).
+- **Audit Trails**: Every state transition is cryptographically logged.
+
+### 3. Institutional Security
+- **Mutual TLS (mTLS)**: Zero Trust networking. Both client and server verify identity certificates.
+- **Idempotency**: Strict enforcement prevents double-spending on retries.
+- **Rate Limiting**: Token bucket algorithm protects upstream liquidity providers.
+
+---
+
+## 📊 Live System Evidence
+
+The platform provides a **Real-Time Operations Dashboard** for tracking liquidity and settlement states across all connected rails.
+
+### 1. Unified Operations Dashboard
+
+A "Single Pane of Glass" for monitoring global transaction flows.
+
+![Stripe Dashboard Proof](docs/images/stripe_dashboard.png)
+
+### 2. Validated Fiat Settlement
+
+Proof of successful end-to-end processing on traditional payment rails.
+
+![Stripe Transaction List](docs/images/stripe_transactions_list.png)
+
+### 3. Validated Digital Asset Settlement
+
+Proof of successful real-time settlement on blockchain protocols (Testnet).
+
+![Crypto Proof 1](image.png)
+![Crypto Proof 2](image-1.png)
 
 ---
 
@@ -32,64 +115,6 @@ npm start
 ```
 
 _The system will self-heal if the database is missing._
-
----
-
-## 🏗️ Architecture
-
-See full details in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** and the **[Technical Manual](docs/TECHNICAL_MANUAL.md)**.
-
-Fusion acts as a **Universal Adapter**. It doesn't care if the money moves via Swift, Blockchain, or Credit Card. It normalizes all rails into a single `Instruction` lifecycle.
-
-### Core Components
-
-1.  **Saga Manager**: Coordinates multi-step transactions (Lock -> Execute -> Settle).
-2.  **Shadow Ledger**: Double-entry accounting system that mirrors external reality.
-3.  **Vault Simulator**: Isolated module for cryptographic signing (simulates an HSM).
-4.  **Reconciler**: Background worker that fixes "stuck" transactions.
-
-```mermaid
-graph LR
-    Client -->|mTLS| Fusion[Fusion Core]
-    Fusion -->|SQL| Ledger[(Shadow Ledger)]
-    Fusion -->|HTTP| Stripe[Stripe Adapter]
-    Fusion -->|RPC| Stellar[Stellar Adapter]
-
-    Worker[Reconciler] -.->|Scan| Ledger
-    Worker -.->|Recover| Stripe
-```
-
----
-
-## 🛡️ Security Features (Institutional Grade)
-
-- **Mutual TLS (mTLS)**: Zero Trust networking. Both client and server verify identity certificates.
-- **Idempotency Keys**: `x-idempotency-key` header enforcement prevents double-spending on retries.
-- **PII Redaction**: Logs are structured (JSON) but strictly sanitized of user data.
-- **Rate Limiting**: Token bucket algorithm prevents DDoS attacks.
-
----
-
-## 📊 Live Observability
-
-The system exports metrics for Prometheus at `/metrics` and provides a **Real-Time Operations Dashboard** for tracking Saga states.
-
-### 1. Dashboard (React/Next.js)
-
-Visualize the state machine in real-time.
-
-![Stripe Dashboard Proof](docs/images/stripe_dashboard.png)
-
-### 2. Evidence of Settlement
-
-Verified Stripe Testnet Integration:
-![Stripe Transaction List](docs/images/stripe_transactions_list.png)
-
-### 3. Evidence of Crypto Settlement
-
-Verified Blockchain Integration:
-![Crypto Proof 1](image.png)
-![Crypto Proof 2](image-1.png)
 
 ---
 
