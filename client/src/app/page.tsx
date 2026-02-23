@@ -2,6 +2,40 @@
 
 import { useState, useEffect } from 'react';
 
+const COINS = [
+    { s: 'BTC', n: 'Bitcoin', p: 64230.50, c: 2.4 }, { s: 'ETH', n: 'Ethereum', p: 3450.20, c: 1.8 },
+    { s: 'SOL', n: 'Solana', p: 145.80, c: 5.2 }, { s: 'XLM', n: 'Stellar', p: 0.11, c: 0.5 },
+    { s: 'ADA', n: 'Cardano', p: 0.45, c: -1.2 }, { s: 'DOT', n: 'Polkadot', p: 7.20, c: -0.8 },
+    { s: 'XRP', n: 'Ripple', p: 0.62, c: 1.1 }, { s: 'DOGE', n: 'Dogecoin', p: 0.16, c: 4.5 },
+    { s: 'AVAX', n: 'Avalanche', p: 35.40, c: 2.1 }, { s: 'SHIB', n: 'Shiba Inu', p: 0.00002, c: 3.2 },
+    { s: 'LINK', n: 'Chainlink', p: 18.50, c: 0.9 }, { s: 'MATIC', n: 'Polygon', p: 0.68, c: -2.1 },
+    { s: 'LTC', n: 'Litecoin', p: 85.20, c: 1.5 }, { s: 'BCH', n: 'Bitcoin Cash', p: 450.10, c: 1.2 },
+    { s: 'UNI', n: 'Uniswap', p: 10.50, c: -1.5 }, { s: 'ATOM', n: 'Cosmos', p: 8.90, c: 0.4 },
+    { s: 'ETC', n: 'Ethereum Classic', p: 28.50, c: 0.2 }, { s: 'XMR', n: 'Monero', p: 120.40, c: -0.5 },
+    { s: 'FIL', n: 'Filecoin', p: 6.20, c: -3.2 }, { s: 'HBAR', n: 'Hedera', p: 0.12, c: 4.1 },
+    { s: 'ICP', n: 'Internet Computer', p: 12.50, c: 6.5 }, { s: 'APT', n: 'Aptos', p: 9.20, c: 2.2 },
+    { s: 'NEAR', n: 'Near Protocol', p: 6.80, c: 1.9 }, { s: 'ARB', n: 'Arbitrum', p: 1.10, c: -4.5 },
+    { s: 'OP', n: 'Optimism', p: 2.40, c: -3.1 }, { s: 'STX', n: 'Stacks', p: 2.10, c: 5.4 },
+    { s: 'RNDR', n: 'Render', p: 10.20, c: 8.1 }, { s: 'INJ', n: 'Injective', p: 28.40, c: -1.2 },
+    { s: 'GRT', n: 'The Graph', p: 0.32, c: 2.5 }, { s: 'IMX', n: 'Immutable', p: 2.10, c: 0.8 },
+    { s: 'VET', n: 'VeChain', p: 0.04, c: 1.5 }, { s: 'AAVE', n: 'Aave', p: 95.20, c: 3.2 },
+    { s: 'ALGO', n: 'Algorand', p: 0.22, c: -0.5 }, { s: 'QNT', n: 'Quant', p: 110.50, c: 1.1 },
+    { s: 'FTM', n: 'Fantom', p: 0.85, c: 6.2 }, { s: 'SAND', n: 'Sandbox', p: 0.55, c: -1.8 },
+    { s: 'MANA', n: 'Decentraland', p: 0.52, c: -2.1 }, { s: 'THETA', n: 'Theta', p: 2.40, c: 4.2 },
+    { s: 'AXS', n: 'Axie Infinity', p: 8.50, c: 1.1 }, { s: 'EGLD', n: 'MultiversX', p: 45.20, c: 0.9 }
+];
+
+const CURRENCIES = [
+    { code: 'USD', flag: '🇺🇸', rate: 1.0 },
+    { code: 'EUR', flag: '🇪🇺', rate: 0.92 },
+    { code: 'GBP', flag: '🇬🇧', rate: 0.79 },
+    { code: 'SGD', flag: '🇸🇬', rate: 1.35 },
+    { code: 'JPY', flag: '🇯🇵', rate: 151.2 },
+    { code: 'CHF', flag: '🇨🇭', rate: 0.90 },
+    { code: 'AUD', flag: '🇦🇺', rate: 1.52 },
+    { code: 'CAD', flag: '🇨🇦', rate: 1.36 }
+];
+
 // --- TYPES ---
 interface Instruction {
     instruction_id: string;
@@ -22,7 +56,11 @@ export default function Dashboard() {
     const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
     const [totalVolume, setTotalVolume] = useState<number>(0);
 
-    // Poll API
+    // Exchange State
+    const [fromCurrency, setFromCurrency] = useState(CURRENCIES[0]);
+    const [toCurrency, setToCurrency] = useState(CURRENCIES[1]);
+
+    // --- POLLING & DATA FETCHING ---
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -62,12 +100,31 @@ export default function Dashboard() {
     };
 
     const filteredData = getFilteredInstructions();
+    // --- TRANSACTIONS & MODALS ---
+
+    // --- MODAL HANDLERS ---
+    const [activeModal, setActiveModal] = useState<null | 'add' | 'exchange' | 'send' | 'more' | 'buy_crypto' | 'sell_crypto' | 'send_crypto'>(null);
+    const [actionAmount, setActionAmount] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const handleSimulateAction = async () => {
+        setIsProcessing(true);
+        // Simulate network delay for realism
+        await new Promise(r => setTimeout(r, 1500));
+        setIsProcessing(false);
+        setActiveModal(null);
+        setActionAmount('');
+        // In a real app, this would refresh data. 
+        // For the demo, the polling will pick up any actual backend changes, 
+        // or we just close to show smooth interaction.
+    };
+
     const assets = calculateAssets(instructions);
 
     return (
-        <div className="min-h-screen bg-[#0F1115] text-white font-sans selection:bg-blue-500/30">
+        <div className="min-h-screen bg-[#0F1115] text-white font-sans selection:bg-blue-500/30 relative">
             {/* TOP NAVIGATION (REVOLUT STYLE) */}
-            <nav className="border-b border-gray-800 bg-[#0F1115] sticky top-0 z-50">
+            <nav className="border-b border-gray-800 bg-[#0F1115] sticky top-0 z-40">
                 <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-8">
                         <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
@@ -93,7 +150,7 @@ export default function Dashboard() {
                 </div>
             </nav>
 
-            <main className="max-w-6xl mx-auto px-6 py-8">
+            <main className={`max-w-6xl mx-auto px-6 py-8 transition-opacity duration-300 ${activeModal ? 'opacity-30 blur-sm pointer-events-none' : ''}`}>
                 {/* DYNAMIC HEADER BASED ON TAB */}
                 <div className="mb-10">
                     <h2 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">
@@ -101,7 +158,7 @@ export default function Dashboard() {
                     </h2>
                     <div className="flex items-baseline gap-4">
                         <span className="text-5xl font-bold tracking-tight text-white">
-                            {activeTab === 'home' ? `$${totalVolume.toLocaleString()}` :
+                            {activeTab === 'home' ? `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}` :
                                 activeTab === 'crypto' ? `${assets.crypto.toLocaleString()} XLM` :
                                     activeTab === 'wealth' ? `$${assets.wealth.toLocaleString()}` :
                                         `$${assets.fiat.toLocaleString()}`}
@@ -112,12 +169,23 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* ACTION BUTTONS */}
+                {/* ACTION BUTTONS (DYNAMIC) */}
                 <div className="flex gap-4 mb-10">
-                    <ActionButton label="Add Money" icon="+" primary />
-                    <ActionButton label="Exchange" icon="⇄" />
-                    <ActionButton label="Send" icon="→" />
-                    <ActionButton label="More" icon="•••" />
+                    {activeTab === 'crypto' ? (
+                        <>
+                            <ActionButton label="Buy" icon="+" primary onClick={() => setActiveModal('buy_crypto')} />
+                            <ActionButton label="Sell" icon="-" onClick={() => setActiveModal('sell_crypto')} />
+                            <ActionButton label="Send" icon="→" onClick={() => setActiveModal('send_crypto')} />
+                            <ActionButton label="More" icon="•••" onClick={() => setActiveModal('more')} />
+                        </>
+                    ) : (
+                        <>
+                            <ActionButton label="Add Money" icon="+" primary onClick={() => setActiveModal('add')} />
+                            <ActionButton label="Exchange" icon="⇄" onClick={() => setActiveModal('exchange')} />
+                            <ActionButton label="Send" icon="→" onClick={() => setActiveModal('send')} />
+                            <ActionButton label="More" icon="•••" onClick={() => setActiveModal('more')} />
+                        </>
+                    )}
                 </div>
 
                 {/* CONTENT GRID */}
@@ -125,22 +193,42 @@ export default function Dashboard() {
 
                     {/* LEFT: ASSET BREAKDOWN CARDS */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-lg font-semibold text-gray-200">Recent Activity</h3>
-                            <button className="text-sm text-blue-400 hover:text-blue-300">See All</button>
-                        </div>
 
-                        {filteredData.length === 0 ? (
-                            <div className="p-12 text-center border border-dashed border-gray-800 rounded-2xl text-gray-500">
-                                No transactions found in this category.
-                            </div>
-                        ) : (
-                            <div className="bg-[#161920] rounded-2xl border border-gray-800/50 overflow-hidden shadow-xl">
-                                {filteredData.slice(0, 10).map((inst, i) => (
-                                    <TransactionRow key={inst.instruction_id} inst={inst} index={i} />
-                                ))}
+                        {/* CRYPTO MARKET - ONLY SHOW ON CRYPTO TAB */}
+                        {activeTab === 'crypto' && (
+                            <div className="bg-[#161920] rounded-2xl border border-gray-800/50 p-6">
+                                <h3 className="text-lg font-semibold text-gray-200 mb-4">Market</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                    {COINS.map(c => (
+                                        <div key={c.s} className="bg-gray-800/30 p-3 rounded-xl border border-gray-800 hover:bg-gray-800 transition-colors cursor-pointer group">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <span className="font-bold text-gray-300">{c.s}</span>
+                                                <span className={`text-xs font-medium ${c.c >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    {c.c > 0 ? '+' : ''}{c.c}%
+                                                </span>
+                                            </div>
+                                            <div className="text-sm font-mono text-gray-400 group-hover:text-white">${c.p.toLocaleString()}</div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
+
+                        {/* RECENT ACTIVITY (Show on all tabs, logic filters it) */}
+                        <div className="bg-[#161920] rounded-2xl border border-gray-800/50 overflow-hidden shadow-xl">
+                            <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+                                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Transactions</h3>
+                            </div>
+                            {filteredData.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500 text-sm">No recent activity.</div>
+                            ) : (
+                                <div>
+                                    {filteredData.slice(0, 10).map((inst, i) => (
+                                        <TransactionRow key={inst.instruction_id} inst={inst} index={i} />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* RIGHT: WIDGETS */}
@@ -168,11 +256,169 @@ export default function Dashboard() {
                     </div>
                 </div>
             </main>
+
+            {/* --- MODALS --- */}
+            {activeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActiveModal(null)} />
+
+                    <div className="relative bg-[#1A1D24] w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        {/* MODAL HEADER */}
+                        <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+                            <h3 className="text-xl font-bold text-white">
+                                {activeModal === 'add' && 'Add Money'}
+                                {activeModal === 'exchange' && 'Exchange (SWIFT/FX)'}
+                                {activeModal === 'send' && 'Send Funds'}
+                                {activeModal === 'more' && 'More Options'}
+                                {activeModal === 'buy_crypto' && 'Buy Crypto'}
+                                {activeModal === 'sell_crypto' && 'Sell Crypto'}
+                                {activeModal === 'send_crypto' && 'Transfer Crypto'}
+                            </h3>
+                            <button onClick={() => setActiveModal(null)} className="text-gray-400 hover:text-white">✕</button>
+                        </div>
+
+                        {/* MODAL BODY */}
+                        <div className="p-6 space-y-4">
+                            {activeModal === 'more' ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <MoreOption icon="📄" label="Statements" />
+                                    <MoreOption icon="📊" label="Analytics" />
+                                    <MoreOption icon="⚙️" label="Settings" />
+                                    <MoreOption icon="🔒" label="Security" />
+                                    <MoreOption icon="💳" label="Cards" />
+                                    <MoreOption icon="❓" label="Help" />
+                                </div>
+                            ) : (
+                                <>
+                                    {/* AMOUNT INPUT (Common) */}
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-gray-400 uppercase tracking-wide">Amount</label>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                                                {['buy_crypto', 'add', 'exchange', 'send'].includes(activeModal) ? '$' : ''}
+                                            </span>
+                                            <input
+                                                type="number"
+                                                value={actionAmount}
+                                                onChange={(e) => setActionAmount(e.target.value)}
+                                                placeholder="0.00"
+                                                className="w-full bg-[#0F1115] border border-gray-700 rounded-xl px-4 pl-8 py-3 text-2xl font-mono text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                                autoFocus
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* EXCHANGE UI */}
+                                    {activeModal === 'exchange' && (
+                                        <div className="bg-[#0F1115] p-4 rounded-xl border border-gray-800 space-y-3">
+                                            {/* FROM */}
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        className="bg-transparent text-white font-bold outline-none cursor-pointer"
+                                                        value={fromCurrency.code}
+                                                        onChange={(e) => setFromCurrency(CURRENCIES.find(c => c.code === e.target.value) || CURRENCIES[0])}
+                                                    >
+                                                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+                                                    </select>
+                                                </div>
+                                                <span className="text-gray-500 text-sm">Balance: ${(12450 / fromCurrency.rate).toFixed(2)}</span>
+                                            </div>
+
+                                            <div className="flex justify-center text-gray-500 py-1">↓</div>
+
+                                            {/* TO */}
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        className="bg-transparent text-white font-bold outline-none cursor-pointer"
+                                                        value={toCurrency.code}
+                                                        onChange={(e) => setToCurrency(CURRENCIES.find(c => c.code === e.target.value) || CURRENCIES[1])}
+                                                    >
+                                                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+                                                    </select>
+                                                </div>
+                                                <span className="text-gray-500 text-sm">
+                                                    1 {fromCurrency.code} = {(toCurrency.rate / fromCurrency.rate).toFixed(4)} {toCurrency.code}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* CRYPTO BUY/SELL UI */}
+                                    {(activeModal === 'buy_crypto' || activeModal === 'sell_crypto') && (
+                                        <div className="bg-[#0F1115] p-4 rounded-xl border border-gray-800 flex justify-between items-center">
+                                            <span className="text-gray-400">Asset</span>
+                                            <select className="bg-gray-800 text-white p-2 rounded border border-gray-700">
+                                                <option>Bitcoin (BTC)</option>
+                                                <option>Ethereum (ETH)</option>
+                                                <option>Stellar (XLM)</option>
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    {/* SEND / CRYPTO TRANSFER UI */}
+                                    {(activeModal === 'send' || activeModal === 'send_crypto') && (
+                                        <div className="space-y-3">
+                                            <label className="text-xs text-gray-400 uppercase tracking-wide">Recipient Type</label>
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <button className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs">Fusion User</button>
+                                                <button className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs text-blue-400">External/Cold</button>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder={activeModal === 'send_crypto' ? "Wallet Address (0x...)" : "@username or email"}
+                                                className="w-full bg-[#0F1115] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                            />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+
+                        {/* MODAL FOOTER */}
+                        {activeModal !== 'more' && (
+                            <div className="p-6 border-t border-gray-700 bg-gray-800/30">
+                                <button
+                                    onClick={handleSimulateAction}
+                                    disabled={isProcessing || !actionAmount}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            {activeModal === 'add' && 'Add Funds'}
+                                            {activeModal === 'exchange' && 'Sign & Exchange'}
+                                            {activeModal === 'send' && 'Send Now'}
+                                            {activeModal === 'buy_crypto' && 'Place Buy Order'}
+                                            {activeModal === 'sell_crypto' && 'Place Sell Order'}
+                                            {activeModal === 'send_crypto' && 'Withdraw to Wallet'}
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
 
 // --- SUBCOMPONENTS ---
+
+function MoreOption({ icon, label }: { icon: string, label: string }) {
+    return (
+        <button className="flex flex-col items-center justify-center gap-2 p-4 bg-[#0F1115] hover:bg-gray-800 border border-gray-800 rounded-xl transition-colors">
+            <span className="text-2xl">{icon}</span>
+            <span className="text-sm font-medium text-gray-300">{label}</span>
+        </button>
+    );
+}
 
 function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
     return (
@@ -188,9 +434,9 @@ function TabButton({ label, active, onClick }: { label: string, active: boolean,
     );
 }
 
-function ActionButton({ label, icon, primary }: { label: string, icon: string, primary?: boolean }) {
+function ActionButton({ label, icon, primary, onClick }: { label: string, icon: string, primary?: boolean, onClick?: () => void }) {
     return (
-        <div className="flex flex-col items-center gap-2 group cursor-pointer">
+        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={onClick}>
             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-200 ${primary
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 group-hover:bg-blue-500'
                 : 'bg-gray-800 text-blue-400 group-hover:bg-gray-700'

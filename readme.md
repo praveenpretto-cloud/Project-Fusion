@@ -120,10 +120,10 @@ _The system will self-heal if the database is missing._
 
 ## 🧪 Testing Strategy
 
-- **Unit Tests**: Logic verification (`npm test:unit`)
-- **Integration**: Full API flow (`npm test:integration`)
-- **Load Testing**: 800+ TPS verified on local hardware (`node load_test_scale.js`)
-- **End-to-End**: Full Settlement Lifecycle (`npm test tests/e2e/settlement.test.js`)
+- **Unit Tests**: Logic verification (`npm run test:unit`)
+- **Integration**: Full API flow (`npm run test:integration`)
+- **Load Testing**: 660 TPS peak / 50 TPS sustained validated (`npx artillery run tests/load/find_capacity.yml`)
+- **End-to-End**: Full Settlement Lifecycle (`npm run test:integration` or `npx jest tests/e2e/settlement.test.js`)
 
 ---
 
