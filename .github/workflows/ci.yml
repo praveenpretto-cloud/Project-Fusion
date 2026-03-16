@@ -1,42 +1,42 @@
 name: Project Fusion CI
 
 on:
-    push:
-        branches:
-            - 'main'
-    pull_request:
-        branches:
-            - 'main'
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
-    build-and-test:
-        runs-on: 'ubuntu-latest'
+  build-and-test:
+    runs-on: ubuntu-latest
 
-        env:
-            CI: 'true'
+    env:
+      CI: "true"
 
-        strategy:
-            matrix:
-                version: ['18', '20']
+    strategy:
+      matrix:
+        node: [18, 20]
 
-        steps:
-            - name: 'Checkout Code'
-              uses: 'actions/checkout@v4'
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-            - name: 'Setup Node.js ${{ matrix.version }}'
-              uses: 'actions/setup-node@v4'
-              with:
-                  node-version: ${{ matrix.version }}
-                  cache: 'npm'
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
 
-            - name: 'Install dependencies'
-              run: 'npm ci'
+      - name: Install dependencies
+        run: npm ci
 
-            - name: 'Lint Code'
-              run: 'npm run lint'
+      - name: Lint Code
+        run: npm run lint
 
-            - name: 'Check Formatting'
-              run: 'npm run format:check'
+      - name: Check Formatting
+        run: npm run format:check
 
-            - name: 'Run Tests (Unit Only)'
-              run: 'npm run test:unit'
+      - name: Run Tests (Unit Only)
+        run: npm run test:unit
