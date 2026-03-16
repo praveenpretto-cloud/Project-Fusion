@@ -151,14 +151,14 @@ The system is designed to self-heal.
 
 ## 6. Adapter Configuration
 
-| Adapter              | Key Env Var                           | Description                                                                   |
-| :------------------- | :------------------------------------ | :---------------------------------------------------------------------------- |
-| **Stripe**           | `STRIPE_TEST_SECRET_KEY`              | Fiat card processing (USD/EUR/GBP/INR).                                       |
-| **RazorpayX**        | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Indian domestic fiat payouts via RazorpayX Payouts API (INR).              |
-| **ISO20022**         | `BANK_GATEWAY_API_URL`                | SWIFT/SEPA direct bank connectivity for large corporate transfers (≥$10,000). |
-| **PayNow**           | _Managed internally_                  | Singapore instant payment rail (SGD).                                         |
-| **Crypto Custodian** | _Managed internally_                  | Blockchain assets (XLM/BTC/ETH/USDC) via Stellar Horizon.                    |
-| **Alipay (Plugin)**  | `ALIPAY_APP_ID`, `ALIPAY_PRIVATE_KEY` | Third-party plugin (CNY / cross-border).                                      |
+| Adapter              | Key Env Var                              | Description                                                                   |
+| :------------------- | :--------------------------------------- | :---------------------------------------------------------------------------- |
+| **Stripe**           | `STRIPE_TEST_SECRET_KEY`                 | Fiat card processing (USD/EUR/GBP/INR).                                       |
+| **RazorpayX**        | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Indian domestic fiat payouts via RazorpayX Payouts API (INR).                 |
+| **ISO20022**         | `BANK_GATEWAY_API_URL`                   | SWIFT/SEPA direct bank connectivity for large corporate transfers (≥$10,000). |
+| **PayNow**           | _Managed internally_                     | Singapore instant payment rail (SGD).                                         |
+| **Crypto Custodian** | _Managed internally_                     | Blockchain assets (XLM/BTC/ETH/USDC) via Stellar Horizon.                     |
+| **Alipay (Plugin)**  | `ALIPAY_APP_ID`, `ALIPAY_PRIVATE_KEY`    | Third-party plugin (CNY / cross-border).                                      |
 
 ---
 
