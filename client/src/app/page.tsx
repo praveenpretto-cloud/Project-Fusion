@@ -48,15 +48,12 @@ export default function Dashboard() {
     const [serverHealth, setServerHealth] = useState<'online' | 'offline' | 'checking'>('checking');
 
     const connectMetaMask = async () => {
-        if (typeof window !== 'undefined' && 'ethereum' in window) {
+        if (typeof window !== 'undefined' && window.ethereum) {
             try {
-                // @ts-ignore
-                let provider: any = window.ethereum;
-                // @ts-ignore
+                let provider = window.ethereum;
                 if (window.ethereum.providers) {
-                    // @ts-ignore
                     provider =
-                        window.ethereum.providers.find((p: any) => p.isMetaMask) || window.ethereum;
+                        window.ethereum.providers.find((p) => p.isMetaMask) || window.ethereum;
                 }
                 const accounts = (await provider.request({
                     method: 'eth_requestAccounts',
