@@ -11,8 +11,9 @@
         "test:watch": "jest --watch",
         "lint": "eslint .",
         "format": "prettier --write .",
+        "format:check": "prettier --check .",
         "docker:up": "docker-compose up -d",
-        "prepare": "husky"
+        "prepare": "node -e \"if (process.env.CI) process.exit(0); const { execSync } = require('child_process'); execSync('husky', { stdio: 'inherit' });\""
     },
     "jest": {
         "testEnvironment": "node",
