@@ -23,7 +23,6 @@ async function reconcileStuck() {
 
         console.log(`✅ Cleaned up ${result.rowCount} stuck transactions.`);
         console.log('   Marked as FAILED (Reason: Expired/Stuck)');
-
     } catch (err) {
         console.error('❌ Error during cleanup:', err);
     } finally {

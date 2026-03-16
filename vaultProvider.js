@@ -15,6 +15,18 @@ const KEY_STORE = {
             1: process.env.STRIPE_TEST_SECRET_KEY || 'sk_test_mock_key_v1',
         },
     },
+    RAZORPAY_KEY_ID: {
+        latest_version: 1,
+        versions: {
+            1: process.env.RAZORPAY_KEY_ID || 'rzp_test_SRnXnFMObOaShd',
+        },
+    },
+    RAZORPAY_KEY_SECRET: {
+        latest_version: 1,
+        versions: {
+            1: process.env.RAZORPAY_KEY_SECRET || 'IYyLIUdxLYBcge5ZpQ0PP1jV',
+        },
+    },
     // We deterministically derive keys from sender names for the prototype
     // but in a real system, the Vault would hold unique cold/hot seeds.
     MASTER_SEED: {
@@ -26,7 +38,7 @@ const KEY_STORE = {
 };
 
 // SIMULATED HSM SIGNING
-async function signStellarTransaction(senderName, transaction, networkPassphrase) {
+async function signStellarTransaction(senderName, transaction) {
     console.log(`[VAULT-HSM] Signing request received for: ${senderName}`);
 
     // Simulate HSM hardware latency

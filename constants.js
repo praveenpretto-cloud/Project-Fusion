@@ -17,13 +17,12 @@ const TRANSACTION_STATES = {
 const ADAPTER_TYPES = {
     PAYMENTS: 'ADAPTER_PAYNOW',
     CRYPTO: 'ADAPTER_CRYPTO_CUSTODIAN',
-    BROKERAGE: 'ADAPTER_BROKERAGE_SETTLEMENT',
 };
 
 const CURRENCIES = {
-    FIAT: ['USD', 'SGD', 'EUR', 'GBP'],
+    FIAT: ['USD', 'SGD', 'EUR', 'GBP', 'INR'],
     CRYPTO: ['XLM', 'BTC', 'ETH', 'USDC'],
-    ALL: ['USD', 'SGD', 'EUR', 'GBP', 'XLM', 'BTC', 'ETH', 'USDC'],
+    ALL: ['USD', 'SGD', 'EUR', 'GBP', 'INR', 'XLM', 'BTC', 'ETH', 'USDC'],
 };
 
 const LIMITS = {

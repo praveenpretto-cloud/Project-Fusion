@@ -36,7 +36,7 @@ async function runChaos() {
     console.log('\n2️⃣  Injecting Failure: Stopping Database Container...');
     try {
         execSync('docker-compose stop db', { stdio: 'inherit' });
-    } catch (e) {
+    } catch {
         console.warn('⚠️  Could not run docker-compose. Assuming DB is local/manual.');
         console.log('👉 ACTION REQUIRED: Manually STOP your Database now!');
         await sleep(10000);
@@ -65,7 +65,7 @@ async function runChaos() {
     console.log('\n4️⃣  Recovering: Starting Database Container...');
     try {
         execSync('docker-compose start db', { stdio: 'inherit' });
-    } catch (e) {
+    } catch {
         console.log('👉 ACTION REQUIRED: Manually START your Database now!');
     }
 

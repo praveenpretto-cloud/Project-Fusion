@@ -2,7 +2,7 @@ const axios = require('axios');
 const https = require('https');
 
 const API_URL = 'https://localhost:3000/api';
-const API_KEY = 'fusion_bank_secret_key_2025';
+const API_KEY = process.env.API_SECRET_KEY || 'fusion_bank_secret_key_2025';
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
@@ -11,23 +11,48 @@ const client = axios.create({
     validateStatus: () => true,
 });
 
-async function runRealStripeTransaction() {
-    console.log('🚀 EXECUTING REAL STRIPE TRANSACTION');
-    console.log('   (This will appear in your Stripe Dashboard)');
+async function onboardUser(userId) {
     try {
-        // 1. INITIATE
-        console.log('\n1. INITIATING...');
+        await client.post(`${API_URL}/kyc/onboard`, {
+            user_id: userId,
+            document_type: 'PAN',
+            document_number: `TEST${Date.now()}`,
+        });
+    } catch {
+        // ignore if already onboarded
+    }
+}
+
+async function getAuthToken(userId) {
+    const otpGen = await client.post(`${API_URL}/auth/otp/generate`, { user_id: userId });
+    const otpVerify = await client.post(`${API_URL}/auth/otp/verify`, {
+        user_id: userId,
+        otp_code: otpGen.data.otp_code,
+    });
+    return otpVerify.data.auth_token;
+}
+
+async function runRealRazorpayTransaction() {
+    console.log('🚀 EXECUTING REAL RAZORPAY TESTNET TRANSACTION');
+    console.log('   (This will appear in your RazorpayX Dashboard under Payouts)');
+    try {
+        const userId = 'user_razorpay_test';
+        console.log('\n1. INITIATING (including KYC and Auth)...');
+        await onboardUser(userId);
+        const auth_token = await getAuthToken(userId);
+
         const initRes = await client.post(
             `${API_URL}/instruction/initiate`,
             {
-                amount: 12.5, // Specific amount to easily find
-                currency: 'USD',
-                sender: 'user_stripe_test',
-                recipient: 'user_merchant_e2e',
-                purpose: 'PAYMENT_DEMO_REAL', // 👈 This triggers the REAL Stripe Adapter
+                amount: 15.5, // Specific amount to easily find
+                currency: 'INR',
+                sender: userId,
+                recipient: 'Rahul_Sharma', // Needs a name for contact creation
+                purpose: 'CROSS_BORDER_PAYOUT', // This triggers the REAL Razorpay Adapter as it differs from RAZORPAY_SCALE_TEST
+                auth_token,
             },
             {
-                headers: { 'x-idempotency-key': `real_${Date.now()}_init` },
+                headers: { 'x-idempotency-key': `real_rzp_${Date.now()}_init` },
             }
         );
 
@@ -44,7 +69,7 @@ async function runRealStripeTransaction() {
             `${API_URL}/policy/evaluate`,
             { instructionId },
             {
-                headers: { 'x-idempotency-key': `real_${Date.now()}_pol` },
+                headers: { 'x-idempotency-key': `real_rzp_${Date.now()}_pol` },
             }
         );
         if (polRes.status !== 200) {
@@ -58,7 +83,7 @@ async function runRealStripeTransaction() {
             `${API_URL}/orchestration/route`,
             { instructionId },
             {
-                headers: { 'x-idempotency-key': `real_${Date.now()}_route` },
+                headers: { 'x-idempotency-key': `real_rzp_${Date.now()}_route` },
             }
         );
         if (routeRes.status !== 200) {
@@ -67,7 +92,7 @@ async function runRealStripeTransaction() {
         }
 
         const { selectedAdapter } = routeRes.data;
-        if (selectedAdapter !== 'ADAPTER_STRIPE') {
+        if (selectedAdapter !== 'ADAPTER_RAZORPAY') {
             console.error(`❌ WRONG ADAPTER SELECTED: ${selectedAdapter}`);
             process.exit(1);
         }
@@ -79,7 +104,7 @@ async function runRealStripeTransaction() {
             `${API_URL}/adapter/execute`,
             { instructionId, adapter: selectedAdapter },
             {
-                headers: { 'x-idempotency-key': `real_${Date.now()}_exec` },
+                headers: { 'x-idempotency-key': `real_rzp_${Date.now()}_exec` },
             }
         );
 
@@ -88,13 +113,10 @@ async function runRealStripeTransaction() {
             process.exit(1);
         }
 
-        const fs = require('fs');
-        fs.writeFileSync('stripe_result.json', JSON.stringify(execRes.data, null, 2));
-
-        console.log('\n✅ SUCCESS: Real Transaction Completed!');
+        console.log('\n✅ SUCCESS: Real Transaction Completed (or queued by webhook)!');
         console.log('------------------------------------------------');
-        console.log('🔍 STRIPE INTENT ID:', execRes.data.adapter_result.intent_id);
-        console.log('   Check your Stripe Dashboard for this ID.');
+        console.log('🔍 RAZORPAY INTENT (PAYOUT) ID:', execRes.data.adapter_result?.intent_id);
+        console.log('   Check your RazorpayX Dashboard for this ID.');
         console.log('------------------------------------------------');
     } catch (err) {
         console.error('❌ EXCEPTION:', err.message);
@@ -102,4 +124,4 @@ async function runRealStripeTransaction() {
     }
 }
 
-runRealStripeTransaction();
+runRealRazorpayTransaction();

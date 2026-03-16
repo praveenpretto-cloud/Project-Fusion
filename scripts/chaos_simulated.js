@@ -1,5 +1,4 @@
 const { spawn } = require('child_process');
-const https = require('https');
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 const HEALTH_URL = 'https://localhost:3000/health/detailed';

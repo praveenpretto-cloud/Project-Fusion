@@ -9,7 +9,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
     httpsAgent: agent,
     headers: { 'x-api-key': API_KEY },
-    validateStatus: () => true
+    validateStatus: () => true,
 });
 
 async function runSingleTransaction(index) {
@@ -20,13 +20,17 @@ async function runSingleTransaction(index) {
 
     try {
         // 1. INITIATE
-        const initRes = await client.post(`${API_URL}/instruction/initiate`, {
-            amount: parseFloat(amount),
-            currency: 'USD',
-            sender: 'user_stripe_test',
-            recipient: 'user_merchant_e2e',
-            purpose: 'PAYMENT_DEMO_REAL'
-        }, { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } });
+        const initRes = await client.post(
+            `${API_URL}/instruction/initiate`,
+            {
+                amount: parseFloat(amount),
+                currency: 'USD',
+                sender: 'user_stripe_test',
+                recipient: 'user_merchant_e2e',
+                purpose: 'PAYMENT_DEMO_REAL',
+            },
+            { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } }
+        );
 
         if (initRes.status !== 200) {
             console.error(`   ❌ INIT FAILED: ${JSON.stringify(initRes.data)}`);
@@ -35,26 +39,40 @@ async function runSingleTransaction(index) {
         const { instructionId } = initRes.data;
 
         // 2. POLICY
-        const polRes = await client.post(`${API_URL}/policy/evaluate`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` }
-        });
+        const polRes = await client.post(
+            `${API_URL}/policy/evaluate`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` },
+            }
+        );
         if (polRes.status !== 200) return false;
 
         // 3. ROUTE
-        const routeRes = await client.post(`${API_URL}/orchestration/route`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` }
-        });
+        const routeRes = await client.post(
+            `${API_URL}/orchestration/route`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` },
+            }
+        );
         if (routeRes.status !== 200) return false;
 
         const { selectedAdapter } = routeRes.data;
 
         // 4. EXECUTE
-        const execRes = await client.post(`${API_URL}/adapter/execute`, { instructionId, adapter: selectedAdapter }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` }
-        });
+        const execRes = await client.post(
+            `${API_URL}/adapter/execute`,
+            { instructionId, adapter: selectedAdapter },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` },
+            }
+        );
 
         if (execRes.status === 200) {
-            console.log(`   ✅ SUCCESS: ${instructionId} | Intent: ${execRes.data.adapter_result.intent_id}`);
+            console.log(
+                `   ✅ SUCCESS: ${instructionId} | Intent: ${execRes.data.adapter_result.intent_id}`
+            );
             return true;
         } else {
             console.error(`   ❌ EXEC FAILED: ${JSON.stringify(execRes.data)}`);
@@ -74,7 +92,7 @@ async function runBatch() {
         const success = await runSingleTransaction(i);
         if (success) successCount++;
         // Small delay to prevent local port exhaustion or overwhelming the mock server
-        await new Promise(r => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 200));
     }
 
     console.log(`\n------------------------------------------------`);

@@ -8,7 +8,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
     httpsAgent: agent,
     headers: { 'x-api-key': API_KEY },
-    validateStatus: () => true // Don't throw on error status
+    validateStatus: () => true, // Don't throw on error status
 });
 
 async function runStripeFlow() {
@@ -16,15 +16,19 @@ async function runStripeFlow() {
     try {
         // 1. INITIATE
         console.log('\n1. INITIATING...');
-        const initRes = await client.post(`${API_URL}/instruction/initiate`, {
-            amount: 50.00,
-            currency: 'USD',
-            sender: 'user_e2e_check',
-            recipient: 'user_merchant_e2e',
-            purpose: 'STRIPE_SCALE_TEST'
-        }, {
-            headers: { 'x-idempotency-key': `manual_${Date.now()}` }
-        });
+        const initRes = await client.post(
+            `${API_URL}/instruction/initiate`,
+            {
+                amount: 50.0,
+                currency: 'USD',
+                sender: 'user_e2e_check',
+                recipient: 'user_merchant_e2e',
+                purpose: 'STRIPE_SCALE_TEST',
+            },
+            {
+                headers: { 'x-idempotency-key': `manual_${Date.now()}` },
+            }
+        );
 
         console.log(`   STATUS: ${initRes.status}`);
         console.log('   DATA:', JSON.stringify(initRes.data, null, 2));
@@ -43,9 +47,13 @@ async function runStripeFlow() {
 
         // 2. POLICY
         console.log('\n2. EVALUATING POLICY...');
-        const polRes = await client.post(`${API_URL}/policy/evaluate`, { instructionId }, {
-            headers: { 'x-idempotency-key': `manual_pol_${Date.now()}` }
-        });
+        const polRes = await client.post(
+            `${API_URL}/policy/evaluate`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `manual_pol_${Date.now()}` },
+            }
+        );
         console.log(`   STATUS: ${polRes.status}`);
         console.log('   DATA:', JSON.stringify(polRes.data, null, 2));
 
@@ -56,9 +64,13 @@ async function runStripeFlow() {
 
         // 3. ROUTE
         console.log('\n3. ROUTING...');
-        const routeRes = await client.post(`${API_URL}/orchestration/route`, { instructionId }, {
-            headers: { 'x-idempotency-key': `manual_route_${Date.now()}` }
-        });
+        const routeRes = await client.post(
+            `${API_URL}/orchestration/route`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `manual_route_${Date.now()}` },
+            }
+        );
         console.log(`   STATUS: ${routeRes.status}`);
         console.log('   DATA:', JSON.stringify(routeRes.data, null, 2));
 
@@ -75,9 +87,13 @@ async function runStripeFlow() {
 
         // 4. EXECUTE
         console.log('\n4. EXECUTING ADAPTER...');
-        const execRes = await client.post(`${API_URL}/adapter/execute`, { instructionId, adapter: selectedAdapter }, {
-            headers: { 'x-idempotency-key': `manual_exec_${Date.now()}` }
-        });
+        const execRes = await client.post(
+            `${API_URL}/adapter/execute`,
+            { instructionId, adapter: selectedAdapter },
+            {
+                headers: { 'x-idempotency-key': `manual_exec_${Date.now()}` },
+            }
+        );
         console.log(`   STATUS: ${execRes.status}`);
         console.log('   DATA:', JSON.stringify(execRes.data, null, 2));
 

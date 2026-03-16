@@ -40,7 +40,7 @@ function makeRequest(path, method = 'GET', body = null) {
             res.on('end', () => {
                 try {
                     resolve({ status: res.statusCode, data: JSON.parse(data) });
-                } catch (e) {
+                } catch {
                     resolve({ status: res.statusCode, data: data });
                 }
             });

@@ -8,7 +8,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
     httpsAgent: agent,
     headers: { 'x-api-key': API_KEY },
-    validateStatus: () => true
+    validateStatus: () => true,
 });
 
 async function verifyMetrics() {

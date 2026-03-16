@@ -43,7 +43,6 @@ async function clearFailed() {
 
         console.log(`✅ Deleted ${result.rowCount} FAILED transactions.`);
         console.log('   The dashboard should now be free of red "Failed" items.');
-
     } catch (err) {
         console.error('❌ Error during deletion:', err);
     } finally {

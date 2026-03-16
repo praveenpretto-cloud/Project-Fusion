@@ -2,41 +2,18 @@
 
 import { useState, useEffect } from 'react';
 
-const COINS = [
-    { s: 'BTC', n: 'Bitcoin', p: 64230.50, c: 2.4 }, { s: 'ETH', n: 'Ethereum', p: 3450.20, c: 1.8 },
-    { s: 'SOL', n: 'Solana', p: 145.80, c: 5.2 }, { s: 'XLM', n: 'Stellar', p: 0.11, c: 0.5 },
-    { s: 'ADA', n: 'Cardano', p: 0.45, c: -1.2 }, { s: 'DOT', n: 'Polkadot', p: 7.20, c: -0.8 },
-    { s: 'XRP', n: 'Ripple', p: 0.62, c: 1.1 }, { s: 'DOGE', n: 'Dogecoin', p: 0.16, c: 4.5 },
-    { s: 'AVAX', n: 'Avalanche', p: 35.40, c: 2.1 }, { s: 'SHIB', n: 'Shiba Inu', p: 0.00002, c: 3.2 },
-    { s: 'LINK', n: 'Chainlink', p: 18.50, c: 0.9 }, { s: 'MATIC', n: 'Polygon', p: 0.68, c: -2.1 },
-    { s: 'LTC', n: 'Litecoin', p: 85.20, c: 1.5 }, { s: 'BCH', n: 'Bitcoin Cash', p: 450.10, c: 1.2 },
-    { s: 'UNI', n: 'Uniswap', p: 10.50, c: -1.5 }, { s: 'ATOM', n: 'Cosmos', p: 8.90, c: 0.4 },
-    { s: 'ETC', n: 'Ethereum Classic', p: 28.50, c: 0.2 }, { s: 'XMR', n: 'Monero', p: 120.40, c: -0.5 },
-    { s: 'FIL', n: 'Filecoin', p: 6.20, c: -3.2 }, { s: 'HBAR', n: 'Hedera', p: 0.12, c: 4.1 },
-    { s: 'ICP', n: 'Internet Computer', p: 12.50, c: 6.5 }, { s: 'APT', n: 'Aptos', p: 9.20, c: 2.2 },
-    { s: 'NEAR', n: 'Near Protocol', p: 6.80, c: 1.9 }, { s: 'ARB', n: 'Arbitrum', p: 1.10, c: -4.5 },
-    { s: 'OP', n: 'Optimism', p: 2.40, c: -3.1 }, { s: 'STX', n: 'Stacks', p: 2.10, c: 5.4 },
-    { s: 'RNDR', n: 'Render', p: 10.20, c: 8.1 }, { s: 'INJ', n: 'Injective', p: 28.40, c: -1.2 },
-    { s: 'GRT', n: 'The Graph', p: 0.32, c: 2.5 }, { s: 'IMX', n: 'Immutable', p: 2.10, c: 0.8 },
-    { s: 'VET', n: 'VeChain', p: 0.04, c: 1.5 }, { s: 'AAVE', n: 'Aave', p: 95.20, c: 3.2 },
-    { s: 'ALGO', n: 'Algorand', p: 0.22, c: -0.5 }, { s: 'QNT', n: 'Quant', p: 110.50, c: 1.1 },
-    { s: 'FTM', n: 'Fantom', p: 0.85, c: 6.2 }, { s: 'SAND', n: 'Sandbox', p: 0.55, c: -1.8 },
-    { s: 'MANA', n: 'Decentraland', p: 0.52, c: -2.1 }, { s: 'THETA', n: 'Theta', p: 2.40, c: 4.2 },
-    { s: 'AXS', n: 'Axie Infinity', p: 8.50, c: 1.1 }, { s: 'EGLD', n: 'MultiversX', p: 45.20, c: 0.9 }
-];
-
 const CURRENCIES = [
     { code: 'USD', flag: '🇺🇸', rate: 1.0 },
     { code: 'EUR', flag: '🇪🇺', rate: 0.92 },
     { code: 'GBP', flag: '🇬🇧', rate: 0.79 },
     { code: 'SGD', flag: '🇸🇬', rate: 1.35 },
     { code: 'JPY', flag: '🇯🇵', rate: 151.2 },
-    { code: 'CHF', flag: '🇨🇭', rate: 0.90 },
+    { code: 'CHF', flag: '🇨🇭', rate: 0.9 },
     { code: 'AUD', flag: '🇦🇺', rate: 1.52 },
-    { code: 'CAD', flag: '🇨🇦', rate: 1.36 }
+    { code: 'CAD', flag: '🇨🇦', rate: 1.36 },
+    { code: 'INR', flag: '🇮🇳', rate: 83.2 },
 ];
 
-// --- TYPES ---
 interface Instruction {
     instruction_id: string;
     amount: string;
@@ -47,27 +24,69 @@ interface Instruction {
     state: 'INITIATED' | 'LOCKED' | 'PENDING_EXECUTION' | 'SETTLED' | 'FAILED' | 'MANUAL_CHECK';
     timestamp: string;
     trace_id?: string;
+    ledger_hashes?: string[];
 }
 
-// --- MAIN DASHBOARD COMPONENT ---
 export default function Dashboard() {
     const [instructions, setInstructions] = useState<Instruction[]>([]);
-    const [activeTab, setActiveTab] = useState<'home' | 'payments' | 'crypto' | 'wealth'>('home');
+    const [activeTab, setActiveTab] = useState<'overview' | 'instructions' | 'rails' | 'ledger'>(
+        'overview'
+    );
     const [lastUpdated, setLastUpdated] = useState<string>('Loading...');
     const [totalVolume, setTotalVolume] = useState<number>(0);
-
-    // Exchange State
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 8;
     const [fromCurrency, setFromCurrency] = useState(CURRENCIES[0]);
     const [toCurrency, setToCurrency] = useState(CURRENCIES[1]);
+    const [walletAddress, setWalletAddress] = useState<string | null>(null);
+    const [activeModal, setActiveModal] = useState<
+        null | 'initiate' | 'exchange' | 'send' | 'crypto'
+    >(null);
+    const [actionAmount, setActionAmount] = useState('');
+    const [actionRecipient, setActionRecipient] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [serverHealth, setServerHealth] = useState<'online' | 'offline' | 'checking'>('checking');
 
-    // --- POLLING & DATA FETCHING ---
+    const connectMetaMask = async () => {
+        if (typeof window !== 'undefined' && 'ethereum' in window) {
+            try {
+                // @ts-ignore
+                let provider: any = window.ethereum;
+                // @ts-ignore
+                if (window.ethereum.providers) {
+                    // @ts-ignore
+                    provider =
+                        window.ethereum.providers.find((p: any) => p.isMetaMask) || window.ethereum;
+                }
+                const accounts = (await provider.request({
+                    method: 'eth_requestAccounts',
+                })) as string[];
+                setWalletAddress(accounts[0]);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    };
+
     useEffect(() => {
+        fetch('/api/kyc/onboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: 'Alice_Corp',
+                document_type: 'PASSPORT',
+                document_number: 'DEMO123',
+            }),
+        }).catch(() => {});
+
         const fetchData = async () => {
             try {
-                // Fetch ALL recent txns for client-side filtering (Simulating "Smart Sync")
-                const res = await fetch(`/api/observe?limit=100`);
-                if (res.ok) {
-                    const data = await res.json();
+                const [obsRes, healthRes] = await Promise.all([
+                    fetch(`/api/observe?limit=100`),
+                    fetch(`/health`),
+                ]);
+                if (obsRes.ok) {
+                    const data = await obsRes.json();
                     const sorted = (data.data || []).sort(
                         (a: Instruction, b: Instruction) =>
                             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -76,332 +95,561 @@ export default function Dashboard() {
                     if (data.meta?.total_volume) setTotalVolume(data.meta.total_volume);
                     setLastUpdated(new Date().toLocaleTimeString());
                 }
-            } catch (err) {
-                console.error(err);
+                setServerHealth(healthRes.ok ? 'online' : 'offline');
+            } catch {
+                setServerHealth('offline');
             }
         };
+
         fetchData();
         const interval = setInterval(fetchData, 2000);
         return () => clearInterval(interval);
     }, []);
 
-    // --- FILTERING LOGIC ---
-    const getFilteredInstructions = () => {
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
+    // ── METRICS ──────────────────────────────────────────────────────────────
+    const settled = instructions.filter((i) => i.state === 'SETTLED');
+    const failed = instructions.filter((i) => i.state === 'FAILED');
+    const pending = instructions.filter((i) =>
+        ['INITIATED', 'LOCKED', 'PENDING_EXECUTION'].includes(i.state)
+    );
+    const successRate =
+        instructions.length > 0
+            ? ((settled.length / instructions.length) * 100).toFixed(1)
+            : '100.0';
+
+    const railCounts: Record<string, number> = {};
+    settled.forEach((i) => {
+        const rail = ['XLM', 'BTC', 'ETH', 'USDC'].includes(i.currency)
+            ? 'Crypto (Web3)'
+            : i.currency === 'INR'
+              ? 'RazorpayX (INR)'
+              : i.currency === 'SGD'
+                ? 'PayNow (SGD)'
+                : parseFloat(i.amount) >= 10000
+                  ? 'SWIFT/ISO20022'
+                  : 'Stripe (Fiat)';
+        railCounts[rail] = (railCounts[rail] || 0) + 1;
+    });
+
+    // ── TRANSACTION LIST ──────────────────────────────────────────────────────
+    const getFiltered = () => {
         switch (activeTab) {
-            case 'payments':
-                return instructions.filter(i => ['USD', 'EUR', 'SGD'].includes(i.currency) && i.purpose !== 'INVESTMENT');
-            case 'crypto':
-                return instructions.filter(i => ['XLM', 'USDC', 'BTC', 'ETH'].includes(i.currency));
-            case 'wealth':
-                return instructions.filter(i => i.purpose === 'INVESTMENT' || i.currency === 'AAPL' || i.currency === 'GOOGL');
+            case 'instructions':
+                return instructions.filter((i) =>
+                    ['USD', 'EUR', 'SGD', 'GBP', 'INR'].includes(i.currency)
+                );
+            case 'rails':
+                return instructions.filter((i) =>
+                    ['XLM', 'USDC', 'BTC', 'ETH'].includes(i.currency)
+                );
+            case 'ledger':
+                return instructions.filter((i) => i.ledger_hashes && i.ledger_hashes.length > 0);
             default:
-                return instructions; // Home shows everything (Global Feed)
+                return instructions;
         }
     };
 
-    const filteredData = getFilteredInstructions();
-    // --- TRANSACTIONS & MODALS ---
+    const filteredData = getFiltered();
+    const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+    const currentData = filteredData.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
 
-    // --- MODAL HANDLERS ---
-    const [activeModal, setActiveModal] = useState<null | 'add' | 'exchange' | 'send' | 'more' | 'buy_crypto' | 'sell_crypto' | 'send_crypto'>(null);
-    const [actionAmount, setActionAmount] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-
+    // ── TRANSACTION HANDLER ────────────────────────────────────────────────────
     const handleSimulateAction = async () => {
         setIsProcessing(true);
-        // Simulate network delay for realism
-        await new Promise(r => setTimeout(r, 1500));
+        try {
+            const user_id = 'Alice_Corp';
+            const otpReq = await fetch('/api/auth/otp/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': 'fusion_bank_secret_key_2025',
+                    'x-idempotency-key': Date.now().toString(),
+                },
+                body: JSON.stringify({ user_id }),
+            });
+            const otpData = await otpReq.json();
+            const vReq = await fetch('/api/auth/otp/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': 'fusion_bank_secret_key_2025',
+                    'x-idempotency-key': Date.now().toString(),
+                },
+                body: JSON.stringify({ user_id, otp_code: otpData.otp_code }),
+            });
+            const vData = await vReq.json();
+            if (vData.error) throw new Error(vData.error);
+            if (vData.auth_token) {
+                const currency =
+                    activeModal === 'exchange'
+                        ? fromCurrency.code
+                        : activeModal === 'crypto'
+                          ? 'XLM'
+                          : 'USD';
+                const finalRecipient = actionRecipient.trim() || 'Bob_Supply';
+                await fetch('/api/kyc/onboard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: finalRecipient,
+                        document_type: 'PASSPORT',
+                        document_number: 'JIT123',
+                    }),
+                }).catch(() => {});
+                const initReq = await fetch('/api/instruction/initiate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-api-key': 'fusion_bank_secret_key_2025',
+                        'x-idempotency-key': Date.now().toString(),
+                    },
+                    body: JSON.stringify({
+                        amount: parseFloat(actionAmount),
+                        currency,
+                        sender: user_id,
+                        recipient: finalRecipient,
+                        purpose: activeModal === 'exchange' ? 'FX_SWAP' : 'CROSS_BORDER',
+                        auth_token: vData.auth_token,
+                    }),
+                });
+                const initData = await initReq.json();
+                if (initData.error) throw new Error(initData.error);
+                if (initData.instructionId) {
+                    await fetch('/api/policy/evaluate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': 'fusion_bank_secret_key_2025',
+                            'x-idempotency-key': Date.now().toString() + 'e',
+                        },
+                        body: JSON.stringify({ instructionId: initData.instructionId }),
+                    });
+                    const routeReq = await fetch('/api/orchestration/route', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': 'fusion_bank_secret_key_2025',
+                            'x-idempotency-key': Date.now().toString() + 'r',
+                        },
+                        body: JSON.stringify({ instructionId: initData.instructionId }),
+                    });
+                    const routeData = await routeReq.json();
+                    if (routeData.error) throw new Error('Route failed: ' + routeData.error);
+                    const execReq = await fetch('/api/adapter/execute', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': 'fusion_bank_secret_key_2025',
+                            'x-idempotency-key': Date.now().toString() + 'x',
+                        },
+                        body: JSON.stringify({
+                            instructionId: initData.instructionId,
+                            adapter: routeData.selectedAdapter,
+                        }),
+                    });
+                    const execData = await execReq.json();
+                    if (execData.error) throw new Error('Execute failed: ' + execData.error);
+                }
+            }
+        } catch (err: any) {
+            alert('Instruction Failed: ' + err.message);
+        }
         setIsProcessing(false);
         setActiveModal(null);
         setActionAmount('');
-        // In a real app, this would refresh data. 
-        // For the demo, the polling will pick up any actual backend changes, 
-        // or we just close to show smooth interaction.
+        setActionRecipient('');
     };
 
-    const assets = calculateAssets(instructions);
-
     return (
-        <div className="min-h-screen bg-[#0F1115] text-white font-sans selection:bg-blue-500/30 relative">
-            {/* TOP NAVIGATION (REVOLUT STYLE) */}
-            <nav className="border-b border-gray-800 bg-[#0F1115] sticky top-0 z-40">
-                <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-8">
-                        <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
-                            Fusion<span className="text-gray-600 font-light">|Core</span>
+        <div className="min-h-screen bg-[#0B0E14] text-white font-sans">
+            {/* ── SIDEBAR NAV ───────────────────────────────────────────────────── */}
+            <aside className="fixed top-0 left-0 h-full w-56 bg-[#0F1318] border-r border-gray-800/60 flex flex-col z-30 py-6 px-4">
+                <div className="mb-8 px-2">
+                    <div className="text-lg font-bold tracking-tight text-white">
+                        Project<span className="text-blue-500">Fusion</span>
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-0.5 font-mono uppercase tracking-widest">
+                        Orchestration Console
+                    </div>
+                </div>
+
+                <nav className="flex flex-col gap-1">
+                    <SideNavItem
+                        label="Overview"
+                        icon="◈"
+                        active={activeTab === 'overview'}
+                        onClick={() => setActiveTab('overview')}
+                    />
+                    <SideNavItem
+                        label="Instructions"
+                        icon="⇄"
+                        active={activeTab === 'instructions'}
+                        onClick={() => setActiveTab('instructions')}
+                    />
+                    <SideNavItem
+                        label="Crypto Rails"
+                        icon="◎"
+                        active={activeTab === 'rails'}
+                        onClick={() => setActiveTab('rails')}
+                    />
+                    <SideNavItem
+                        label="Ledger Audit"
+                        icon="⬡"
+                        active={activeTab === 'ledger'}
+                        onClick={() => setActiveTab('ledger')}
+                    />
+                </nav>
+
+                <div className="mt-auto space-y-3">
+                    {/* Adapter Health */}
+                    <div className="bg-[#161B22] rounded-lg border border-gray-800 p-3">
+                        <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">
+                            Adapter Health
+                        </div>
+                        <AdapterStatus label="Stripe" status="online" />
+                        <AdapterStatus label="RazorpayX" status="online" />
+                        <AdapterStatus label="SWIFT/ISO20022" status="online" />
+                        <AdapterStatus label="Web3 Rail" status="online" />
+                    </div>
+                    <div
+                        className={`text-[10px] font-mono px-2 flex items-center gap-1.5 ${serverHealth === 'online' ? 'text-green-500' : 'text-red-500'}`}
+                    >
+                        <span
+                            className={`inline-block w-1.5 h-1.5 rounded-full ${serverHealth === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
+                        />
+                        ENGINE {serverHealth.toUpperCase()} · {lastUpdated}
+                    </div>
+                </div>
+            </aside>
+
+            {/* ── MAIN CONTENT ──────────────────────────────────────────────────── */}
+            <div className="ml-56">
+                {/* TOP BAR */}
+                <header className="h-14 border-b border-gray-800/60 bg-[#0B0E14] flex items-center justify-between px-6 sticky top-0 z-20">
+                    <div>
+                        <h1 className="text-sm font-semibold text-gray-200">
+                            {activeTab === 'overview' && 'Operations Overview'}
+                            {activeTab === 'instructions' && 'Fiat Instruction Log'}
+                            {activeTab === 'rails' && 'Crypto Rail Log'}
+                            {activeTab === 'ledger' && 'Ledger Audit Trail'}
                         </h1>
-                        <div className="hidden md:flex gap-1 bg-gray-900/50 p-1 rounded-full border border-gray-800">
-                            <TabButton label="Home" active={activeTab === 'home'} onClick={() => setActiveTab('home')} />
-                            <TabButton label="Payments" active={activeTab === 'payments'} onClick={() => setActiveTab('payments')} />
-                            <TabButton label="Crypto" active={activeTab === 'crypto'} onClick={() => setActiveTab('crypto')} />
-                            <TabButton label="Wealth" active={activeTab === 'wealth'} onClick={() => setActiveTab('wealth')} />
-                        </div>
+                        <p className="text-xs text-gray-600 font-mono">
+                            api.projectfusion.io · v1.0.0
+                        </p>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
-                        <span className="flex items-center gap-1.5 text-green-500">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    <div className="flex items-center gap-3">
+                        {walletAddress ? (
+                            <span className="text-[10px] font-mono text-green-400 bg-green-900/20 border border-green-900/40 px-2 py-1 rounded">
+                                Web3: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                             </span>
-                            LIVE
-                        </span>
-                        <span>{lastUpdated}</span>
-                    </div>
-                </div>
-            </nav>
-
-            <main className={`max-w-6xl mx-auto px-6 py-8 transition-opacity duration-300 ${activeModal ? 'opacity-30 blur-sm pointer-events-none' : ''}`}>
-                {/* DYNAMIC HEADER BASED ON TAB */}
-                <div className="mb-10">
-                    <h2 className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-2">
-                        {activeTab === 'home' ? 'Total Liquidity' : `${activeTab} Balance`}
-                    </h2>
-                    <div className="flex items-baseline gap-4">
-                        <span className="text-5xl font-bold tracking-tight text-white">
-                            {activeTab === 'home' ? `$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}` :
-                                activeTab === 'crypto' ? `${assets.crypto.toLocaleString()} XLM` :
-                                    activeTab === 'wealth' ? `$${assets.wealth.toLocaleString()}` :
-                                        `$${assets.fiat.toLocaleString()}`}
-                        </span>
-                        <span className="text-green-500 text-sm font-medium bg-green-900/20 px-2 py-0.5 rounded-full border border-green-900/30">
-                            +2.4% today
-                        </span>
-                    </div>
-                </div>
-
-                {/* ACTION BUTTONS (DYNAMIC) */}
-                <div className="flex gap-4 mb-10">
-                    {activeTab === 'crypto' ? (
-                        <>
-                            <ActionButton label="Buy" icon="+" primary onClick={() => setActiveModal('buy_crypto')} />
-                            <ActionButton label="Sell" icon="-" onClick={() => setActiveModal('sell_crypto')} />
-                            <ActionButton label="Send" icon="→" onClick={() => setActiveModal('send_crypto')} />
-                            <ActionButton label="More" icon="•••" onClick={() => setActiveModal('more')} />
-                        </>
-                    ) : (
-                        <>
-                            <ActionButton label="Add Money" icon="+" primary onClick={() => setActiveModal('add')} />
-                            <ActionButton label="Exchange" icon="⇄" onClick={() => setActiveModal('exchange')} />
-                            <ActionButton label="Send" icon="→" onClick={() => setActiveModal('send')} />
-                            <ActionButton label="More" icon="•••" onClick={() => setActiveModal('more')} />
-                        </>
-                    )}
-                </div>
-
-                {/* CONTENT GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                    {/* LEFT: ASSET BREAKDOWN CARDS */}
-                    <div className="lg:col-span-2 space-y-6">
-
-                        {/* CRYPTO MARKET - ONLY SHOW ON CRYPTO TAB */}
-                        {activeTab === 'crypto' && (
-                            <div className="bg-[#161920] rounded-2xl border border-gray-800/50 p-6">
-                                <h3 className="text-lg font-semibold text-gray-200 mb-4">Market</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 h-64 overflow-y-auto pr-2 custom-scrollbar">
-                                    {COINS.map(c => (
-                                        <div key={c.s} className="bg-gray-800/30 p-3 rounded-xl border border-gray-800 hover:bg-gray-800 transition-colors cursor-pointer group">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <span className="font-bold text-gray-300">{c.s}</span>
-                                                <span className={`text-xs font-medium ${c.c >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                                    {c.c > 0 ? '+' : ''}{c.c}%
-                                                </span>
-                                            </div>
-                                            <div className="text-sm font-mono text-gray-400 group-hover:text-white">${c.p.toLocaleString()}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        ) : (
+                            <button
+                                onClick={connectMetaMask}
+                                className="text-xs text-gray-400 border border-gray-700 px-3 py-1.5 rounded hover:border-blue-600 hover:text-blue-400 transition-colors"
+                            >
+                                Connect Web3 Wallet
+                            </button>
                         )}
-
-                        {/* RECENT ACTIVITY (Show on all tabs, logic filters it) */}
-                        <div className="bg-[#161920] rounded-2xl border border-gray-800/50 overflow-hidden shadow-xl">
-                            <div className="p-4 border-b border-gray-800 flex justify-between items-center">
-                                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Transactions</h3>
-                            </div>
-                            {filteredData.length === 0 ? (
-                                <div className="p-8 text-center text-gray-500 text-sm">No recent activity.</div>
-                            ) : (
-                                <div>
-                                    {filteredData.slice(0, 10).map((inst, i) => (
-                                        <TransactionRow key={inst.instruction_id} inst={inst} index={i} />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                        <button
+                            onClick={() => setActiveModal('initiate')}
+                            className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            + New Instruction
+                        </button>
                     </div>
+                </header>
 
-                    {/* RIGHT: WIDGETS */}
-                    <div className="space-y-6">
-                        <WidgetCard title="My Cards (Virtual)">
-                            <div className="bg-gradient-to-br from-purple-600 to-blue-600 p-5 rounded-xl text-white shadow-lg transform transition hover:scale-105 cursor-pointer">
-                                <div className="flex justify-between items-start mb-8">
-                                    <div className="opacity-80 text-xs font-mono">FUSION BLACK</div>
-                                    <div className="text-xl font-bold italic">VISA</div>
-                                </div>
-                                <div className="font-mono text-lg tracking-widest mb-2">•••• 4242</div>
-                                <div className="flex justify-between text-xs opacity-75">
-                                    <span>Praveen K.</span>
-                                    <span>12/28</span>
-                                </div>
+                <main
+                    className={`p-6 ${activeModal ? 'opacity-30 blur-sm pointer-events-none' : ''}`}
+                >
+                    {activeTab === 'overview' && (
+                        <>
+                            {/* ── KPI METRICS ROW ──────────────────────────────────────── */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <KpiCard
+                                    label="Total Volume Processed"
+                                    value={`$${totalVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                                    sub="All rails combined"
+                                    accent="blue"
+                                />
+                                <KpiCard
+                                    label="Settled Instructions"
+                                    value={settled.length.toString()}
+                                    sub={`${successRate}% success rate`}
+                                    accent="green"
+                                />
+                                <KpiCard
+                                    label="Pending / In-flight"
+                                    value={pending.length.toString()}
+                                    sub="Across SAGA stages"
+                                    accent="yellow"
+                                />
+                                <KpiCard
+                                    label="Failed Instructions"
+                                    value={failed.length.toString()}
+                                    sub="SAGA rollback triggered"
+                                    accent="red"
+                                />
                             </div>
-                        </WidgetCard>
 
-                        <WidgetCard title="Suggested Actions">
-                            <div className="space-y-3">
-                                <ActionItem title="Verify Identity" desc="Required for >$10k limits" alert />
-                                <ActionItem title="Connect Wallet" desc="Link MetaMask / Phantom" />
-                            </div>
-                        </WidgetCard>
-                    </div>
-                </div>
-            </main>
-
-            {/* --- MODALS --- */}
-            {activeModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setActiveModal(null)} />
-
-                    <div className="relative bg-[#1A1D24] w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        {/* MODAL HEADER */}
-                        <div className="p-6 border-b border-gray-700 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-white">
-                                {activeModal === 'add' && 'Add Money'}
-                                {activeModal === 'exchange' && 'Exchange (SWIFT/FX)'}
-                                {activeModal === 'send' && 'Send Funds'}
-                                {activeModal === 'more' && 'More Options'}
-                                {activeModal === 'buy_crypto' && 'Buy Crypto'}
-                                {activeModal === 'sell_crypto' && 'Sell Crypto'}
-                                {activeModal === 'send_crypto' && 'Transfer Crypto'}
-                            </h3>
-                            <button onClick={() => setActiveModal(null)} className="text-gray-400 hover:text-white">✕</button>
-                        </div>
-
-                        {/* MODAL BODY */}
-                        <div className="p-6 space-y-4">
-                            {activeModal === 'more' ? (
-                                <div className="grid grid-cols-2 gap-3">
-                                    <MoreOption icon="📄" label="Statements" />
-                                    <MoreOption icon="📊" label="Analytics" />
-                                    <MoreOption icon="⚙️" label="Settings" />
-                                    <MoreOption icon="🔒" label="Security" />
-                                    <MoreOption icon="💳" label="Cards" />
-                                    <MoreOption icon="❓" label="Help" />
+                            {/* ── 2-COL GRID ───────────────────────────────────────────── */}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* TRANSACTION TABLE */}
+                                <div className="lg:col-span-2">
+                                    <SectionHeader
+                                        title="Recent Instructions"
+                                        subtitle={`${instructions.length} total dispatched`}
+                                    />
+                                    <InstructionTable
+                                        data={currentData}
+                                        currentPage={currentPage}
+                                        totalPages={totalPages}
+                                        onPrev={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                                        onNext={() =>
+                                            setCurrentPage((p) => Math.min(p + 1, totalPages))
+                                        }
+                                    />
                                 </div>
-                            ) : (
-                                <>
-                                    {/* AMOUNT INPUT (Common) */}
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-gray-400 uppercase tracking-wide">Amount</label>
-                                        <div className="relative">
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                                                {['buy_crypto', 'add', 'exchange', 'send'].includes(activeModal) ? '$' : ''}
-                                            </span>
-                                            <input
-                                                type="number"
-                                                value={actionAmount}
-                                                onChange={(e) => setActionAmount(e.target.value)}
-                                                placeholder="0.00"
-                                                className="w-full bg-[#0F1115] border border-gray-700 rounded-xl px-4 pl-8 py-3 text-2xl font-mono text-white focus:outline-none focus:border-blue-500 transition-colors"
-                                                autoFocus
+
+                                {/* RIGHT WIDGETS */}
+                                <div className="space-y-4">
+                                    {/* SMART ROUTER BREAKDOWN */}
+                                    <div className="bg-[#0F1318] rounded-xl border border-gray-800/60 p-5">
+                                        <SectionHeader
+                                            title="Smart Router Decisions"
+                                            subtitle="By rail (settled only)"
+                                        />
+                                        <div className="space-y-2 mt-2">
+                                            {Object.keys(railCounts).length === 0 ? (
+                                                <p className="text-xs text-gray-600">
+                                                    No settled instructions yet.
+                                                </p>
+                                            ) : (
+                                                Object.entries(railCounts)
+                                                    .sort((a, b) => b[1] - a[1])
+                                                    .map(([rail, count]) => (
+                                                        <RailBar
+                                                            key={rail}
+                                                            label={rail}
+                                                            count={count}
+                                                            total={settled.length}
+                                                        />
+                                                    ))
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* API KEYS */}
+                                    <div className="bg-[#0F1318] rounded-xl border border-gray-800/60 p-5">
+                                        <SectionHeader
+                                            title="API Credentials"
+                                            subtitle="Sandbox environment"
+                                        />
+                                        <div className="mt-3 space-y-2">
+                                            <ApiKeyRow
+                                                label="Key ID"
+                                                value="fusion_bank_***_2025"
+                                            />
+                                            <ApiKeyRow
+                                                label="Environment"
+                                                value="TESTNET / SANDBOX"
+                                            />
+                                            <ApiKeyRow label="Rate Limit" value="60,000 req/min" />
+                                            <ApiKeyRow
+                                                label="SAGA Mode"
+                                                value="ENABLED"
+                                                highlight
                                             />
                                         </div>
                                     </div>
 
-                                    {/* EXCHANGE UI */}
-                                    {activeModal === 'exchange' && (
-                                        <div className="bg-[#0F1115] p-4 rounded-xl border border-gray-800 space-y-3">
-                                            {/* FROM */}
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        className="bg-transparent text-white font-bold outline-none cursor-pointer"
-                                                        value={fromCurrency.code}
-                                                        onChange={(e) => setFromCurrency(CURRENCIES.find(c => c.code === e.target.value) || CURRENCIES[0])}
-                                                    >
-                                                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
-                                                    </select>
-                                                </div>
-                                                <span className="text-gray-500 text-sm">Balance: ${(12450 / fromCurrency.rate).toFixed(2)}</span>
-                                            </div>
-
-                                            <div className="flex justify-center text-gray-500 py-1">↓</div>
-
-                                            {/* TO */}
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        className="bg-transparent text-white font-bold outline-none cursor-pointer"
-                                                        value={toCurrency.code}
-                                                        onChange={(e) => setToCurrency(CURRENCIES.find(c => c.code === e.target.value) || CURRENCIES[1])}
-                                                    >
-                                                        {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
-                                                    </select>
-                                                </div>
-                                                <span className="text-gray-500 text-sm">
-                                                    1 {fromCurrency.code} = {(toCurrency.rate / fromCurrency.rate).toFixed(4)} {toCurrency.code}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* CRYPTO BUY/SELL UI */}
-                                    {(activeModal === 'buy_crypto' || activeModal === 'sell_crypto') && (
-                                        <div className="bg-[#0F1115] p-4 rounded-xl border border-gray-800 flex justify-between items-center">
-                                            <span className="text-gray-400">Asset</span>
-                                            <select className="bg-gray-800 text-white p-2 rounded border border-gray-700">
-                                                <option>Bitcoin (BTC)</option>
-                                                <option>Ethereum (ETH)</option>
-                                                <option>Stellar (XLM)</option>
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    {/* SEND / CRYPTO TRANSFER UI */}
-                                    {(activeModal === 'send' || activeModal === 'send_crypto') && (
-                                        <div className="space-y-3">
-                                            <label className="text-xs text-gray-400 uppercase tracking-wide">Recipient Type</label>
-                                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                                <button className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs">Fusion User</button>
-                                                <button className="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs text-blue-400">External/Cold</button>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                placeholder={activeModal === 'send_crypto' ? "Wallet Address (0x...)" : "@username or email"}
-                                                className="w-full bg-[#0F1115] border border-gray-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                    {/* QUICK ACTIONS */}
+                                    <div className="bg-[#0F1318] rounded-xl border border-gray-800/60 p-5">
+                                        <SectionHeader title="Quick Actions" subtitle="" />
+                                        <div className="mt-3 grid grid-cols-2 gap-2">
+                                            <QuickAction
+                                                label="Fiat Instruction"
+                                                onClick={() => setActiveModal('initiate')}
+                                            />
+                                            <QuickAction
+                                                label="FX Exchange"
+                                                onClick={() => setActiveModal('exchange')}
+                                            />
+                                            <QuickAction
+                                                label="Crypto Send"
+                                                onClick={() => setActiveModal('crypto')}
+                                            />
+                                            <QuickAction
+                                                label="Wire Transfer"
+                                                onClick={() => setActiveModal('send')}
                                             />
                                         </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-
-                        {/* MODAL FOOTER */}
-                        {activeModal !== 'more' && (
-                            <div className="p-6 border-t border-gray-700 bg-gray-800/30">
-                                <button
-                                    onClick={handleSimulateAction}
-                                    disabled={isProcessing || !actionAmount}
-                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                                >
-                                    {isProcessing ? (
-                                        <>
-                                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></span>
-                                            Processing...
-                                        </>
-                                    ) : (
-                                        <>
-                                            {activeModal === 'add' && 'Add Funds'}
-                                            {activeModal === 'exchange' && 'Sign & Exchange'}
-                                            {activeModal === 'send' && 'Send Now'}
-                                            {activeModal === 'buy_crypto' && 'Place Buy Order'}
-                                            {activeModal === 'sell_crypto' && 'Place Sell Order'}
-                                            {activeModal === 'send_crypto' && 'Withdraw to Wallet'}
-                                        </>
-                                    )}
-                                </button>
+                                    </div>
+                                </div>
                             </div>
-                        )}
+                        </>
+                    )}
+
+                    {(activeTab === 'instructions' ||
+                        activeTab === 'rails' ||
+                        activeTab === 'ledger') && (
+                        <div>
+                            <div className="mb-4 flex items-center justify-between">
+                                <SectionHeader
+                                    title={
+                                        activeTab === 'instructions'
+                                            ? 'Fiat Instructions'
+                                            : activeTab === 'rails'
+                                              ? 'Crypto Rail Instructions'
+                                              : 'Ledger-Verified Instructions'
+                                    }
+                                    subtitle={`${filteredData.length} records`}
+                                />
+                            </div>
+                            <InstructionTable
+                                data={currentData}
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                onPrev={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                                onNext={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                            />
+                        </div>
+                    )}
+                </main>
+            </div>
+
+            {/* ── MODAL ─────────────────────────────────────────────────────────── */}
+            {activeModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setActiveModal(null)}
+                    />
+                    <div className="relative bg-[#0F1318] w-full max-w-md rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
+                        <div className="p-5 border-b border-gray-800 flex justify-between items-center">
+                            <div>
+                                <h3 className="text-base font-bold text-white">
+                                    {activeModal === 'initiate' && 'Initiate Payment Instruction'}
+                                    {activeModal === 'exchange' &&
+                                        'FX Exchange Instruction (SWIFT)'}
+                                    {activeModal === 'send' && 'Wire Transfer Instruction'}
+                                    {activeModal === 'crypto' && 'Crypto Rail Instruction (Web3)'}
+                                </h3>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                    Instruction will be KYC/AFA verified, SAGA-locked, and routed
+                                    automatically.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setActiveModal(null)}
+                                className="text-gray-500 hover:text-white ml-4"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-500 uppercase tracking-widest">
+                                    Amount
+                                </label>
+                                <input
+                                    type="number"
+                                    value={actionAmount}
+                                    onChange={(e) => setActionAmount(e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-full bg-[#161B22] border border-gray-700 rounded-lg px-4 py-3 text-xl font-mono text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                    autoFocus
+                                />
+                            </div>
+                            {activeModal === 'exchange' && (
+                                <div className="bg-[#161B22] p-4 rounded-xl border border-gray-800 space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <select
+                                            className="bg-transparent text-white font-bold outline-none cursor-pointer text-sm"
+                                            value={fromCurrency.code}
+                                            onChange={(e) =>
+                                                setFromCurrency(
+                                                    CURRENCIES.find(
+                                                        (c) => c.code === e.target.value
+                                                    ) || CURRENCIES[0]
+                                                )
+                                            }
+                                        >
+                                            {CURRENCIES.map((c) => (
+                                                <option key={c.code} value={c.code}>
+                                                    {c.flag} {c.code}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span className="text-gray-600 text-xs">
+                                            SOURCE CURRENCY
+                                        </span>
+                                    </div>
+                                    <div className="text-gray-700 py-1 text-center text-sm">
+                                        ↓ SMART ROUTER WILL ROUTE
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <select
+                                            className="bg-transparent text-white font-bold outline-none cursor-pointer text-sm"
+                                            value={toCurrency.code}
+                                            onChange={(e) =>
+                                                setToCurrency(
+                                                    CURRENCIES.find(
+                                                        (c) => c.code === e.target.value
+                                                    ) || CURRENCIES[1]
+                                                )
+                                            }
+                                        >
+                                            {CURRENCIES.map((c) => (
+                                                <option key={c.code} value={c.code}>
+                                                    {c.flag} {c.code}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <span className="text-gray-600 text-xs">
+                                            DESTINATION CURRENCY
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-500 uppercase tracking-widest">
+                                    Recipient Entity ID
+                                </label>
+                                <input
+                                    type="text"
+                                    value={actionRecipient}
+                                    onChange={(e) => setActionRecipient(e.target.value)}
+                                    placeholder="e.g. Vendor_Corp_001"
+                                    className="w-full bg-[#161B22] border border-gray-700 rounded-lg px-4 py-2.5 text-sm font-mono text-white focus:outline-none focus:border-blue-500 transition-colors"
+                                />
+                            </div>
+                            <div className="bg-blue-900/10 border border-blue-900/30 rounded-lg p-3 text-xs text-blue-400 font-mono">
+                                SAGA engine will auto-select rail via Smart Router → execute via
+                                licensed adapter → write to hash-chained ledger
+                            </div>
+                            <button
+                                onClick={handleSimulateAction}
+                                disabled={isProcessing || !actionAmount}
+                                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2 text-sm"
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                                        Processing via SAGA...
+                                    </>
+                                ) : (
+                                    'Dispatch Instruction'
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -409,137 +657,258 @@ export default function Dashboard() {
     );
 }
 
-// --- SUBCOMPONENTS ---
+// ── SUB COMPONENTS ────────────────────────────────────────────────────────────
 
-function MoreOption({ icon, label }: { icon: string, label: string }) {
-    return (
-        <button className="flex flex-col items-center justify-center gap-2 p-4 bg-[#0F1115] hover:bg-gray-800 border border-gray-800 rounded-xl transition-colors">
-            <span className="text-2xl">{icon}</span>
-            <span className="text-sm font-medium text-gray-300">{label}</span>
-        </button>
-    );
-}
-
-function TabButton({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
+function SideNavItem({
+    label,
+    icon,
+    active,
+    onClick,
+}: {
+    label: string;
+    icon: string;
+    active: boolean;
+    onClick: () => void;
+}) {
     return (
         <button
             onClick={onClick}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${active
-                ? 'bg-gray-800 text-white shadow-sm ring-1 ring-white/10'
-                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
-                }`}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
+                active
+                    ? 'bg-blue-600/15 text-blue-400 border border-blue-600/30'
+                    : 'text-gray-500 hover:text-gray-200 hover:bg-white/5'
+            }`}
         >
+            <span className="text-base w-4">{icon}</span>
             {label}
         </button>
     );
 }
 
-function ActionButton({ label, icon, primary, onClick }: { label: string, icon: string, primary?: boolean, onClick?: () => void }) {
-    return (
-        <div className="flex flex-col items-center gap-2 group cursor-pointer" onClick={onClick}>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-200 ${primary
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50 group-hover:bg-blue-500'
-                : 'bg-gray-800 text-blue-400 group-hover:bg-gray-700'
-                }`}>
-                {icon}
-            </div>
-            <span className="text-xs font-medium text-gray-400 group-hover:text-gray-200">{label}</span>
-        </div>
-    );
-}
-
-function TransactionRow({ inst, index }: { inst: Instruction, index: number }) {
-    const isCrypto = ['XLM', 'BTC', 'ETH'].includes(inst.currency);
-    const isWealth = inst.purpose === 'INVESTMENT';
-
-    // Icon Logic
-    let icon = '💸'; // Default Fiat
-    let bg = 'bg-blue-900/20 text-blue-400 border-blue-900/30';
-    if (isCrypto) { icon = '₿'; bg = 'bg-purple-900/20 text-purple-400 border-purple-900/30'; }
-    if (isWealth) { icon = '📈'; bg = 'bg-green-900/20 text-green-400 border-green-900/30 text-xs'; }
-
-    return (
-        <div className={`p-4 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-gray-800/50 last:border-0`}>
-            <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${bg}`}>
-                    {icon}
-                </div>
-                <div>
-                    <div className="text-sm font-medium text-gray-200">
-                        {inst.recipient_hash ? `Transfer to ...${inst.recipient_hash.slice(0, 4)}` : 'Top Up'}
-                    </div>
-                    <div className="text-xs text-gray-500 flex items-center gap-2">
-                        {new Date(inst.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} •
-                        <StatusDot state={inst.state} /> {inst.state}
-                    </div>
-                </div>
-            </div>
-            <div className="text-right">
-                <div className={`text-sm font-bold font-mono ${inst.state === 'FAILED' ? 'text-gray-500 line-through' : 'text-white'}`}>
-                    -{inst.amount} <span className="text-xs text-gray-500">{inst.currency}</span>
-                </div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide">{inst.purpose}</div>
-            </div>
-        </div>
-    );
-}
-
-function StatusDot({ state }: { state: string }) {
+function AdapterStatus({
+    label,
+    status,
+}: {
+    label: string;
+    status: 'online' | 'offline' | 'degraded';
+}) {
     const colors = {
-        INITIATED: 'text-blue-500',
-        LOCKED: 'text-yellow-500',
-        PENDING_EXECUTION: 'text-purple-500',
-        SETTLED: 'text-green-500',
-        FAILED: 'text-red-500',
+        online: 'text-green-500',
+        offline: 'text-red-500',
+        degraded: 'text-yellow-500',
     };
-    const color = colors[state as keyof typeof colors] || 'text-gray-500';
-    return <span className={`text-[8px] ${color}`}>●</span>;
-}
-
-function WidgetCard({ title, children }: { title: string, children: React.ReactNode }) {
+    const dots = { online: '●', offline: '○', degraded: '◐' };
     return (
-        <div className="bg-[#161920] p-6 rounded-2xl border border-gray-800/50">
-            <h3 className="text-sm font-medium text-gray-400 mb-4 uppercase tracking-wider">{title}</h3>
-            {children}
+        <div className="flex items-center justify-between py-0.5">
+            <span className="text-[10px] text-gray-400 font-mono">{label}</span>
+            <span className={`text-[10px] font-mono ${colors[status]}`}>
+                {dots[status]} {status.toUpperCase()}
+            </span>
         </div>
     );
 }
 
-function ActionItem({ title, desc, alert }: { title: string, desc: string, alert?: boolean }) {
+function KpiCard({
+    label,
+    value,
+    sub,
+    accent,
+}: {
+    label: string;
+    value: string;
+    sub: string;
+    accent: 'blue' | 'green' | 'yellow' | 'red';
+}) {
+    const borderColors = {
+        blue: 'border-blue-800/40',
+        green: 'border-green-800/40',
+        yellow: 'border-yellow-800/40',
+        red: 'border-red-800/40',
+    };
+    const valueColors = {
+        blue: 'text-blue-300',
+        green: 'text-green-300',
+        yellow: 'text-yellow-300',
+        red: 'text-red-300',
+    };
     return (
-        <div className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors group">
-            <div className="flex items-center gap-3">
-                {alert && <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
-                <div>
-                    <div className="text-sm font-medium text-gray-200">{title}</div>
-                    <div className="text-xs text-gray-500 group-hover:text-gray-400">{desc}</div>
-                </div>
+        <div className={`bg-[#0F1318] rounded-xl border p-5 ${borderColors[accent]}`}>
+            <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">{label}</div>
+            <div className={`text-2xl font-bold font-mono ${valueColors[accent]}`}>{value}</div>
+            <div className="text-xs text-gray-600 mt-1">{sub}</div>
+        </div>
+    );
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+    return (
+        <div className="mb-3">
+            <h2 className="text-sm font-semibold text-gray-200">{title}</h2>
+            {subtitle && <p className="text-xs text-gray-600 mt-0.5">{subtitle}</p>}
+        </div>
+    );
+}
+
+function InstructionTable({
+    data,
+    currentPage,
+    totalPages,
+    onPrev,
+    onNext,
+}: {
+    data: Instruction[];
+    currentPage: number;
+    totalPages: number;
+    onPrev: () => void;
+    onNext: () => void;
+}) {
+    return (
+        <div className="bg-[#0F1318] rounded-xl border border-gray-800/60 overflow-hidden">
+            <div className="grid grid-cols-12 text-[10px] text-gray-600 uppercase tracking-widest px-4 py-2 border-b border-gray-800 bg-[#0B0E14]">
+                <div className="col-span-1">Type</div>
+                <div className="col-span-3">Instruction ID</div>
+                <div className="col-span-2">Amount</div>
+                <div className="col-span-1">Rail</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-3">Ledger Hash</div>
             </div>
-            <span className="text-gray-600">→</span>
+            {data.length === 0 ? (
+                <div className="p-8 text-center text-gray-600 text-sm">
+                    No instructions in this view. Dispatch instructions to begin.
+                </div>
+            ) : (
+                <div>
+                    {data.map((inst) => (
+                        <InstructionRow key={inst.instruction_id} inst={inst} />
+                    ))}
+                    {totalPages > 1 && (
+                        <div className="flex justify-between items-center px-4 py-3 border-t border-gray-800">
+                            <button
+                                onClick={onPrev}
+                                disabled={currentPage === 1}
+                                className="text-xs text-gray-500 hover:text-gray-200 disabled:opacity-30 font-mono"
+                            >
+                                ← PREV
+                            </button>
+                            <span className="text-[10px] text-gray-700 font-mono">
+                                PAGE {currentPage} / {totalPages}
+                            </span>
+                            <button
+                                onClick={onNext}
+                                disabled={currentPage === totalPages}
+                                className="text-xs text-gray-500 hover:text-gray-200 disabled:opacity-30 font-mono"
+                            >
+                                NEXT →
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
 
-// --- HELPER ---
-function calculateAssets(data: Instruction[]) {
-    // A simple mock calculation for the banner
-    let fiat = 0;
-    let crypto = 0;
-    let wealth = 0;
+function InstructionRow({ inst }: { inst: Instruction }) {
+    const isCrypto = ['XLM', 'BTC', 'ETH', 'USDC'].includes(inst.currency);
+    const rail = isCrypto
+        ? 'Web3'
+        : inst.currency === 'INR'
+          ? 'RZPX'
+          : inst.currency === 'SGD'
+            ? 'PayNow'
+            : parseFloat(inst.amount) >= 10000
+              ? 'SWIFT'
+              : 'Stripe';
+    const statusColors: Record<string, string> = {
+        SETTLED: 'text-green-400 bg-green-900/20',
+        FAILED: 'text-red-400 bg-red-900/20',
+        LOCKED: 'text-yellow-400 bg-yellow-900/20',
+        INITIATED: 'text-blue-400 bg-blue-900/20',
+        PENDING_EXECUTION: 'text-purple-400 bg-purple-900/20',
+        MANUAL_CHECK: 'text-orange-400 bg-orange-900/20',
+    };
+    const typeIcon = isCrypto ? '◎' : '⇄';
+    const firstHash = inst.ledger_hashes?.[0];
 
-    data.forEach(d => {
-        const val = parseFloat(d.amount);
-        if (d.state === 'SETTLED') {
-            if (['USD', 'EUR', 'SGD'].includes(d.currency)) fiat += val;
-            if (['XLM', 'BTC'].includes(d.currency)) crypto += val;
-            if (d.purpose === 'INVESTMENT') wealth += val;
-        }
-    });
+    return (
+        <div className="grid grid-cols-12 items-center px-4 py-3 border-b border-gray-800/50 last:border-0 hover:bg-white/[0.02] transition-colors text-xs">
+            <div className="col-span-1">
+                <span className="text-gray-500 font-mono">{typeIcon}</span>
+            </div>
+            <div className="col-span-3 font-mono text-gray-400 text-[10px] truncate pr-2">
+                {inst.instruction_id?.slice(0, 16)}...
+            </div>
+            <div className="col-span-2 font-mono text-white font-semibold">
+                {parseFloat(inst.amount).toFixed(2)}{' '}
+                <span className="text-gray-600">{inst.currency}</span>
+            </div>
+            <div className="col-span-1 font-mono text-blue-400 text-[10px]">{rail}</div>
+            <div className="col-span-2">
+                <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${statusColors[inst.state] || 'text-gray-400'}`}
+                >
+                    {inst.state}
+                </span>
+            </div>
+            <div className="col-span-3 font-mono text-[9px] text-gray-600 truncate pr-1">
+                {firstHash ? (
+                    firstHash.slice(0, 32) + '...'
+                ) : (
+                    <span className="text-gray-800">—</span>
+                )}
+            </div>
+        </div>
+    );
+}
 
-    // Seed with some initial values if empty for demo
-    if (fiat === 0) fiat = 12450.00;
-    if (crypto === 0) crypto = 50000;
-    if (wealth === 0) wealth = 8500.50;
+function RailBar({ label, count, total }: { label: string; count: number; total: number }) {
+    const pct = total > 0 ? (count / total) * 100 : 0;
+    return (
+        <div className="space-y-1">
+            <div className="flex justify-between text-[10px] font-mono">
+                <span className="text-gray-400">{label}</span>
+                <span className="text-gray-600">
+                    {count} ({pct.toFixed(0)}%)
+                </span>
+            </div>
+            <div className="w-full bg-gray-800 rounded h-1">
+                <div
+                    className="bg-blue-600 h-1 rounded transition-all"
+                    style={{ width: `${pct}%` }}
+                />
+            </div>
+        </div>
+    );
+}
 
-    return { fiat, crypto, wealth };
+function ApiKeyRow({
+    label,
+    value,
+    highlight,
+}: {
+    label: string;
+    value: string;
+    highlight?: boolean;
+}) {
+    return (
+        <div className="flex justify-between items-center">
+            <span className="text-[10px] text-gray-600 uppercase tracking-widest">{label}</span>
+            <span
+                className={`text-[10px] font-mono ${highlight ? 'text-green-400' : 'text-gray-400'}`}
+            >
+                {value}
+            </span>
+        </div>
+    );
+}
+
+function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button
+            onClick={onClick}
+            className="bg-[#161B22] border border-gray-800 hover:border-blue-600/50 hover:text-blue-400 text-gray-400 text-xs font-medium py-2.5 px-3 rounded-lg transition-all text-left"
+        >
+            {label}
+        </button>
+    );
 }

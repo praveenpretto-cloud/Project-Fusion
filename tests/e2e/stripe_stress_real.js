@@ -10,7 +10,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
     httpsAgent: agent,
     headers: { 'x-api-key': API_KEY },
-    validateStatus: () => true
+    validateStatus: () => true,
 });
 
 async function runSingleTransaction(index) {
@@ -20,39 +20,58 @@ async function runSingleTransaction(index) {
 
     try {
         // 1. INITIATE
-        const initRes = await client.post(`${API_URL}/instruction/initiate`, {
-            amount: parseFloat(amount),
-            currency: 'USD',
-            sender: 'user_stripe_test',
-            recipient: 'user_merchant_e2e',
-            purpose: 'PAYMENT_DEMO_REAL'
-        }, { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } });
+        const initRes = await client.post(
+            `${API_URL}/instruction/initiate`,
+            {
+                amount: parseFloat(amount),
+                currency: 'USD',
+                sender: 'user_stripe_test',
+                recipient: 'user_merchant_e2e',
+                purpose: 'PAYMENT_DEMO_REAL',
+            },
+            { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } }
+        );
 
         if (initRes.status !== 200) throw new Error(`Init Failed: ${initRes.status}`);
         const { instructionId } = initRes.data;
 
         // 2. POLICY
-        const polRes = await client.post(`${API_URL}/policy/evaluate`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` }
-        });
+        const polRes = await client.post(
+            `${API_URL}/policy/evaluate`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` },
+            }
+        );
         if (polRes.status !== 200) throw new Error(`Policy Failed: ${polRes.status}`);
 
         // 3. ROUTE
-        const routeRes = await client.post(`${API_URL}/orchestration/route`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` }
-        });
+        const routeRes = await client.post(
+            `${API_URL}/orchestration/route`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` },
+            }
+        );
         if (routeRes.status !== 200) throw new Error(`Route Failed: ${routeRes.status}`);
         const { selectedAdapter } = routeRes.data;
 
         // 4. EXECUTE
-        const execRes = await client.post(`${API_URL}/adapter/execute`, { instructionId, adapter: selectedAdapter }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` }
-        });
+        const execRes = await client.post(
+            `${API_URL}/adapter/execute`,
+            { instructionId, adapter: selectedAdapter },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` },
+            }
+        );
 
-        if (execRes.status !== 200) throw new Error(`Exec Failed: ${execRes.status} - ${JSON.stringify(execRes.data)}`);
+        if (execRes.status !== 200)
+            throw new Error(`Exec Failed: ${execRes.status} - ${JSON.stringify(execRes.data)}`);
 
         const duration = Date.now() - start;
-        console.log(`✅ [#${index}] Success (${duration}ms) - Intent: ${execRes.data.adapter_result.intent_id}`);
+        console.log(
+            `✅ [#${index}] Success (${duration}ms) - Intent: ${execRes.data.adapter_result.intent_id}`
+        );
         return true;
     } catch (err) {
         console.error(`❌ [#${index}] Error: ${err.message}`);
@@ -61,7 +80,9 @@ async function runSingleTransaction(index) {
 }
 
 async function runBatch() {
-    console.log(`🚀 STARTING STRESS TEST: ${TOTAL_TXNS} Real Transactions (Concurrency: ${CONCURRENCY_LIMIT})`);
+    console.log(
+        `🚀 STARTING STRESS TEST: ${TOTAL_TXNS} Real Transactions (Concurrency: ${CONCURRENCY_LIMIT})`
+    );
     const startTime = Date.now();
 
     let activePromises = [];
@@ -70,7 +91,7 @@ async function runBatch() {
 
     for (let i = 0; i < TOTAL_TXNS; i++) {
         // Create promise
-        const p = runSingleTransaction(i).then(result => {
+        const p = runSingleTransaction(i).then((result) => {
             completed++;
             if (result) successCount++;
             // Remove self from active list
@@ -101,12 +122,19 @@ async function runBatch() {
 
     // Log to JSON for parsing if needed
     const fs = require('fs');
-    fs.writeFileSync('stress_test_result.json', JSON.stringify({
-        total: TOTAL_TXNS,
-        success: successCount,
-        time_seconds: totalTime,
-        tps: tps
-    }, null, 2));
+    fs.writeFileSync(
+        'stress_test_result.json',
+        JSON.stringify(
+            {
+                total: TOTAL_TXNS,
+                success: successCount,
+                time_seconds: totalTime,
+                tps: tps,
+            },
+            null,
+            2
+        )
+    );
 }
 
 runBatch();

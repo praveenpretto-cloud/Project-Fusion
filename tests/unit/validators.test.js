@@ -15,6 +15,7 @@ describe('Input Validators', () => {
                 sender: 'Alice_123',
                 recipient: 'Bob_456',
                 purpose: 'CARD',
+                auth_token: 'afat_1234567890abcdef',
             };
 
             const { error } = instructionInitiateSchema.validate(validData);

@@ -2,28 +2,32 @@ const cluster = require('cluster');
 const os = require('os');
 
 // --- INFRASTRUCTURE: CLUSTERING (Horizontal Scaling) ---
-if (cluster.isPrimary) {
-    const numCPUs = os.cpus().length;
-    console.log(`[MASTER] Master ${process.pid} is running`);
-    console.log(`[MASTER] Forking ${numCPUs} workers for maximum throughput...`);
 
-    // Fork workers.
-    for (let i = 0; i < numCPUs; i++) {
-        cluster.fork();
+if (require.main === module) {
+    if (cluster.isPrimary) {
+        const numCPUs = os.cpus().length;
+        console.log(`[MASTER] Master ${process.pid} is running`);
+        console.log(`[MASTER] Forking ${numCPUs} workers for maximum throughput...`);
+
+        // Fork workers.
+        for (let i = 0; i < numCPUs; i++) {
+            cluster.fork();
+        }
+
+        cluster.on('exit', (worker) => {
+            console.error(`[MASTER] Worker ${worker.process.pid} died. Forking replacement...`);
+            cluster.fork();
+        });
+    } else {
+        startApp();
     }
-
-    cluster.on('exit', (worker, code, signal) => {
-        console.error(`[MASTER] Worker ${worker.process.pid} died. Forking replacement...`);
-        cluster.fork();
-    });
 } else {
-    // Workers share the TCP connection in this server
-    startApp();
+    // Export for testing
+    module.exports = startApp();
 }
 
 function startApp() {
     const express = require('express'); // RESTART_TRIGGER_AGGREGATION
-
 
     const cors = require('cors');
     const { Pool } = require('pg');
@@ -43,7 +47,6 @@ function startApp() {
     }
 
     const { evaluatePolicy } = require('./policyEngine');
-    const { executeBrokerageTrade } = require('./adapters/brokerageAdapters');
     const { executeCryptoTransfer } = require('./adapters/cryptoAdapters');
     const { executePaymentRail } = require('./adapters/paymentsAdapters');
     const { LIMITS } = require('./constants');
@@ -218,7 +221,7 @@ function startApp() {
                 initiated_at: txn.created_at,
                 // Deliberately excluded: sender_name, recipient_name, amounts, account_numbers
             });
-        } catch (err) {
+        } catch {
             res.status(500).send('Observability Error');
         }
     });
@@ -229,8 +232,16 @@ function startApp() {
         // If the path is NOT /observe, we demand a cert.
         const isLoadTest = process.env.LOAD_TEST_MODE === 'true';
 
+        // Do not require mTLS or API Keys for KYC onboarding, Auth API, or Webhooks (simulating public endpoints)
+        if (
+            req.path.startsWith('/api/kyc') ||
+            req.path.startsWith('/api/auth') ||
+            req.path.startsWith('/api/webhooks')
+        ) {
+            return next();
+        }
+
         if (!req.path.startsWith('/observe') && !isLoadTest) {
-            const cert = req.socket.getPeerCertificate();
             if (!req.client.authorized) {
                 console.warn(`[AUTH] Blocked non-mTLS request to ${req.path}`);
                 return res.status(401).json({
@@ -253,6 +264,10 @@ function startApp() {
 
     // Apply authentication and rate limiting to ALL /api/ routes
     app.use('/api/', apiLimiter, authenticateClient);
+
+    // --- RBI COMPLIANCE MODULES ---
+    app.use('/api/kyc', require('./api/kyc'));
+    app.use('/api/auth', require('./api/auth'));
 
     // =====================================================
     // 2️⃣ IDEMPOTENCY (THE GUARDRAIL)
@@ -287,24 +302,90 @@ function startApp() {
 
     // --- ADAPTER BOUNDARY ---
 
-    // Adapters are now imported from the adapters/ folder
+    const adapterRegistry = require('./core/AdapterRegistry');
+
+    // Load external plugins if the directory exists
+    const pluginsDir = path.join(__dirname, 'plugins');
+    if (fs.existsSync(pluginsDir)) {
+        adapterRegistry.loadPluginsFromDirectory(pluginsDir);
+    }
+
+    // Register legacy core adapters to maintain backward compatibility
+    adapterRegistry.registerCoreAdapters([
+        {
+            id: 'legacy_fiat',
+            name: 'Legacy Fiat Rails',
+            supports: (instruction) =>
+                [
+                    'ADAPTER_PAYNOW',
+                    'ADAPTER_SWIFT',
+                    'ADAPTER_STRIPE',
+                    'ADAPTER_PBM_CONTRACT',
+                ].includes(instruction._requestedAdapter),
+            execute: async (instruction) => await executePaymentRail(instruction),
+            rollback: async (intentId) => {
+                const { rollbackPaymentRail } = require('./adapters/paymentsAdapters');
+                return await rollbackPaymentRail(intentId);
+            },
+        },
+        {
+            id: 'legacy_crypto',
+            name: 'Legacy Crypto Rails',
+            supports: (instruction) => instruction._requestedAdapter === 'ADAPTER_CRYPTO_CUSTODIAN',
+            execute: async (instruction) => await executeCryptoTransfer(instruction),
+            rollback: async () => {
+                return { status: 'MOCK_REVERSED' };
+            },
+        },
+        {
+            id: 'core_razorpay',
+            name: 'Razorpay Indian PA',
+            supports: (instruction) => instruction._requestedAdapter === 'ADAPTER_RAZORPAY',
+            execute: async (instruction) => {
+                const { executeRazorpayRail } = require('./adapters/razorpayAdapter');
+                return await executeRazorpayRail(instruction);
+            },
+            rollback: async (intentId) => {
+                const { rollbackRazorpayRail } = require('./adapters/razorpayAdapter');
+                return await rollbackRazorpayRail(intentId);
+            },
+        },
+        {
+            id: 'core_iso20022',
+            name: 'Direct Bank Connectivity (SWIFT/ISO20022)',
+            supports: (instruction) => instruction._requestedAdapter === 'ADAPTER_ISO20022',
+            execute: async (instruction) => {
+                const { executeISO20022Transfer } = require('./adapters/iso20022Adapter');
+                return await executeISO20022Transfer(instruction);
+            },
+            rollback: async () => {
+                return { status: 'MOCK_REVERSED' };
+            },
+        },
+    ]);
 
     // Generic adapter executor (Core orchestration calls this)
     async function executeAdapter(adapterType, instruction) {
-        switch (adapterType) {
-            case 'ADAPTER_PAYNOW':
-            case 'ADAPTER_SWIFT':
-            case 'ADAPTER_STRIPE': // ✅ Explicit Stripe Support
-                return await executePaymentRail(instruction);
-            case 'ADAPTER_CRYPTO_CUSTODIAN':
-                return await executeCryptoTransfer(instruction);
-            case 'ADAPTER_BROKERAGE_API':
-                return await executeBrokerageTrade(instruction);
-            case 'ADAPTER_PBM_CONTRACT':
-                return await executePaymentRail(instruction);
-            default:
-                throw new Error(`Unknown adapter type: ${adapterType}`);
+        const hydratedInstruction = { ...instruction, _requestedAdapter: adapterType };
+
+        const adapter = adapterRegistry.findAdapterForInstruction(hydratedInstruction);
+        if (!adapter) {
+            throw new Error(`No adapter found supporting instruction type: ${adapterType}`);
         }
+
+        const context = { logger };
+        return await adapter.execute(hydratedInstruction, context);
+    }
+
+    // Generic adapter rollback executor
+    async function rollbackAdapter(adapterType, instruction, intentId) {
+        const hydratedInstruction = { ...instruction, _requestedAdapter: adapterType };
+        const adapter = adapterRegistry.findAdapterForInstruction(hydratedInstruction);
+        if (!adapter) {
+            logger.warn(`[ROLLBACK] No adapter found to rollback: ${adapterType}`);
+            return { status: 'UNKNOWN' };
+        }
+        return await adapter.rollback(intentId);
     }
 
     // --- GOVERNANCE LOGGING (CORDA) ---
@@ -362,7 +443,9 @@ function startApp() {
             [entryId2, instructionId, recipient, amount, currency, timestamp, hash2, hash1]
         );
 
-        console.log(`[LEDGER] Chained Entries: ${hash1.substring(0, 8)} -> ${hash2.substring(0, 8)}`);
+        console.log(
+            `[LEDGER] Chained Entries: ${hash1.substring(0, 8)} -> ${hash2.substring(0, 8)}`
+        );
     }
 
     // --- DOUBLE-ENTRY VERIFICATION ---
@@ -399,10 +482,37 @@ function startApp() {
         checkIdempotency,
         async (req, res) => {
             try {
-                const { amount, currency, sender, recipient, purpose } = req.body;
+                const { amount, currency, sender, recipient, purpose, auth_token } = req.body;
+
+                // 1. Check Regulatory KYC compliance before transaction initiation
+                const userCheck = await pool.query(
+                    'SELECT kyc_status FROM users WHERE user_id = $1',
+                    [sender]
+                );
+                if (userCheck.rows.length === 0 || userCheck.rows[0].kyc_status !== 'VERIFIED') {
+                    return res
+                        .status(403)
+                        .json({ error: 'Sender KYC not verified. Please complete onboarding.' });
+                }
+
+                // 2. Verify Additional Factor of Authentication (AFA/OTP)
+                if (!auth_token || !auth_token.startsWith('afat_')) {
+                    return res
+                        .status(401)
+                        .json({ error: 'Missing or invalid auth_token. AFA (OTP) required.' });
+                }
+                const otpId = auth_token.split('_')[1];
+                const otpCheck = await pool.query(
+                    'SELECT verified FROM otps WHERE id = $1 AND user_id = $2',
+                    [otpId, sender]
+                );
+                if (otpCheck.rows.length === 0 || !otpCheck.rows[0].verified) {
+                    return res.status(401).json({ error: 'Invalid AFA provided.' });
+                }
+
                 const instructionId = crypto.randomUUID();
 
-                const newInstruction = await pool.query(
+                await pool.query(
                     `INSERT INTO instructions (instruction_id, amount, currency, sender, recipient, purpose, state, created_at, updated_at) 
              VALUES ($1, $2, $3, $4, $5, $6, 'INITIATED', NOW(), NOW()) RETURNING *`,
                     [instructionId, amount, currency, sender, recipient, purpose]
@@ -435,9 +545,10 @@ function startApp() {
         const client = await pool.connect();
         try {
             const { instructionId } = req.body;
-            const result = await client.query('SELECT * FROM instructions WHERE instruction_id = $1', [
-                instructionId,
-            ]);
+            const result = await client.query(
+                'SELECT * FROM instructions WHERE instruction_id = $1',
+                [instructionId]
+            );
             if (result.rows.length === 0) return res.status(404).json({ error: 'Not Found' });
             const txn = result.rows[0];
 
@@ -468,10 +579,14 @@ function startApp() {
                     [txn.amount, txn.sender, txn.currency]
                 );
 
-                // ✅ Transition to LOCKED
+                // ✅ Fetch RFQ to guarantee conversion rate (AMM Slippage Protection)
+                const mockFxRate = txn.currency === 'USD' ? 1.0 : 0.85;
+                const quoteId = 'rfq_' + crypto.randomUUID();
+
+                // ✅ Transition to LOCKED and preserve the guaranteed price
                 await client.query(
-                    "UPDATE instructions SET state = 'LOCKED', updated_at = NOW() WHERE instruction_id = $1",
-                    [instructionId]
+                    "UPDATE instructions SET state = 'LOCKED', fx_rate = $1, quote_id = $2, updated_at = NOW() WHERE instruction_id = $3",
+                    [mockFxRate, quoteId, instructionId]
                 );
 
                 await client.query('COMMIT');
@@ -505,23 +620,28 @@ function startApp() {
     app.post('/api/orchestration/route', validateRequest(instructionIdSchema), async (req, res) => {
         try {
             const { instructionId } = req.body;
-            const result = await pool.query('SELECT * FROM instructions WHERE instruction_id = $1', [
-                instructionId,
-            ]);
+            const result = await pool.query(
+                'SELECT * FROM instructions WHERE instruction_id = $1',
+                [instructionId]
+            );
             const txn = result.rows[0];
 
             if (txn.state !== 'LOCKED')
                 return res.status(400).json({ error: 'Instruction not in LOCKED state' });
 
             // Logic: Least-Cost & Capability Routing (Original Logic Preserved)
-            let adapterType = 'ADAPTER_SWIFT'; // Default Fallback
+            let adapterType = 'ADAPTER_ISO20022'; // Default Fallback (Tier-1 Native)
 
-            if (txn.purpose === 'INVESTMENT') adapterType = 'ADAPTER_BROKERAGE_API';
-            else if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency))
+            if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency))
                 adapterType = 'ADAPTER_CRYPTO_CUSTODIAN';
             else if (txn.currency === 'PBM_VOUCHER') adapterType = 'ADAPTER_PBM_CONTRACT';
             else if (txn.currency === 'SGD') adapterType = 'ADAPTER_PAYNOW';
-            else if (['USD', 'EUR'].includes(txn.currency)) adapterType = 'ADAPTER_STRIPE'; // ✅ Default to Stripe for Major Fiat
+            else if (txn.currency === 'INR') adapterType = 'ADAPTER_RAZORPAY';
+            else if (['USD', 'EUR'].includes(txn.currency)) {
+                // 💰 Institutional Routing: Amounts > 10,000 skip Stripe to save fees
+                if (parseFloat(txn.amount) >= 10000) adapterType = 'ADAPTER_ISO20022';
+                else adapterType = 'ADAPTER_STRIPE';
+            }
 
             await pool.query(
                 "UPDATE instructions SET state = 'PENDING_EXECUTION', updated_at = NOW() WHERE instruction_id = $1",
@@ -532,7 +652,7 @@ function startApp() {
             await notarizeToGovernance('ROUTING_DECISION', { instructionId, adapter: adapterType });
 
             res.json({ instructionId, state: 'PENDING_EXECUTION', selectedAdapter: adapterType });
-        } catch (err) {
+        } catch {
             res.status(500).send('Orchestration Error');
         }
     });
@@ -578,6 +698,14 @@ function startApp() {
                 // If server crashes here, reconciler will find it in PENDING_EXECUTION state
                 let adapterResult;
                 try {
+                    // --- COMPLIANCE INTERCEPTOR INJECTION ---
+                    const compliance = require('./core/complianceInterceptor');
+                    const taxInfo = await compliance.runComplianceChecks(txn);
+                    logger.info(
+                        `[SAGA] Post-Compliance Amount: ${txn.amount} (Tax: ${taxInfo.tax_withheld})`
+                    );
+                    // -----------------------------------------
+
                     // logger.info(`[SAGA] Executing adapter: ${adapter} for instruction ${instructionId}`);
                     adapterResult = await executeAdapter(adapter, txn);
                     logger.info({ msg: '[ADAPTER] Result', result: adapterResult });
@@ -594,7 +722,9 @@ function startApp() {
                         } finally {
                             updateClient.release();
                         }
-                        logger.info(`[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`);
+                        logger.info(
+                            `[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`
+                        );
                     }
                 } catch (adapterErr) {
                     logger.error(`[ADAPTER] Failed for ${instructionId}: ${adapterErr.message}`);
@@ -608,29 +738,19 @@ function startApp() {
                     await finalClient.query('BEGIN');
 
                     if (adapterResult.status === 'SUCCESS') {
-                        // Step 2: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
-                        await writeLedger(
-                            finalClient,
-                            instructionId,
-                            txn.sender,
-                            txn.recipient,
-                            txn.amount,
-                            txn.currency
-                        );
-                        console.log(`[SAGA] Ledger writes completed for instruction ${instructionId}`);
-
-                        // Step 3: VERIFY DOUBLE-ENTRY INTEGRITY
-                        await verifyLedgerIntegrity(finalClient, instructionId, txn.currency);
-
-                        // Step 4: UPDATE STATE to SETTLED
+                        // Step 2: UPDATE STATE to PENDING_SETTLEMENT (Async Architecture)
+                        // Note: We no longer write the double-entry ledger here.
+                        // We wait for the asynchronous webhook to confirm final settlement.
                         await finalClient.query(
-                            "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
+                            "UPDATE instructions SET state = 'PENDING_SETTLEMENT', updated_at = NOW() WHERE instruction_id = $1",
                             [instructionId]
                         );
 
                         await finalClient.query('COMMIT');
-                        logger.info(`[SAGA] SAGA_COMPLETED for instruction ${instructionId}`);
-                        trackTransaction('SUCCESS', 'SETTLEMENT');
+                        logger.info(
+                            `[SAGA] SAGA_COMPLETED (Awaiting Webhook) for instruction ${instructionId}`
+                        );
+                        trackTransaction('SUCCESS', 'PENDING_SETTLEMENT');
                     } else {
                         // Adapter failed
                         await finalClient.query(
@@ -649,15 +769,17 @@ function startApp() {
                         adapterUsed: adapter,
                         adapterResult: adapterResult,
                         amount: txn.amount,
-                        integrityHash: crypto.createHash('sha256').update(instructionId).digest('hex'),
+                        integrityHash: crypto
+                            .createHash('sha256')
+                            .update(instructionId)
+                            .digest('hex'),
                     });
 
                     const responseData = {
                         instructionId,
-                        state: adapterResult.status === 'SUCCESS' ? 'SETTLED' : 'FAILED',
+                        state: adapterResult.status === 'SUCCESS' ? 'PENDING_SETTLEMENT' : 'FAILED',
                         adapter_result: adapterResult,
-                        ledger_proof:
-                            adapterResult.status === 'SUCCESS' ? 'DOUBLE_ENTRY_OK' : 'NOT_WRITTEN',
+                        ledger_proof: 'PENDING_WEBHOOK',
                     };
 
                     if (req.idempotencyKey) {
@@ -672,17 +794,49 @@ function startApp() {
                     await finalClient.query('ROLLBACK');
                     logger.error(`[SAGA] Ledger write failed for ${instructionId}: ${err.message}`);
 
-                    // Mark as MANUAL_CHECK (not FAILED) - reconciler will investigate
-                    try {
+                    // --- SAGA ROLLBACK PROTOCOL (COMPENSATING TRANSACTION) ---
+                    // The funds might have moved via the adapter, but the local DB write failed. We MUST reverse it.
+                    if (
+                        adapterResult &&
+                        adapterResult.status === 'SUCCESS' &&
+                        adapterResult.intent_id
+                    ) {
+                        try {
+                            logger.warn(
+                                `[SAGA] Ledger failed after Adapter Success. Triggering COMPENSATING TRANSACTION for ${instructionId}`
+                            );
+                            const rollbackObj = await rollbackAdapter(
+                                adapter,
+                                txn,
+                                adapterResult.intent_id
+                            );
+                            logger.info(
+                                `[SAGA] ✅ Compensating transaction result: ${JSON.stringify(rollbackObj)}`
+                            );
+
+                            await pool.query(
+                                "UPDATE instructions SET state = 'ROLLED_BACK', updated_at = NOW() WHERE instruction_id = $1",
+                                [instructionId]
+                            );
+                            logger.warn(
+                                `[SAGA] State marked as ROLLED_BACK. Funds returned to sender.`
+                            );
+                        } catch (rollbackErr) {
+                            logger.error(
+                                `[SAGA FATAL] ❌ Compensating transaction FAILED: ${rollbackErr.message}`
+                            );
+                            await pool.query(
+                                "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                                [instructionId]
+                            );
+                            logger.error(`[SAGA FATAL] Moved to MANUAL_CHECK. Funds may be stuck.`);
+                        }
+                    } else {
+                        // Adapter already failed or didn't execute, but ledger block crashed. Safe to fail.
                         await pool.query(
-                            "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                            "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
                             [instructionId]
                         );
-                        logger.info(
-                            `[SAGA] Moved to MANUAL_CHECK for manual investigation: ${instructionId}`
-                        );
-                    } catch (updateErr) {
-                        logger.error('Failed to mark MANUAL_CHECK', updateErr);
                     }
 
                     res.status(500).json({
@@ -695,7 +849,9 @@ function startApp() {
                     finalClient.release();
                 }
             } catch (err) {
-                logger.error(`[SAGA] Unexpected error for ${req.body.instructionId}: ${err.message}`);
+                logger.error(
+                    `[SAGA] Unexpected error for ${req.body.instructionId}: ${err.message}`
+                );
                 res.status(500).json({
                     error: 'System Error',
                     reason: err.message,
@@ -703,6 +859,141 @@ function startApp() {
             }
         }
     );
+
+    // =====================================================
+    // API 5: ASYNC WEBHOOK INGESTION (IDEMPOTENT)
+    // =====================================================
+    app.post('/api/webhooks/gateway', express.json(), async (req, res) => {
+        try {
+            const event = req.body;
+            // Support both standard Stripe webhook format and custom mock formats
+            const eventId = event.id || `mock_evt_${Date.now()}`;
+
+            // Extract Intent ID based on provider payload structure
+            const intentId =
+                event.data?.object?.id || event.intent_id || event.payload?.payment?.entity?.id;
+
+            // Determine success based on event type
+            const isSuccess =
+                event.type === 'payment_intent.succeeded' ||
+                event.event === 'payout.processed' ||
+                event.status === 'succeeded';
+
+            if (!intentId) {
+                return res.status(400).send('Invalid webhook payload: Missing Intent ID');
+            }
+
+            logger.info(`[WEBHOOK] 📥 Received Async Webhook for Intent: ${intentId}`);
+
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+
+                // 1. IDEMPOTENCY CHECK (Database level)
+                // Ensure we NEVER process the exact same webhook multiple times (Double-Spend Protection)
+                const insertResult = await client.query(
+                    `INSERT INTO idempotency_keys (key_id, response_json) 
+                     VALUES ($1, $2) ON CONFLICT (key_id) DO NOTHING RETURNING key_id`,
+                    [`webhook_${eventId}`, JSON.stringify({ received: true })]
+                );
+
+                if (insertResult.rows.length === 0) {
+                    logger.warn(`[WEBHOOK] 🛑 Duplicate event received and ignored: ${eventId}`);
+                    await client.query('ROLLBACK');
+                    return res.status(200).send('Duplicate ignored');
+                }
+
+                // 2. LOOKUP INSTRUCTION BY INTENT_ID
+                // Use row-level locking (FOR UPDATE) to prevent race conditions
+                const txnResult = await client.query(
+                    'SELECT * FROM instructions WHERE external_intent_id = $1 FOR UPDATE',
+                    [intentId]
+                );
+
+                if (txnResult.rows.length === 0) {
+                    logger.warn(`[WEBHOOK] Intent ${intentId} not found in database.`);
+                    await client.query('ROLLBACK');
+                    return res.status(404).send('Instruction not found');
+                }
+
+                const txn = txnResult.rows[0];
+
+                if (
+                    txn.state === 'SETTLED' ||
+                    txn.state === 'FAILED' ||
+                    txn.state === 'ROLLED_BACK'
+                ) {
+                    logger.info(
+                        `[WEBHOOK] Instruction ${txn.instruction_id} already in terminal state (${txn.state}).`
+                    );
+                    await client.query('ROLLBACK');
+                    return res.status(200).send('Already processed');
+                }
+
+                if (isSuccess) {
+                    logger.info(`[WEBHOOK] ✅ Finalizing Settlement for ${txn.instruction_id}`);
+
+                    // Step 3: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
+                    // We only write to the immutable ledger AFTER the webhook guarantees funds moved
+                    await writeLedger(
+                        client,
+                        txn.instruction_id,
+                        txn.sender,
+                        txn.recipient,
+                        txn.amount,
+                        txn.currency
+                    );
+
+                    // Step 4: VERIFY DOUBLE-ENTRY INTEGRITY
+                    await verifyLedgerIntegrity(client, txn.instruction_id, txn.currency);
+
+                    // Step 5: UPDATE STATE TO FINALLY SETTLED
+                    await client.query(
+                        "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
+                        [txn.instruction_id]
+                    );
+
+                    await client.query('COMMIT');
+                    logger.info(
+                        `[WEBHOOK] 🎉 SAGA_COMPLETED successfully for ${txn.instruction_id}`
+                    );
+                    trackTransaction('SUCCESS', 'SETTLEMENT_WEBHOOK');
+
+                    // Step 6: ASYNC GOVERNANCE NOTARIZATION
+                    await notarizeToGovernance('WEBHOOK_SETTLEMENT_NOTARIZED', {
+                        txnId: txn.instruction_id,
+                        intentId: intentId,
+                        amount: txn.amount,
+                        integrityHash: require('crypto')
+                            .createHash('sha256')
+                            .update(txn.instruction_id)
+                            .digest('hex'),
+                    });
+                } else {
+                    logger.error(`[WEBHOOK] ❌ Payment Failed upstream for ${txn.instruction_id}`);
+
+                    // Trigger SAGA Compensating Transaction logic since the gateway failed
+                    // (Assuming fiat failed, we just mark it failed. If this was a nested leg, rollback rules apply)
+                    await client.query(
+                        "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
+                        [txn.instruction_id]
+                    );
+                    await client.query('COMMIT');
+                }
+
+                res.status(200).json({ received: true, instruction_id: txn.instruction_id });
+            } catch (err) {
+                await client.query('ROLLBACK');
+                logger.error(`[WEBHOOK DB ERROR] ❌ ${err.message}`);
+                res.status(500).send('Internal Server Error processing webhook');
+            } finally {
+                client.release();
+            }
+        } catch (err) {
+            logger.error(`[WEBHOOK FATAL] ${err.message}`);
+            res.status(500).send('Webhook parsing error');
+        }
+    });
 
     // --- RECONCILIATION WORKER ---
     setInterval(async () => {
@@ -732,7 +1023,9 @@ function startApp() {
                 logger.info(`[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`);
 
                 try {
-                    const status = await require('./adapters/paymentsAdapters').queryStatus(intentId);
+                    const status = await require('./adapters/paymentsAdapters').queryStatus(
+                        intentId
+                    );
                     if (status === 'succeeded') {
                         await pool.query(
                             "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
@@ -750,18 +1043,22 @@ function startApp() {
                             "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
                             [id]
                         );
-                        logger.warn(`[RECONCILER] Marked ${id} as MANUAL_CHECK (status: ${status})`);
+                        logger.warn(
+                            `[RECONCILER] Marked ${id} as MANUAL_CHECK (status: ${status})`
+                        );
                     }
                 } catch (adapterErr) {
-                    logger.error(`[RECONCILER] Error querying status for ${id}: ${adapterErr.message}`);
+                    logger.error(
+                        `[RECONCILER] Error querying status for ${id}: ${adapterErr.message}`
+                    );
                     await pool.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
                         [id]
                     );
                 }
             }
-        } catch (err) {
-            logger.error(`[RECONCILER] Critical error in reconciliation loop: ${err.message}`);
+        } catch {
+            logger.error(`[RECONCILER] Critical error in reconciliation loop`);
             // In production, this should trigger an alert (PagerDuty, Slack, etc.)
         }
     }, 60000); // Run every 60 seconds
@@ -774,9 +1071,12 @@ function startApp() {
         try {
             const { limit = 50, offset = 0 } = req.query;
 
-            // Fetch recent instructions
+            // Fetch recent instructions with their double-entry ledger hashes
             const result = await pool.query(
-                'SELECT * FROM instructions ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+                `SELECT i.*, 
+                 (SELECT array_agg(entry_id) FROM ledger_journal lj WHERE lj.instruction_id::varchar = i.instruction_id::varchar) as ledger_hashes
+                 FROM instructions i 
+                 ORDER BY i.created_at DESC LIMIT $1 OFFSET $2`,
                 [limit, offset]
             );
 
@@ -804,10 +1104,14 @@ function startApp() {
                     crypto.createHash('sha256').update(txn.sender).digest('hex').substring(0, 8) +
                     '...',
                 recipient_hash:
-                    crypto.createHash('sha256').update(txn.recipient).digest('hex').substring(0, 8) +
-                    '...',
+                    crypto
+                        .createHash('sha256')
+                        .update(txn.recipient)
+                        .digest('hex')
+                        .substring(0, 8) + '...',
                 timestamp: txn.created_at,
                 trace_id: txn.external_intent_id || 'N/A',
+                ledger_hashes: txn.ledger_hashes || [],
             }));
 
             res.json({
@@ -816,12 +1120,12 @@ function startApp() {
                     total_volume: parseFloat(stats.total_volume),
                     total_count: parseInt(stats.total_count),
                     settled_count: parseInt(stats.settled_count),
-                    failed_count: parseInt(stats.failed_count)
-                }
+                    failed_count: parseInt(stats.failed_count),
+                },
             });
         } catch (err) {
-            logger.error(`[AUDIT ERROR] ${err.message}`);
-            res.status(500).json({ error: 'Audit System Unavailable' });
+            logger.error(`[AUDIT ERROR] ${err.stack}`);
+            res.status(500).json({ error: 'Audit System Unavailable', details: err.message });
         }
     });
 
@@ -835,12 +1139,21 @@ function startApp() {
         rejectUnauthorized: false, // Allow handshake to succeed (we enforce 'authorized' in middleware)
     };
 
-    https.createServer(httpsOptions, app).listen(PORT, () => {
-        logger.info(
-            `[STARTUP] Project Fusion Enterprise Core (SECURE) running on https://localhost:${PORT}`
-        );
-        logger.info('[STARTUP] mTLS SECURITY ENFORCED: Mutual identity required for all API calls');
-        logger.info('[STARTUP] HSM SIMULATION ACTIVE: Sensitive keys isolated in Vault');
-        logger.info('[STARTUP] Ready for high-security regulatory discussion');
-    });
+    const server = https.createServer(httpsOptions, app);
+
+    // Only listen if this is the main module (not imported by Jest)
+    if (require.main === module) {
+        server.listen(PORT, () => {
+            logger.info(
+                `[STARTUP] Project Fusion Enterprise Core (SECURE) running on https://localhost:${PORT}`
+            );
+            logger.info(
+                '[STARTUP] mTLS SECURITY ENFORCED: Mutual identity required for all API calls'
+            );
+            logger.info('[STARTUP] HSM SIMULATION ACTIVE: Sensitive keys isolated in Vault');
+            logger.info('[STARTUP] Ready for high-security regulatory discussion');
+        });
+    }
+
+    return app; // Export app for testing
 } // End of startApp

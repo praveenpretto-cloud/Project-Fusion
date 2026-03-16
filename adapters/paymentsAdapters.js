@@ -1,6 +1,6 @@
 // PAYMENTS ADAPTER
 
-async function executePaymentRail(instruction, adapterConfig) {
+async function executePaymentRail(instruction) {
     const { getAdapterCredential } = require('../vaultProvider');
     const stripeKey = getAdapterCredential('STRIPE_KEY');
     const stripe = require('stripe')(stripeKey);
@@ -44,6 +44,7 @@ async function executePaymentRail(instruction, adapterConfig) {
             payment_method_types: ['card'],
             payment_method: pmToUse,
             confirm: true,
+            return_url: 'http://localhost:3000',
             metadata: {
                 instructionId,
                 sender,
@@ -75,5 +76,24 @@ async function queryStatus(intentId) {
         return 'UNKNOWN';
     }
 }
+async function rollbackPaymentRail(intentId) {
+    if (!intentId || intentId.startsWith('mock_')) return { status: 'MOCK_REFUNDED' };
+    const { getAdapterCredential } = require('../vaultProvider');
+    const stripeKey = getAdapterCredential('STRIPE_KEY');
+    const stripe = require('stripe')(stripeKey);
+    const logger = require('../logger');
 
-module.exports = { executePaymentRail, queryStatus };
+    try {
+        logger.warn(`[STRIPE ROLLBACK] 🔄 Initiating refund for Intent: ${intentId}`);
+        const refund = await stripe.refunds.create({
+            payment_intent: intentId,
+        });
+        logger.info(`[STRIPE ROLLBACK] ✅ Refund successful. Refund ID: ${refund.id}`);
+        return { status: 'REFUNDED', refund_id: refund.id };
+    } catch (err) {
+        logger.error(`[STRIPE ROLLBACK ERROR] ❌ Failed to refund: ${err.message}`);
+        return { status: 'REFUND_FAILED', error: err.message };
+    }
+}
+
+module.exports = { executePaymentRail, queryStatus, rollbackPaymentRail };

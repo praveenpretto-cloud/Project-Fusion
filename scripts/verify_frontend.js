@@ -4,7 +4,7 @@ const options = {
     hostname: 'localhost',
     port: 3001,
     path: '/',
-    method: 'GET'
+    method: 'GET',
 };
 
 const req = http.request(options, (res) => {

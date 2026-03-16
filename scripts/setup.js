@@ -62,7 +62,7 @@ if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
         }
 
         console.log('✅ Certificates generated in certs/');
-    } catch (e) {
+    } catch {
         console.warn(
             '⚠️ OpenSSL failed or not found. Please install OpenSSL or manually generate certs.'
         );

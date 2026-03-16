@@ -6,8 +6,8 @@ const Stellar = require('@stellar/stellar-sdk');
 const server = new Stellar.Horizon.Server('https://horizon-testnet.stellar.org');
 const NET_PASSPHRASE = 'Test SDF Network ; September 2015'; // Explicit Testnet
 
-async function executeCryptoTransfer(instruction, adapterConfig) {
-    const { instructionId, amount, currency, sender, recipient } = instruction;
+async function executeCryptoTransfer(instruction) {
+    const { amount, sender, recipient } = instruction;
 
     const logger = require('../logger');
     logger.info(`[STELLAR] Executing: ${amount} XLM from ${sender} to ${recipient}`);
@@ -31,7 +31,7 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         // 2. Ensure Source Account Exists (Fund via Friendbot if Demo)
         try {
             await server.loadAccount(sourcePublicKey);
-        } catch (e) {
+        } catch {
             logger.info('[STELLAR] Source not found. Funding via Friendbot...');
             await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
             logger.info('[STELLAR] Waiting for ledger (8s)...');
@@ -45,7 +45,7 @@ async function executeCryptoTransfer(instruction, adapterConfig) {
         let destExists = true;
         try {
             await server.loadAccount(destinationPublicKey);
-        } catch (e) {
+        } catch {
             destExists = false;
         }
 

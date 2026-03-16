@@ -31,27 +31,27 @@ scenarios:
                     recipient: 'user_merchant'
                     purpose: 'STRIPE_SCALE_TEST'
                 capture:
-                    - json: "$.instructionId"
-                      as: "instructionId"
+                    - json: '$.instructionId'
+                      as: 'instructionId'
           - post:
                 url: '/api/policy/evaluate'
                 headers:
                     x-idempotency-key: '{{ $randomString() }}'
                 json:
-                    instructionId: "{{ instructionId }}"
+                    instructionId: '{{ instructionId }}'
           - post:
                 url: '/api/orchestration/route'
                 headers:
                     x-idempotency-key: '{{ $randomString() }}'
                 json:
-                    instructionId: "{{ instructionId }}"
+                    instructionId: '{{ instructionId }}'
                 capture:
-                    - json: "$.selectedAdapter"
-                      as: "adapter"
+                    - json: '$.selectedAdapter'
+                      as: 'adapter'
           - post:
                 url: '/api/adapter/execute'
                 headers:
                     x-idempotency-key: '{{ $randomString() }}'
                 json:
-                    instructionId: "{{ instructionId }}"
-                    adapter: "{{ adapter }}"
+                    instructionId: '{{ instructionId }}'
+                    adapter: '{{ adapter }}'

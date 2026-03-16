@@ -11,15 +11,16 @@
 
 ## 🚀 The Core Mission
 
-**Project Fusion** is an institutional-grade **Multi-Asset Orchestration Engine**. It solves the fragmentation problem in modern finance by providing a single, atomic interface to manage three distinct asset classes:
+**Project Fusion** is an institutional-grade **Multi-Asset Orchestration Engine**. It solves the fragmentation problem in modern finance by providing a single, atomic interface across:
 
-1.  **Fiat Payments**: Real-time settlement (USD, EUR, SGD).
-2.  **Digital Assets**: Blockchain-native transfers (XLM, USDC).
-3.  **Capital Markets**: Equity and ETF simulations (Brokerage Execution).
+1.  **Fiat Domestic**: Real-time Indian payments via RazorpayX (INR).
+2.  **Cross-Border Fiat**: Global settlement via Stripe (USD, EUR) and SWIFT/ISO20022 for large transfers.
+3.  **Web3 Stablecoins**: Blockchain-native settlement via Stellar (XLM, USDC).
 
 ### The Orchestration Problem
-Banks, Blockchains, and Brokerages speak different languages (ISO20022, RPC, FIX).
-**Fusion acts as the Universal Translator.** It normalizes these fragmented protocols into a standard `Instruction` lifecycle, guaranteeing that a complex flow (e.g., "Sell Apple Stock -> Convert USD to USDC -> Send to Wallet") either **succeeds atomically** or **fails safely** without "Ghost Money" states.
+
+Banks and Blockchains speak different languages (ISO20022, RPC, HTTP).
+**Fusion acts as the Universal Translator.** It normalizes these fragmented protocols into a standard `Instruction` lifecycle, guaranteeing that every transfer either **succeeds atomically** or **fails safely** — zero "Ghost Money" states.
 
 ---
 
@@ -38,41 +39,49 @@ The system uses a **Saga-based State Machine** to coordinate these distributed t
 graph LR
     Client -->|mTLS| Fusion[Fusion Core]
     Fusion -->|SQL| Ledger[(Shadow Ledger)]
-    
-    subgraph "Asset Rails"
-        Fusion -->|HTTP| Stripe["Fiat Adapter (Stripe)"]
-        Fusion -->|RPC| Stellar["Crypto Adapter (Stellar)"]
-        Fusion -->|API| Broker["Brokerage Adapter (Stocks)"]
+
+    subgraph "Fiat Rails"
+        Fusion -->|HTTP| Razorpay["RazorpayX (INR)"]
+        Fusion -->|HTTP| Stripe["Stripe (USD/EUR)"]
+        Fusion -->|ISO20022| Swift["SWIFT >= $10k"]
+    end
+
+    subgraph "Web3 Rail"
+        Fusion -->|RPC| Stellar["Stellar (XLM/USDC)"]
     end
 
     Worker[Reconciler] -.->|Scan| Ledger
     Worker -.->|Recover| Stripe
     Worker -.->|Recover| Stellar
-    Worker -.->|Recover| Broker
 ```
 
 ---
 
 ## ⚡ Key Capabilities
 
-### 1. Universal Asset Support
-Seamlessly route value between any supported asset class. The "Smart Router" selects the optimal path.
+### 1. Smart Routing Across Three Rails
 
-*   **Fiat Implementation**: High-speed processing via **Stripe** (USD, EUR).
-    > *Note: Stripe is used as the reference fiat rail for its developer-friendly Testnet. The adapter pattern supports any banking API (SWIFT, ACH, SEPA) or payment processor.*
-*   **Crypto Implementation**: Low-latency settlement via **Stellar Horizon** (XLM).
-    > *Note: Stellar is currently used as the reference implementation for the crypto rail due to its accessible Testnet. The architecture is blockchain-agnostic and can support any RPC-based protocol (Ethereum, Solana, etc).*
-*   **Investment Implementation**: Trade execution interface for **Stocks/ETFs** (Brokerage Simulation).
+The **Smart Router** automatically selects the optimal payment path:
+
+- **INR Domestic**: Routed to **RazorpayX Payouts API** for real-time Indian bank transfers.
+- **Cross-Border Fiat (< $10k)**: Routed to **Stripe** (USD, EUR, GBP).
+- **Cross-Border Fiat (≥ $10k)**: Routed to **ISO20022 / SWIFT** (institutional, avoids card fees).
+- **Web3 Stablecoins**: Routed to **Stellar Horizon** (XLM, USDC) — blockchain-agnostic architecture supports Ethereum/Solana.
 
 ### 2. Regulatory Observability
+
 Built for compliance from day one.
+
 - **PII Redaction**: Logs are structured (JSON) but strictly sanitized of user data (names, account numbers).
 - **Audit Trails**: Every state transition is cryptographically logged.
 
-### 3. Institutional Security
+### 3. Institutional Security & Compliance
+
 - **Mutual TLS (mTLS)**: Zero Trust networking. Both client and server verify identity certificates.
 - **Idempotency**: Strict enforcement prevents double-spending on retries.
 - **Rate Limiting**: Token bucket algorithm protects upstream liquidity providers.
+- **KYC Verification**: Live verification checks (Setu/Signzy architecture) prior to onboarding.
+- **Additional Factor of Authentication (AFA)**: OTP verification enforced for all transaction initiations as per RBI/IFSCA guidelines.
 
 ---
 
@@ -94,10 +103,9 @@ Proof of successful end-to-end processing on traditional payment rails.
 
 ### 3. Validated Digital Asset Settlement
 
-Proof of successful real-time settlement on blockchain protocols (Testnet).
+Proof of successful real-time settlement on blockchain protocols (Stellar Testnet — XLM/USDC).
 
-![Crypto Proof 1](image.png)
-![Crypto Proof 2](image-1.png)
+![Stellar Dashboard](docs/images/stellar_dashboard.png)
 
 ---
 

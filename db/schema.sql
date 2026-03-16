@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS instructions (
   purpose VARCHAR(50) NOT NULL,
   state VARCHAR(20) NOT NULL DEFAULT 'INITIATED',
   external_intent_id VARCHAR(255), -- Stores Stripe payment_intent_id or external transaction ID
+  fx_rate DECIMAL(20, 6), -- Guaranteed exchange rate from AMM
+  quote_id VARCHAR(100), -- Lock-in ID from Liquidity Provider
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -37,7 +39,33 @@ CREATE TABLE IF NOT EXISTS idempotency_keys (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- RBI Compliance: KYC & User Management
+CREATE TABLE IF NOT EXISTS users (
+  user_id VARCHAR(50) PRIMARY KEY,
+  kyc_status VARCHAR(20) DEFAULT 'PENDING', -- PENDING, VERIFIED, REJECTED
+  kyc_verified_at TIMESTAMP,
+  reference_id VARCHAR(100), -- ID from KYC provider
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- RBI Compliance: OTP & AFA
+CREATE TABLE IF NOT EXISTS otps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id VARCHAR(50) NOT NULL REFERENCES users(user_id),
+  otp_code VARCHAR(10) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+
 -- Sample test data
+INSERT INTO users (user_id, kyc_status, kyc_verified_at) VALUES ('Alice_Corp', 'VERIFIED', NOW()) ON CONFLICT DO NOTHING;
+INSERT INTO users (user_id, kyc_status, kyc_verified_at) VALUES ('Bob_Supply', 'VERIFIED', NOW()) ON CONFLICT DO NOTHING;
+INSERT INTO users (user_id, kyc_status, kyc_verified_at) VALUES ('Alice_Wallet', 'VERIFIED', NOW()) ON CONFLICT DO NOTHING;
+INSERT INTO users (user_id, kyc_status, kyc_verified_at) VALUES ('Bob_ColdStorage', 'VERIFIED', NOW()) ON CONFLICT DO NOTHING;
+INSERT INTO users (user_id, kyc_status) VALUES ('Charlie_NewUser', 'PENDING') ON CONFLICT DO NOTHING;
+
 INSERT INTO balances (account_id, currency, balance) VALUES ('Alice_Corp', 'SGD', 10000.00) ON CONFLICT DO NOTHING;
 INSERT INTO balances (account_id, currency, balance) VALUES ('Bob_Supply', 'SGD', 5000.00) ON CONFLICT DO NOTHING;
 INSERT INTO balances (account_id, currency, balance) VALUES ('Alice_Wallet', 'BTC', 1.00) ON CONFLICT DO NOTHING;

@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-Project Fusion is a **cloud-native Payment Orchestration Platform** tailored for high-volume, cross-border financial settlements. It bridges legacy banking protocols (SWIFT/ISO 20022) with modern rails (Stripe, Stellar Blockchain, Real-Time Payments).
+Project Fusion is a **cloud-native Payment Orchestration Platform** tailored for high-volume, cross-border financial settlements. It bridges legacy banking protocols (SWIFT/ISO 20022) with modern fiat payment networks, Web3 crypto asset rails, and Real-Time Payment infrastructure.
 
 This manual provides the technical specifications, API reference, and operational procedures required to deploy and maintain the system.
 
@@ -23,7 +23,7 @@ The system follows a **Modular Monolith** architecture (for prototype efficiency
 - **Core Engine**: Node.js/Express (Event Loop architecture for high concurrency).
 - **Data Store**: PostgreSQL (ACID compliance, Row-Level Locking).
 - **Ledger**: Double-Entry Accounting with Cryptographic Hash Chains (Tamper-Evident).
-- **Adapters**: Pluggable modules for external connectivity (Stripe, Stellar).
+- **Adapters**: Pluggable modules for external connectivity (fiat payment networks, Web3 crypto rails, banking APIs).
 
 ### 2.2 Data Flow (The Saga Pattern)
 
@@ -33,8 +33,9 @@ Every transaction follows this strictly enforcing lifecycle:
 2.  **LOCK**: Internal Ledger debits the Source Account (Pending State).
 3.  **EXECUTE**: Adapter calls external bank/blockchain.
 4.  **SETTLE**:
-    - _Success_: Ledger credits Destination Account (Final State).
-    - _Failure_: Ledger reverts Source Account (Compensating Transaction).
+    - _Success_: Ledger credits Destination Account. State → `SETTLED`.
+    - _Failure_: Ledger reverts Source Account. State → `FAILED`.
+5.  **MANUAL_CHECK** _(Safety Fallback)_: If the ledger write or adapter call throws an unrecoverable exception mid-Saga (e.g., DB lock contention), the transaction is placed in `MANUAL_CHECK` rather than silently lost. The background Reconciler flags it for human review.
 
 ---
 
@@ -54,7 +55,31 @@ Every transaction follows this strictly enforcing lifecycle:
 
 ## 4. API Reference
 
-### 4.1 Initiate Transaction
+### 4.1 KYC Onboarding
+
+`POST /api/kyc/onboard`
+
+**Body**:
+
+```json
+{
+    "user_id": "user_123",
+    "document_type": "PAN",
+    "document_number": "ABCDE1234F"
+}
+```
+
+_(Simulates Setu/Signzy verification and hashes PII for data residency compliance)_
+
+### 4.2 OTP Authentication (AFA)
+
+`POST /api/auth/otp/generate`
+**Body**: `{"user_id": "user_123"}` -> Generates SMS simulation, returns `otp_id`.
+
+`POST /api/auth/otp/verify`
+**Body**: `{"user_id": "user_123", "otp_code": "123456"}` -> Returns `auth_token` required for transactions.
+
+### 4.3 Initiate Transaction
 
 `POST /api/instruction/initiate`
 
@@ -71,9 +96,12 @@ Every transaction follows this strictly enforcing lifecycle:
     "currency": "USD",
     "sender": "user_123",
     "recipient": "user_456",
-    "purpose": "PAYMENT"
+    "purpose": "PAYMENT",
+    "auth_token": "afat_550e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+_(Note: `auth_token` is an AFA token obtained from OTP verification. Sender KYC must be verified. Supported currencies: `USD`, `EUR`, `GBP`, `SGD`, `INR`, `XLM`, `BTC`, `ETH`, `USDC`.)_
 
 **Response (200 OK)**:
 
@@ -84,7 +112,7 @@ Every transaction follows this strictly enforcing lifecycle:
 }
 ```
 
-### 4.2 Regulatory Observability
+### 4.4 Regulatory Observability
 
 `GET /api/observe?limit=50`
 
@@ -123,11 +151,14 @@ The system is designed to self-heal.
 
 ## 6. Adapter Configuration
 
-| Adapter       | Key Env Var              | Description                             |
-| :------------ | :----------------------- | :-------------------------------------- |
-| **Stripe**    | `STRIPE_TEST_SECRET_KEY` | Handles fiat card processing (USD/EUR). |
-| **Stellar**   | _Managed internally_     | Handles blockchain assets (XLM/USDC).   |
-| **Brokerage** | _None_                   | Simulated equities trading.             |
+| Adapter              | Key Env Var                           | Description                                                                   |
+| :------------------- | :------------------------------------ | :---------------------------------------------------------------------------- |
+| **Stripe**           | `STRIPE_TEST_SECRET_KEY`              | Fiat card processing (USD/EUR/GBP/INR).                                       |
+| **RazorpayX**        | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Indian domestic fiat payouts via RazorpayX Payouts API (INR).              |
+| **ISO20022**         | `BANK_GATEWAY_API_URL`                | SWIFT/SEPA direct bank connectivity for large corporate transfers (≥$10,000). |
+| **PayNow**           | _Managed internally_                  | Singapore instant payment rail (SGD).                                         |
+| **Crypto Custodian** | _Managed internally_                  | Blockchain assets (XLM/BTC/ETH/USDC) via Stellar Horizon.                    |
+| **Alipay (Plugin)**  | `ALIPAY_APP_ID`, `ALIPAY_PRIVATE_KEY` | Third-party plugin (CNY / cross-border).                                      |
 
 ---
 

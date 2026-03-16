@@ -9,7 +9,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({
     httpsAgent: agent,
     headers: { 'x-api-key': API_KEY },
-    validateStatus: () => true
+    validateStatus: () => true,
 });
 
 async function runSingleTransaction(index) {
@@ -21,13 +21,17 @@ async function runSingleTransaction(index) {
 
     try {
         // 1. INITIATE
-        const initRes = await client.post(`${API_URL}/instruction/initiate`, {
-            amount: parseFloat(amount),
-            currency: 'XLM',
-            sender: 'Stellar_Test_Sender', // Consistent sender for funding stability
-            recipient: 'Stellar_Test_Recipient',
-            purpose: 'PAYMENT_DEMO_STELLAR'
-        }, { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } });
+        const initRes = await client.post(
+            `${API_URL}/instruction/initiate`,
+            {
+                amount: parseFloat(amount),
+                currency: 'XLM',
+                sender: 'Stellar_Test_Sender', // Consistent sender for funding stability
+                recipient: 'Stellar_Test_Recipient',
+                purpose: 'PAYMENT_DEMO_STELLAR',
+            },
+            { headers: { 'x-idempotency-key': `${idempotencyPrefix}_init` } }
+        );
 
         if (initRes.status !== 200) {
             console.error(`   ❌ INIT FAILED: ${JSON.stringify(initRes.data)}`);
@@ -36,18 +40,26 @@ async function runSingleTransaction(index) {
         const { instructionId } = initRes.data;
 
         // 2. POLICY
-        const polRes = await client.post(`${API_URL}/policy/evaluate`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` }
-        });
+        const polRes = await client.post(
+            `${API_URL}/policy/evaluate`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_pol` },
+            }
+        );
         if (polRes.status !== 200) {
             console.error(`   ❌ POLICY FAILED: ${JSON.stringify(polRes.data)}`);
             return false;
         }
 
         // 3. ROUTE
-        const routeRes = await client.post(`${API_URL}/orchestration/route`, { instructionId }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` }
-        });
+        const routeRes = await client.post(
+            `${API_URL}/orchestration/route`,
+            { instructionId },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_route` },
+            }
+        );
         if (routeRes.status !== 200) {
             console.error(`   ❌ ROUTE FAILED: ${JSON.stringify(routeRes.data)}`);
             return false;
@@ -59,9 +71,13 @@ async function runSingleTransaction(index) {
         }
 
         // 4. EXECUTE
-        const execRes = await client.post(`${API_URL}/adapter/execute`, { instructionId, adapter: selectedAdapter }, {
-            headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` }
-        });
+        const execRes = await client.post(
+            `${API_URL}/adapter/execute`,
+            { instructionId, adapter: selectedAdapter },
+            {
+                headers: { 'x-idempotency-key': `${idempotencyPrefix}_exec` },
+            }
+        );
 
         if (execRes.status === 200) {
             const result = execRes.data.adapter_result || {};
@@ -89,7 +105,7 @@ async function runBatch() {
         const success = await runSingleTransaction(i);
         if (success) successCount++;
         // Stellar testnet can be slow, wait a bit
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise((r) => setTimeout(r, 1000));
     }
 
     console.log(`\n------------------------------------------------`);

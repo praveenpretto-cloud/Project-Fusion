@@ -1,0 +1,49 @@
+config:
+    target: 'https://localhost:3000'
+    tls:
+        rejectUnauthorized: false
+    phases:
+        - duration: 15
+          arrivalRate: 10
+          name: 'Warm Up (10 TPS)'
+        - duration: 30
+          arrivalRate: 50
+          name: 'Ramp to 50 TPS'
+        - duration: 60
+          arrivalRate: 100
+          rampTo: 500
+          name: 'Ramp to Capacity (100-500 TPS)'
+        - duration: 30
+          arrivalRate: 500
+          name: 'Hold Peak Load (500 TPS)'
+    defaults:
+        headers:
+            x-api-key: 'fusion_bank_secret_key_2025'
+            Content-Type: 'application/json'
+    plugins:
+        metrics-by-endpoint: {}
+
+scenarios:
+    - name: 'Full Initiation Flow'
+      weight: 70
+      flow:
+          - post:
+                url: '/api/instruction/initiate'
+                headers:
+                    x-idempotency-key: '{{ $randomString() }}'
+                json:
+                    amount: 10.00
+                    currency: 'USD'
+                    sender: 'load_test_user'
+                    recipient: 'load_test_recipient'
+                    purpose: 'PAYMENT'
+                    auth_token: 'afat_load_test_otp_id'
+                capture:
+                    - json: '$.instructionId'
+                      as: 'instructionId'
+
+    - name: 'Health Check'
+      weight: 30
+      flow:
+          - get:
+                url: '/health'

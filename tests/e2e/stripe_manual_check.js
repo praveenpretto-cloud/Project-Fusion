@@ -11,15 +11,19 @@ const client = axios.create({ httpsAgent: agent, headers: { 'x-api-key': API_KEY
 async function runStripeFlow() {
     try {
         console.log('1. INITIATING...');
-        const initRes = await client.post(`${API_URL}/instruction/initiate`, {
-            amount: 50.00,
-            currency: 'USD',
-            sender: 'user_e2e_check',
-            recipient: 'user_merchant_e2e',
-            purpose: 'STRIPE_SCALE_TEST'
-        }, {
-            headers: { 'x-idempotency-key': `manual_${Date.now()}` }
-        });
+        const initRes = await client.post(
+            `${API_URL}/instruction/initiate`,
+            {
+                amount: 50.0,
+                currency: 'USD',
+                sender: 'user_e2e_check',
+                recipient: 'user_merchant_e2e',
+                purpose: 'STRIPE_SCALE_TEST',
+            },
+            {
+                headers: { 'x-idempotency-key': `manual_${Date.now()}` },
+            }
+        );
         console.log('   ✅ Initiated:', initRes.data);
         const { instructionId } = initRes.data;
 
@@ -38,7 +42,10 @@ async function runStripeFlow() {
         }
 
         console.log('4. EXECUTING ADAPTER...');
-        const execRes = await client.post(`${API_URL}/adapter/execute`, { instructionId, adapter: selectedAdapter });
+        const execRes = await client.post(`${API_URL}/adapter/execute`, {
+            instructionId,
+            adapter: selectedAdapter,
+        });
         console.log('   ✅ Execute:', execRes.data);
 
         console.log('\nSUCCESS: Full Stripe Flow Verified.');

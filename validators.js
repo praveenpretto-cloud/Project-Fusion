@@ -33,24 +33,31 @@ const instructionInitiateSchema = Joi.object({
     sender: Joi.string()
         .min(2)
         .max(100)
-        .pattern(/^[a-zA-Z0-9_-]+$/)
+        .pattern(/^[a-zA-Z0-9_@.-]+$/)
         .required()
         .messages({
             'string.pattern.base':
-                'Sender ID must contain only letters, numbers, underscores, and hyphens',
+                'Sender ID must contain only letters, numbers, underscores, hyphens, and @/.',
         }),
 
     recipient: Joi.string()
         .min(2)
         .max(100)
-        .pattern(/^[a-zA-Z0-9_-]+$/)
+        .pattern(/^[a-zA-Z0-9_@.-]+$/)
         .required()
         .messages({
             'string.pattern.base':
-                'Recipient ID must contain only letters, numbers, underscores, and hyphens',
+                'Recipient ID must contain only letters, numbers, underscores, hyphens, and @/.',
         }),
 
     purpose: Joi.string().max(50).required(),
+
+    auth_token: Joi.string()
+        .pattern(/^afat_[a-fA-F0-9-]+$/)
+        .required()
+        .messages({
+            'string.pattern.base': 'auth_token must be a valid AFA token format',
+        }),
 });
 
 const instructionIdSchema = Joi.object({
@@ -64,10 +71,9 @@ const adapterExecuteSchema = Joi.object({
     adapter: Joi.string()
         .valid(
             'ADAPTER_PAYNOW',
-            'ADAPTER_SWIFT',
             'ADAPTER_STRIPE', // ✅ Added
-            'ADAPTER_CRYPTO_CUSTODIAN',
-            'ADAPTER_BROKERAGE_SETTLEMENT'
+            'ADAPTER_RAZORPAY', // ✅ Added
+            'ADAPTER_CRYPTO_CUSTODIAN'
         )
         .required(),
 });
