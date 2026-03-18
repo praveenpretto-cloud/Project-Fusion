@@ -55,12 +55,33 @@ function generatePain001XML(instruction) {
 </Document>`;
 }
 
-async function executeISO20022Transfer(instruction) {
-    logger.info(
-        `[ISO-20022] Generating PAIN.001 XML for Instruction ${instruction.instruction_id}`
-    );
+/**
+ * Generates an ISO 20022 PAIN.007 (PaymentReversal) XML buffer
+ */
+function generatePain007XML(originalIntentId) {
+    const messageId = 'REV-' + crypto.randomBytes(8).toString('hex');
+    const creationDateTime = new Date().toISOString();
 
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.007.001.09">
+  <CstmrPmtRvsl>
+    <GrpHdr>
+      <MsgId>${messageId}</MsgId>
+      <CreDtTm>${creationDateTime}</CreDtTm>
+    </GrpHdr>
+    <OrgnlGrpInf>
+      <OrgnlMsgId>${originalIntentId}</OrgnlMsgId>
+      <OrgnlMsgNmId>pain.001.001.09</OrgnlMsgNmId>
+    </OrgnlGrpInf>
+  </CstmrPmtRvsl>
+</Document>`;
+}
+
+async function executeISO20022Rail(instruction) {
     try {
+        logger.info(
+            `[ISO-20022] Generating PAIN.001 XML for Instruction ${instruction.instruction_id}`
+        );
         const xmlPayload = generatePain001XML(instruction);
 
         // Simulating SFTP delivery or direct API connection to Tier 1 Core Banking
@@ -100,4 +121,28 @@ async function queryStatus(intentId) {
     return mockSuccess ? 'succeeded' : 'pending';
 }
 
-module.exports = { executeISO20022Transfer, queryStatus };
+async function rollbackISO20022Rail(intentId) {
+    if (!intentId || intentId.startsWith('mock_')) return { status: 'MOCK_REVERSED' };
+
+    logger.warn(`[ISO-20022 ROLLBACK] 🔄 Initiating Reversal (PAIN.007) for Intent: ${intentId}`);
+
+    try {
+        const reversalXml = generatePain007XML(intentId);
+        logger.info(`[ISO-20022 ROLLBACK] Dispatched Reversal to Core Banking Gateway:`);
+        logger.info(`[ISO-20022 ROLLBACK] Payload Snippet: ${reversalXml.substring(0, 200)}...`);
+
+        // Mock 1.2s delay for bank reversal processing
+        await new Promise((r) => setTimeout(r, 1200));
+
+        return {
+            status: 'REVERSED',
+            reversal_id: 'rev_iso_' + crypto.randomBytes(8).toString('hex'),
+            timestamp: new Date().toISOString(),
+        };
+    } catch (err) {
+        logger.error(`[ISO-20022 ROLLBACK ERROR] ❌ Failed to reverse: ${err.message}`);
+        return { status: 'REVERSAL_FAILED', error: err.message };
+    }
+}
+
+module.exports = { executeISO20022Rail, queryStatus, rollbackISO20022Rail };

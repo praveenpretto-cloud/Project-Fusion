@@ -355,11 +355,12 @@ function startApp() {
             name: 'Direct Bank Connectivity (SWIFT/ISO20022)',
             supports: (instruction) => instruction._requestedAdapter === 'ADAPTER_ISO20022',
             execute: async (instruction) => {
-                const { executeISO20022Transfer } = require('./adapters/iso20022Adapter');
-                return await executeISO20022Transfer(instruction);
+                const { executeISO20022Rail } = require('./adapters/iso20022Adapter');
+                return await executeISO20022Rail(instruction);
             },
-            rollback: async () => {
-                return { status: 'MOCK_REVERSED' };
+            rollback: async (intentId) => {
+                const { rollbackISO20022Rail } = require('./adapters/iso20022Adapter');
+                return await rollbackISO20022Rail(intentId);
             },
         },
     ]);
