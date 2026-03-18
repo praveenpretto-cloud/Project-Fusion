@@ -101,4 +101,20 @@ async function executeCryptoTransfer(instruction) {
     }
 }
 
-module.exports = { executeCryptoTransfer };
+async function queryStatus(intentId) {
+    if (!intentId) return 'UNKNOWN';
+    const logger = require('../logger');
+    try {
+        logger.info(`[STELLAR] Querying Horizon for transaction status: ${intentId}`);
+        // We can actually check the Stellar network
+        await server.loadTransaction(intentId);
+        return 'succeeded';
+    } catch (err) {
+        if (err.response && err.response.status === 404) {
+            return 'pending';
+        }
+        return 'UNKNOWN';
+    }
+}
+
+module.exports = { executeCryptoTransfer, queryStatus };

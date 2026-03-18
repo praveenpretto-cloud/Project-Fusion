@@ -995,71 +995,145 @@ function startApp() {
         }
     });
 
-    // --- RECONCILIATION WORKER ---
+    // --- RECONCILIATION WORKER (Advanced Multi-Rail Recovery) ---
     setInterval(async () => {
         logger.info('[RECONCILER] Running scan for stuck transactions...');
         try {
             const stuck = await pool.query(`
-            SELECT instruction_id, external_intent_id FROM instructions 
-            WHERE state = 'PENDING_EXECUTION' 
+            SELECT instruction_id, external_intent_id, amount, currency, sender, recipient, state 
+            FROM instructions 
+            WHERE state IN ('PENDING_EXECUTION', 'PENDING_SETTLEMENT') 
             AND updated_at < NOW() - INTERVAL '30 seconds'
         `);
 
-            for (const row of stuck.rows) {
-                const id = row.instruction_id;
-                const intentId = row.external_intent_id;
+            for (const txn of stuck.rows) {
+                const id = txn.instruction_id;
+                const intentId = txn.external_intent_id;
 
                 if (!intentId) {
                     logger.warn(
                         `[RECONCILER] Instruction ${id} has no external_intent_id, marking for manual check`
                     );
                     await pool.query(
-                        "UPDATE instructions SET state = 'MANUAL_CHECK' WHERE instruction_id = $1",
+                        "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
                         [id]
                     );
                     continue;
                 }
 
-                logger.info(`[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`);
+                logger.info(
+                    `[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`
+                );
 
                 try {
-                    const status = await require('./adapters/paymentsAdapters').queryStatus(
-                        intentId
-                    );
-                    if (status === 'succeeded') {
-                        await pool.query(
-                            "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
-                            [id]
-                        );
-                        logger.info(`[RECONCILER] Marked ${id} as SETTLED`);
-                    } else if (status === 'canceled' || status === 'failed') {
+                    // Dynamic Adapter Selection for Query (Matching Orchestration Logic)
+                    let adapter;
+                    if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency)) {
+                        adapter = require('./adapters/cryptoAdapters');
+                    } else if (txn.currency === 'INR') {
+                        adapter = require('./adapters/razorpayAdapter');
+                    } else if (txn.currency === 'SGD') {
+                        // ADAPTER_PAYNOW routing
+                        adapter = require('./adapters/paymentsAdapters');
+                    } else if (['USD', 'EUR'].includes(txn.currency)) {
+                        // Institutional Routing Match: > 10,000 uses ISO20022
+                        if (parseFloat(txn.amount) >= 10000) {
+                            adapter = require('./adapters/iso20022Adapter');
+                        } else {
+                            adapter = require('./adapters/paymentsAdapters');
+                        }
+                    }
+
+                    if (!adapter) {
+                        logger.warn(`[RECONCILER] No adapter resolution for ${id} (${txn.currency})`);
+                        continue;
+                    }
+
+                    const status = await adapter.queryStatus(intentId);
+                    
+                    // Status Mapping: Support succeeded/processed for success, canceled/failed for failure
+                    const isSuccess = status === 'succeeded' || status === 'processed';
+                    const isFailed = status === 'canceled' || status === 'failed';
+
+                    if (isSuccess) {
+                        logger.info(`[RECONCILER] ✅ Confirming success for ${id} via Adapter Status (${status})`);
+                        
+                        const client = await pool.connect();
+                        try {
+                            await client.query('BEGIN');
+                            
+                            // Re-check state inside transaction with FOR UPDATE lock to prevent race conditions
+                            const lockCheck = await client.query(
+                                'SELECT state FROM instructions WHERE instruction_id = $1 FOR UPDATE', 
+                                [id]
+                            );
+                            
+                            if (lockCheck.rows.length > 0 && lockCheck.rows[0].state !== 'SETTLED') {
+                                // Step 3: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
+                                // Standardized with Webhook Handler logic
+                                await writeLedger(
+                                    client,
+                                    id,
+                                    txn.sender,
+                                    txn.recipient,
+                                    txn.amount,
+                                    txn.currency
+                                );
+
+                                // Step 4: VERIFY DOUBLE-ENTRY INTEGRITY
+                                await verifyLedgerIntegrity(client, id, txn.currency);
+
+                                // Step 5: UPDATE STATE TO FINALLY SETTLED
+                                await client.query(
+                                    "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
+                                    [id]
+                                );
+                                
+                                await client.query('COMMIT');
+                                logger.info(`[RECONCILER] 🎉 Recovered and SETTLED: ${id}`);
+                                trackTransaction('SUCCESS', 'RECONCILER_RECOVERY');
+
+                                // Step 6: ASYNC GOVERNANCE NOTARIZATION
+                                await notarizeToGovernance('RECONCILER_SETTLEMENT_NOTARIZED', {
+                                    txnId: id,
+                                    intentId: intentId,
+                                    amount: txn.amount,
+                                    integrityHash: crypto.createHash('sha256').update(id).digest('hex'),
+                                });
+                            } else {
+                                await client.query('ROLLBACK');
+                            }
+                        } catch (err) {
+                            await client.query('ROLLBACK');
+                            throw err;
+                        } finally {
+                            client.release();
+                        }
+                    } else if (isFailed) {
                         await pool.query(
                             "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
                             [id]
                         );
                         logger.info(`[RECONCILER] Marked ${id} as FAILED`);
                     } else {
-                        await pool.query(
-                            "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                            [id]
-                        );
-                        logger.warn(
-                            `[RECONCILER] Marked ${id} as MANUAL_CHECK (status: ${status})`
-                        );
+                        // Still pending or unknown - increment wait or mark manual check if too old
+                        const ageInSeconds = (Date.now() - new Date(txn.updated_at).getTime()) / 1000;
+                        if (ageInSeconds > 300) { // 5 minutes
+                            await pool.query(
+                                "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
+                                [id]
+                            );
+                            logger.warn(`[RECONCILER] Marked ${id} as MANUAL_CHECK (Timed out)`);
+                        }
                     }
                 } catch (adapterErr) {
                     logger.error(
                         `[RECONCILER] Error querying status for ${id}: ${adapterErr.message}`
                     );
-                    await pool.query(
-                        "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                        [id]
-                    );
                 }
             }
-        } catch {
-            logger.error(`[RECONCILER] Critical error in reconciliation loop`);
-            // In production, this should trigger an alert (PagerDuty, Slack, etc.)
+        } catch (err) {
+            logger.error(`[RECONCILER] Critical error in reconciliation loop: ${err.message}`);
         }
     }, 60000); // Run every 60 seconds
 

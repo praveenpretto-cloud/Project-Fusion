@@ -90,4 +90,14 @@ async function executeISO20022Transfer(instruction) {
     }
 }
 
-module.exports = { executeISO20022Transfer };
+async function queryStatus(intentId) {
+    if (!intentId) return 'UNKNOWN';
+    // MOCK: In production, this would query the bank's API or check for camt.052/053 bank statements
+    logger.info(`[ISO-20022] Querying status for Intent: ${intentId}`);
+    
+    // Simulate finding the transaction (95% success for mock reconciliation)
+    const mockSuccess = !intentId.endsWith('0'); 
+    return mockSuccess ? 'succeeded' : 'pending';
+}
+
+module.exports = { executeISO20022Transfer, queryStatus };
