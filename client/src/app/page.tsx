@@ -38,6 +38,7 @@ export default function Dashboard() {
     const ITEMS_PER_PAGE = 8;
     const [fromCurrency, setFromCurrency] = useState(CURRENCIES[0]);
     const [toCurrency, setToCurrency] = useState(CURRENCIES[1]);
+    const [selectedCurrency, setSelectedCurrency] = useState(CURRENCIES[0]); // For Fiat/Wire modals
     const [walletAddress, setWalletAddress] = useState<string | null>(null);
     const [activeModal, setActiveModal] = useState<
         null | 'initiate' | 'exchange' | 'send' | 'crypto'
@@ -189,7 +190,7 @@ export default function Dashboard() {
                         ? fromCurrency.code
                         : activeModal === 'crypto'
                           ? 'XLM'
-                          : 'USD';
+                          : selectedCurrency.code;
                 const finalRecipient = actionRecipient.trim() || 'Bob_Supply';
                 await fetch('/api/kyc/onboard', {
                     method: 'POST',
@@ -565,6 +566,37 @@ export default function Dashboard() {
                                     autoFocus
                                 />
                             </div>
+                            {(activeModal === 'initiate' || activeModal === 'send') && (
+                                <div className="space-y-1">
+                                    <label className="text-xs text-gray-500 uppercase tracking-widest">
+                                        Currency
+                                    </label>
+                                    <div className="bg-[#161B22] p-3 rounded-lg border border-gray-700">
+                                        <select
+                                            className="w-full bg-transparent text-white font-bold outline-none cursor-pointer text-sm"
+                                            value={selectedCurrency.code}
+                                            onChange={(e) =>
+                                                setSelectedCurrency(
+                                                    CURRENCIES.find(
+                                                        (c) => c.code === e.target.value
+                                                    ) || CURRENCIES[0]
+                                                )
+                                            }
+                                        >
+                                            {CURRENCIES.map((c) => (
+                                                <option key={c.code} value={c.code}>
+                                                    {c.flag} {c.code}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <p className="text-[10px] text-gray-600 font-mono mt-1">
+                                        {selectedCurrency.code === 'INR'
+                                            ? 'Selected: RAZORPAYX (Institutional INR Rail)'
+                                            : `Selected: ${selectedCurrency.code === 'SGD' ? 'PAYNOW' : 'STRIPE/SWIFT'} (Fiat Rail)`}
+                                    </p>
+                                </div>
+                            )}
                             {activeModal === 'exchange' && (
                                 <div className="bg-[#161B22] p-4 rounded-xl border border-gray-800 space-y-2">
                                     <div className="flex justify-between items-center">
