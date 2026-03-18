@@ -1021,9 +1021,7 @@ function startApp() {
                     continue;
                 }
 
-                logger.info(
-                    `[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`
-                );
+                logger.info(`[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`);
 
                 try {
                     // Dynamic Adapter Selection for Query (Matching Orchestration Logic)
@@ -1045,30 +1043,37 @@ function startApp() {
                     }
 
                     if (!adapter) {
-                        logger.warn(`[RECONCILER] No adapter resolution for ${id} (${txn.currency})`);
+                        logger.warn(
+                            `[RECONCILER] No adapter resolution for ${id} (${txn.currency})`
+                        );
                         continue;
                     }
 
                     const status = await adapter.queryStatus(intentId);
-                    
+
                     // Status Mapping: Support succeeded/processed for success, canceled/failed for failure
                     const isSuccess = status === 'succeeded' || status === 'processed';
                     const isFailed = status === 'canceled' || status === 'failed';
 
                     if (isSuccess) {
-                        logger.info(`[RECONCILER] ✅ Confirming success for ${id} via Adapter Status (${status})`);
-                        
+                        logger.info(
+                            `[RECONCILER] ✅ Confirming success for ${id} via Adapter Status (${status})`
+                        );
+
                         const client = await pool.connect();
                         try {
                             await client.query('BEGIN');
-                            
+
                             // Re-check state inside transaction with FOR UPDATE lock to prevent race conditions
                             const lockCheck = await client.query(
-                                'SELECT state FROM instructions WHERE instruction_id = $1 FOR UPDATE', 
+                                'SELECT state FROM instructions WHERE instruction_id = $1 FOR UPDATE',
                                 [id]
                             );
-                            
-                            if (lockCheck.rows.length > 0 && lockCheck.rows[0].state !== 'SETTLED') {
+
+                            if (
+                                lockCheck.rows.length > 0 &&
+                                lockCheck.rows[0].state !== 'SETTLED'
+                            ) {
                                 // Step 3: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
                                 // Standardized with Webhook Handler logic
                                 await writeLedger(
@@ -1088,7 +1093,7 @@ function startApp() {
                                     "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
                                     [id]
                                 );
-                                
+
                                 await client.query('COMMIT');
                                 logger.info(`[RECONCILER] 🎉 Recovered and SETTLED: ${id}`);
                                 trackTransaction('SUCCESS', 'RECONCILER_RECOVERY');
@@ -1098,7 +1103,10 @@ function startApp() {
                                     txnId: id,
                                     intentId: intentId,
                                     amount: txn.amount,
-                                    integrityHash: crypto.createHash('sha256').update(id).digest('hex'),
+                                    integrityHash: crypto
+                                        .createHash('sha256')
+                                        .update(id)
+                                        .digest('hex'),
                                 });
                             } else {
                                 await client.query('ROLLBACK');
@@ -1117,8 +1125,10 @@ function startApp() {
                         logger.info(`[RECONCILER] Marked ${id} as FAILED`);
                     } else {
                         // Still pending or unknown - increment wait or mark manual check if too old
-                        const ageInSeconds = (Date.now() - new Date(txn.updated_at).getTime()) / 1000;
-                        if (ageInSeconds > 300) { // 5 minutes
+                        const ageInSeconds =
+                            (Date.now() - new Date(txn.updated_at).getTime()) / 1000;
+                        if (ageInSeconds > 300) {
+                            // 5 minutes
                             await pool.query(
                                 "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
                                 [id]
