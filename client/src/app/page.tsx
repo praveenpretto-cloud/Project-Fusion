@@ -81,7 +81,7 @@ export default function Dashboard() {
             try {
                 const [obsRes, healthRes] = await Promise.all([
                     fetch(`/api/observe?limit=100`),
-                    fetch(`/health`),
+                    fetch(`/api/health/detailed`),
                 ]);
                 if (obsRes.ok) {
                     const data = await obsRes.json();
@@ -112,7 +112,7 @@ export default function Dashboard() {
     const settled = instructions.filter((i) => i.state === 'SETTLED');
     const failed = instructions.filter((i) => i.state === 'FAILED');
     const pending = instructions.filter((i) =>
-        ['INITIATED', 'LOCKED', 'PENDING_EXECUTION'].includes(i.state)
+        ['INITIATED', 'LOCKED', 'PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(i.state)
     );
     const successRate =
         instructions.length > 0
@@ -256,13 +256,15 @@ export default function Dashboard() {
                     if (execData.error) throw new Error('Execute failed: ' + execData.error);
                 }
             }
-        } catch (err: any) {
-            alert('Instruction Failed: ' + err.message);
+        } catch (err) {
+            console.error('Instruction Flow Error:', err);
+            alert('Instruction Failed: ' + (err instanceof Error ? err.message : String(err)));
+        } finally {
+            setIsProcessing(false);
+            setActiveModal(null);
+            setActionAmount('');
+            setActionRecipient('');
         }
-        setIsProcessing(false);
-        setActiveModal(null);
-        setActionAmount('');
-        setActionRecipient('');
     };
 
     return (

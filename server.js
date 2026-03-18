@@ -118,12 +118,12 @@ function startApp() {
     // =====================================================
 
     // Basic liveness check for load balancers
-    app.get('/health', (req, res) => {
+    app.get('/api/health', (req, res) => {
         res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
     });
 
     // Detailed health check with dependency status
-    app.get('/health/detailed', async (req, res) => {
+    app.get('/api/health/detailed', async (req, res) => {
         const health = {
             status: 'healthy',
             timestamp: new Date().toISOString(),
