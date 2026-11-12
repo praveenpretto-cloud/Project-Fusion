@@ -40,8 +40,8 @@ describe('Reliability R3C.2.1 — Synthetic Fixture Visual Display', () => {
         expect(pageContent).toContain(
             "instruction.instruction_id === '99999999-9999-4999-8999-999999999999'"
         );
-        expect(pageContent).toContain(
-            'Deterministic test fixture for transaction annotation and audit qualification'
+        expect(pageContent).toMatch(
+            /Deterministic test fixture for transaction annotation and audit\s+qualification/
         );
     });
 

@@ -126,16 +126,6 @@ function toStripeMinorUnits(amount, currency) {
 }
 
 async function executePaymentRail(instruction) {
-    const { getAdapterCredential } = require('../vaultProvider');
-    const { validateProviderCredentialMode } = require('../core/configValidator');
-    const stripeKey = getAdapterCredential('STRIPE_KEY');
-    validateProviderCredentialMode({
-        provider: 'core_stripe',
-        credential: stripeKey,
-        environment: process.env.NETWORK_ENVIRONMENT || 'sandbox',
-        endpoint: 'https://api.stripe.com',
-    });
-
     const { amount, currency, sender, recipient } = instruction;
     const instructionId = instruction.instructionId || instruction.instruction_id;
 
@@ -233,6 +223,17 @@ async function executePaymentRail(instruction) {
             timestamp: new Date().toISOString(),
         };
     }
+
+    // SUPPORTED STRIPE EXECUTION PATH: VALIDATE TESTNET CREDENTIALS BEFORE NETWORK CALL
+    const { getAdapterCredential } = require('../vaultProvider');
+    const { validateProviderCredentialMode } = require('../core/configValidator');
+    const stripeKey = getAdapterCredential('STRIPE_KEY');
+    validateProviderCredentialMode({
+        provider: 'core_stripe',
+        credential: stripeKey,
+        environment: process.env.NETWORK_ENVIRONMENT || 'sandbox',
+        endpoint: 'https://api.stripe.com',
+    });
 
     const stripe = require('stripe')(stripeKey, { timeout: 20000 });
     logger.info(

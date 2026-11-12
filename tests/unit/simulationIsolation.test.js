@@ -113,6 +113,20 @@ describe('Task 2: Simulation Isolation & Ledger Protection', () => {
     });
 
     describe('Real Provider Adapters: Synthetic returns removed from catch blocks', () => {
+        const savedStripeKey = process.env.STRIPE_TEST_SECRET_KEY;
+
+        beforeAll(() => {
+            process.env.STRIPE_TEST_SECRET_KEY = 'sk_test_simulation_isolation_dummy_000000000000';
+        });
+
+        afterAll(() => {
+            if (savedStripeKey !== undefined) {
+                process.env.STRIPE_TEST_SECRET_KEY = savedStripeKey;
+            } else {
+                delete process.env.STRIPE_TEST_SECRET_KEY;
+            }
+        });
+
         test('executePaymentRail returns FAILED when Stripe throws', async () => {
             const { executePaymentRail } = jest.requireActual('../../adapters/paymentsAdapters');
             const mockInstruction = {

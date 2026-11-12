@@ -1170,5 +1170,38 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             expect(razorpayIntegrity.isIntact).toBe(true);
             expect(razorpayIntegrity.binding.id).toBe('core_razorpay');
         });
+
+        test('43. Bank rail simulation succeeds without requiring STRIPE_KEY, but card rail requires it', async () => {
+            const savedStripeKey = process.env.STRIPE_TEST_SECRET_KEY;
+            try {
+                delete process.env.STRIPE_TEST_SECRET_KEY;
+
+                // 1. Bank rail execution succeeds with SIMULATED when STRIPE_TEST_SECRET_KEY is absent
+                const bankResult = await paymentsAdapters.executePaymentRail({
+                    instruction_id: 'test-bank-no-key',
+                    amount: '100.00',
+                    currency: 'USD',
+                    purpose: 'ACH',
+                });
+                expect(bankResult.status).toBe('SIMULATED');
+                expect(bankResult.adapter_type).toBe('SIMULATED_BANK_RAIL');
+
+                // 2. Card rail execution fails closed when STRIPE_TEST_SECRET_KEY is absent
+                await expect(
+                    paymentsAdapters.executePaymentRail({
+                        instruction_id: 'test-card-no-key',
+                        amount: '100.00',
+                        currency: 'USD',
+                        purpose: 'CARD',
+                    })
+                ).rejects.toThrow(/\[VAULT\] Mandatory credential 'STRIPE_KEY' is not set/);
+            } finally {
+                if (savedStripeKey !== undefined) {
+                    process.env.STRIPE_TEST_SECRET_KEY = savedStripeKey;
+                } else {
+                    delete process.env.STRIPE_TEST_SECRET_KEY;
+                }
+            }
+        });
     });
 });
