@@ -3,6 +3,8 @@
 :root {
     --background: #ffffff;
     --foreground: #171717;
+    --font-geist-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 @theme inline {
@@ -14,7 +16,7 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --background: #0a0a0a;
+        --background: #030303;
         --foreground: #ededed;
     }
 }
@@ -23,4 +25,395 @@ body {
     background: var(--background);
     color: var(--foreground);
     font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── LIGHT MODE OVERRIDES ────────────────────────────────── */
+.light-mode {
+    background-color: #F8F9FA !important;
+}
+
+/* Core background panels */
+.light-mode,
+.light-mode .bg-\[\#0B0E14\],
+.light-mode .bg-\[\#0b0e14\] {
+    background-color: #F8F9FA !important;
+    color: #1E293B !important;
+}
+
+/* Sidebar and Main Cards */
+.light-mode aside,
+.light-mode .bg-\[\#0F1318\],
+.light-mode .bg-\[\#0f1318\],
+.light-mode .bg-\[\#0F1318\]\/80,
+.light-mode .bg-\[\#161B22\],
+.light-mode .bg-\[\#161b22\] {
+    background-color: #FFFFFF !important;
+    color: #1E293B !important;
+}
+
+/* Sub-panels and rows */
+.light-mode .bg-\[\#0a0d11\],
+.light-mode .bg-\[\#0A0D11\],
+.light-mode .bg-\[\#0a0d11\]\/25,
+.light-mode .bg-\[\#1A1E23\]\/50 {
+    background-color: #F1F5F9 !important;
+    color: #334155 !important;
+}
+
+/* Borders */
+.light-mode .border-gray-800,
+.light-mode .border-gray-800\/60,
+.light-mode .border-gray-800\/40,
+.light-mode .border-gray-700\/50,
+.light-mode .border-gray-700\/60,
+.light-mode header,
+.light-mode aside,
+.light-mode hr {
+    border-color: #E2E8F0 !important;
+}
+
+/* Primary texts */
+.light-mode .text-white {
+    color: #0F172A !important;
+}
+.light-mode .text-gray-200 {
+    color: #1E293B !important;
+}
+.light-mode .text-gray-300 {
+    color: #334155 !important;
+}
+.light-mode .text-gray-400 {
+    color: #475569 !important;
+}
+.light-mode .text-gray-500 {
+    color: #64748B !important;
+}
+.light-mode .text-gray-600 {
+    color: #64748B !important;
+}
+
+/* Blue indicators */
+.light-mode .text-blue-300,
+.light-mode .text-blue-400 {
+    color: #1D4ED8 !important; /* Blue-700 */
+}
+.light-mode .bg-blue-900\/20 {
+    background-color: #EFF6FF !important; /* Blue-50 */
+    border-color: #BFDBFE !important;
+}
+
+/* Form selects & controls */
+.light-mode select,
+.light-mode input,
+.light-mode textarea {
+    background-color: #FFFFFF !important;
+    border-color: #CBD5E1 !important;
+    color: #0F172A !important;
+}
+
+.light-mode select option {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+}
+
+/* Dialog modals and backdrops */
+.light-mode .fixed.inset-0.bg-black\/70,
+.light-mode .fixed.inset-0.bg-black\/80 {
+    background-color: rgba(15, 23, 42, 0.4) !important;
+    backdrop-filter: blur(8px);
+}
+
+/* Chart tweaks */
+.light-mode .recharts-cartesian-grid-horizontal line,
+.light-mode .recharts-cartesian-grid-vertical line {
+    stroke: #E2E8F0 !important;
+}
+.light-mode .recharts-text {
+    fill: #475569 !important;
+}
+.light-mode .recharts-legend-item-text {
+    color: #1E293B !important;
+}
+.light-mode .recharts-tooltip-cursor {
+    fill: rgba(15, 23, 42, 0.02) !important;
+}
+
+/* MSME and other alerts */
+.light-mode .bg-red-950\/20,
+.light-mode .bg-red-950\/15,
+.light-mode .bg-red-900\/20,
+.light-mode .bg-red-900\/10 {
+    background-color: #FEF2F2 !important; /* Red-50 */
+    border-color: #FECACA !important;
+}
+.light-mode .text-red-400 {
+    color: #DC2626 !important;
+}
+.light-mode .bg-emerald-900\/20,
+.light-mode .bg-emerald-900\/10 {
+    background-color: #ECFDF5 !important; /* Emerald-50 */
+    border-color: #A7F3D0 !important;
+}
+.light-mode .text-emerald-400 {
+    color: #059669 !important;
+}
+.light-mode .bg-amber-900\/30,
+.light-mode .bg-amber-900\/10 {
+    background-color: #FFFBEB !important; /* Amber-50 */
+    border-color: #FDE68A !important;
+}
+.light-mode .text-amber-400 {
+    color: #D97706 !important;
+}
+
+/* ── THEME SWITCHER WIDGET ────────────────────────────────── */
+.theme-switcher-container {
+    display: flex;
+    align-items: center;
+    background-color: #0F1318;
+    border: 1px solid #1F2937;
+    padding: 3px;
+    border-radius: 9999px;
+    gap: 2px;
+}
+
+.theme-switcher-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9CA3AF;
+    border-radius: 9999px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.theme-switcher-btn:hover {
+    color: #F3F4F6;
+}
+
+.theme-switcher-btn.active {
+    background-color: #1F2937;
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Light mode overrides for Theme Switcher */
+.light-mode .theme-switcher-container {
+    background-color: #E2E8F0 !important;
+    border-color: #CBD5E1 !important;
+}
+
+.light-mode .theme-switcher-btn {
+    color: #64748B !important;
+}
+
+.light-mode .theme-switcher-btn:hover {
+    color: #0F172A !important;
+}
+
+.light-mode .theme-switcher-btn.active {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ── CUSTOM CARDS & GRADIENTS LIGHT MODE OVERRIDES ────────── */
+.light-mode .cash-position-card {
+    background-image: linear-gradient(to bottom right, #FFFFFF, #F8F9FA) !important;
+    background-color: #FFFFFF !important;
+    border-color: #E2E8F0 !important;
+    color: #0F172A !important;
+}
+.light-mode .cash-position-card .text-white {
+    color: #0F172A !important;
+}
+
+.light-mode .zoho-integration-card {
+    background-image: none !important;
+    background-color: #ECFDF5 !important;
+    border-color: #A7F3D0 !important;
+}
+
+.light-mode .zoho-payment-modal-header {
+    background-image: none !important;
+    background-color: #ECFDF5 !important;
+    border-color: #A7F3D0 !important;
+}
+
+.light-mode .unified-liquidity-card {
+    background-image: none !important;
+    background-color: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+}
+.light-mode .unified-liquidity-card .text-white {
+    color: #1E3A8A !important;
+}
+
+/* ── 950 SHADE BACKGROUND & HOVER OVERRIDES ───────────────── */
+.light-mode .bg-emerald-950\/10 {
+    background-color: #F0FDF4 !important;
+}
+.light-mode .hover\:bg-emerald-950\/20:hover {
+    background-color: #DCFCE7 !important;
+}
+.light-mode .bg-emerald-950\/20 {
+    background-color: #ECFDF5 !important;
+    border-color: #A7F3D0 !important;
+}
+.light-mode .hover\:bg-emerald-950\/30:hover {
+    background-color: #D1FAE5 !important;
+}
+
+.light-mode .bg-red-950\/20,
+.light-mode .bg-red-950\/25,
+.light-mode .bg-red-950\/15 {
+    background-color: #FEF2F2 !important;
+    border-color: #FECACA !important;
+}
+.light-mode .hover\:bg-red-950\/30:hover {
+    background-color: #FEE2E2 !important;
+}
+
+.light-mode .bg-amber-950\/20,
+.light-mode .bg-amber-950\/15 {
+    background-color: #FFFBEB !important;
+    border-color: #FDE68A !important;
+}
+.light-mode .hover\:bg-amber-950\/30:hover {
+    background-color: #FEF3C7 !important;
+}
+
+.light-mode .bg-blue-950\/15 {
+    background-color: #EFF6FF !important;
+    border-color: #BFDBFE !important;
+}
+
+/* Light mode overrides for Network Verification block in transaction modal */
+.light-mode .bg-\[\#121820\] {
+    background-color: #EFF6FF !important; /* Soft blue background */
+    border-color: #BFDBFE !important;     /* Soft blue border */
+}
+
+.light-mode .border-blue-900\/50 {
+    border-color: #BFDBFE !important;
+}
+
+.light-mode .bg-black\/40 {
+    background-color: #FFFFFF !important;  /* White inner container */
+    border-color: #CBD5E1 !important;     /* Soft gray border */
+}
+
+.light-mode .bg-gray-800 {
+    background-color: #E2E8F0 !important;  /* Light gray copy button */
+    color: #334155 !important;
+}
+
+.light-mode .hover\:bg-gray-700:hover {
+    background-color: #CBD5E1 !important;  /* Hover copy button */
+}
+
+/* AI Advisor Light Mode Overrides */
+.light-mode .ai-advisor-card {
+    background-image: none !important;
+    background-color: #F8FAFC !important; /* Slate-50 */
+    border-color: #E2E8F0 !important;
+}
+.light-mode .ai-advisor-card .bg-indigo-950\/20 {
+    background-color: #EEF2FF !important; /* Indigo-50 */
+    border-color: #C7D2FE !important; /* Indigo-200 */
+}
+.light-mode .ai-advisor-card .text-indigo-100\/90,
+.light-mode .ai-advisor-card .text-indigo-100 {
+    color: #312E81 !important; /* Indigo-900 */
+}
+.light-mode .ai-advisor-card .text-indigo-200 {
+    color: #3730A3 !important; /* Indigo-800 */
+}
+.light-mode .ai-advisor-card .text-indigo-300 {
+    color: #4338CA !important; /* Indigo-700 */
+}
+.light-mode .ai-advisor-card .text-indigo-400 {
+    color: #4F46E5 !important; /* Indigo-600 */
+}
+.light-mode .ai-advisor-card .text-indigo-50 {
+    color: #1E1B4B !important; /* Indigo-950 */
+}
+.light-mode .ai-advisor-card .text-white {
+    color: #0F172A !important;
+}
+.light-mode .force-white {
+    color: #FFFFFF !important;
+}
+/* Ensure the button disabled state is visible */
+.light-mode .ai-advisor-card .disabled\:bg-gray-800:disabled {
+    background-color: #E2E8F0 !important;
+    color: #94A3B8 !important;
+    border-color: #CBD5E1 !important;
+}
+
+/* ── TREASURY GRADE UTILITIES ─────────────────────────────── */
+.shadow-glow-indigo {
+    box-shadow: 0 0 30px rgba(79, 70, 229, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+.shadow-glow-emerald {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+.shadow-glow-amber {
+    box-shadow: 0 0 30px rgba(245, 158, 11, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+.glass-panel {
+    background: rgba(15, 19, 24, 0.6) !important;
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.light-mode .glass-panel {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Integrations Tab Light Mode Overrides */
+.light-mode .bg-white\/\[0\.02\],
+.light-mode .bg-white\/\[0\.03\] {
+    background-color: #FFFFFF !important;
+}
+
+.light-mode .bg-black\/20 {
+    background-color: #F8F9FA !important;
+}
+
+.light-mode .text-white\/90 {
+    color: #0F172A !important;
+}
+
+.light-mode .text-white\/50,
+.light-mode .text-white\/40 {
+    color: #64748B !important;
+}
+
+.light-mode .border-white\/\[0\.08\],
+.light-mode .border-white\/\[0\.05\],
+.light-mode .border-white\/10 {
+    border-color: #E2E8F0 !important;
+}
+
+.light-mode .bg-white\/10 {
+    background-color: #E2E8F0 !important;
+}
+
+.light-mode .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]) {
+    border-color: #E2E8F0 !important;
+}
+
+.light-mode .placeholder-white\/20::placeholder {
+    color: #94A3B8 !important;
+}
+
+.light-mode .shadow-\[0_8px_32px_rgba\(0\,0\,0\,0\.4\)\] {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05) !important;
 }

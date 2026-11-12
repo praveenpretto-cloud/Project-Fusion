@@ -1,8 +1,13 @@
 const axios = require('axios');
 const https = require('https');
 
-const API_URL = 'https://localhost:3000/api';
-const API_KEY = 'fusion_bank_secret_key_2025';
+const API_URL = process.env.API_URL || 'https://localhost:3000/api';
+const API_KEY = process.env.API_SECRET_KEY;
+
+if (!API_KEY) {
+    console.error('Error: API_SECRET_KEY environment variable is required. Exiting.');
+    process.exit(1);
+}
 
 const agent = new https.Agent({ rejectUnauthorized: false });
 const client = axios.create({

@@ -6,21 +6,81 @@
  */
 
 const Joi = require('joi');
-const { CURRENCIES, LIMITS } = require('./constants');
+const { CURRENCIES, LIMITS, ASSET_PRECISION, ASSET_MIN_AMOUNT } = require('./constants');
+const { decimalCompare } = require('./core/orchestrator/financialDecimal');
+
+/**
+ * Validates financial amounts:
+ * - Rejects unsafe JavaScript Number inputs.
+ * - Requires exact decimal strings.
+ * - Rejects empty, non-string, negative, zero, or malformed amounts.
+ * - Rejects scientific notation (e.g. 1e-5).
+ * - Enforces currency-specific precision limits (XLM: 7 decimals, fiat: 2 decimals).
+ * - Enforces minimum and maximum transaction bounds.
+ */
+const validateMonetaryAmount = (value, helpers) => {
+    if (typeof value === 'number') {
+        return helpers.message(
+            'Unsafe JavaScript Number monetary inputs are rejected. Pass amount as a decimal string.'
+        );
+    }
+    if (typeof value !== 'string') {
+        return helpers.message('Amount must be a decimal string');
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return helpers.message('Amount cannot be empty');
+    }
+    if (trimmed.startsWith('-')) {
+        return helpers.message('Amount must be positive');
+    }
+    if (/[eE]/.test(trimmed)) {
+        return helpers.message(
+            'Scientific notation is not permitted. Pass amount as an explicit decimal string.'
+        );
+    }
+    const match = trimmed.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!match) {
+        return helpers.message('Amount must be a valid positive decimal string');
+    }
+    const intPart = match[1];
+    const fracPart = match[2] || '';
+    if (/^0+$/.test(intPart) && /^0*$/.test(fracPart)) {
+        return helpers.message('Amount must be positive');
+    }
+
+    const parent = helpers.state.ancestors[0];
+    const currency = parent ? parent.currency : null;
+    const maxDecimals = (currency && ASSET_PRECISION && ASSET_PRECISION[currency] !== undefined)
+        ? ASSET_PRECISION[currency]
+        : LIMITS.MAX_DECIMAL_PLACES;
+
+    if (fracPart.length > maxDecimals) {
+        return helpers.message(
+            `Amount for ${currency || 'currency'} cannot have more than ${maxDecimals} decimal places`
+        );
+    }
+
+    if (decimalCompare(trimmed, LIMITS.MAX_TRANSACTION_AMOUNT, currency) > 0) {
+        return helpers.message(`Amount cannot exceed ${LIMITS.MAX_TRANSACTION_AMOUNT}`);
+    }
+
+    const minAmount = (currency && ASSET_MIN_AMOUNT && ASSET_MIN_AMOUNT[currency])
+        ? ASSET_MIN_AMOUNT[currency]
+        : LIMITS.MIN_TRANSACTION_AMOUNT;
+    if (decimalCompare(trimmed, minAmount, currency) < 0) {
+        return helpers.message(`Amount must be at least ${minAmount}`);
+    }
+
+    return trimmed;
+};
 
 const instructionInitiateSchema = Joi.object({
-    amount: Joi.number()
-        .positive()
-        .max(LIMITS.MAX_TRANSACTION_AMOUNT)
-        .min(LIMITS.MIN_TRANSACTION_AMOUNT)
-        .precision(LIMITS.MAX_DECIMAL_PLACES)
-        .strict()
+    amount: Joi.any()
+        .custom(validateMonetaryAmount)
         .required()
         .messages({
-            'number.positive': 'Amount must be positive',
-            'number.max': `Amount cannot exceed ${LIMITS.MAX_TRANSACTION_AMOUNT}`,
-            'number.min': `Amount must be at least ${LIMITS.MIN_TRANSACTION_AMOUNT}`,
-            'number.precision': 'Amount can have at most 2 decimal places',
+            'any.required': 'Amount is required',
         }),
 
     currency: Joi.string()
@@ -67,15 +127,19 @@ const instructionIdSchema = Joi.object({
 });
 
 const adapterExecuteSchema = Joi.object({
-    instructionId: Joi.string().uuid().required(),
+    instructionId: Joi.string().uuid().required().messages({
+        'string.guid': 'Instruction ID must be a valid UUID',
+    }),
     adapter: Joi.string()
         .valid(
             'ADAPTER_PAYNOW',
-            'ADAPTER_STRIPE', // ✅ Added
-            'ADAPTER_RAZORPAY', // ✅ Added
-            'ADAPTER_CRYPTO_CUSTODIAN'
+            'ADAPTER_STRIPE',
+            'ADAPTER_RAZORPAY',
+            'ADAPTER_CRYPTO_CUSTODIAN',
+            'ADAPTER_MOCK_HFT'
         )
-        .required(),
+        .optional()
+        .description('Deprecated: Adapter routing is determined authoritatively by instruction currency and policy'),
 });
 
 module.exports = {

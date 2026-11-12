@@ -1,10 +1,13 @@
 const cluster = require('cluster');
 const os = require('os');
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 // --- INFRASTRUCTURE: CLUSTERING (Horizontal Scaling) ---
 
 if (require.main === module) {
-    if (cluster.isPrimary) {
+    const isLocalOnly = process.env.LOCAL_ONLY === 'true';
+    if (cluster.isPrimary && !isLocalOnly) {
         const numCPUs = os.cpus().length;
         console.log(`[MASTER] Master ${process.pid} is running`);
         console.log(`[MASTER] Forking ${numCPUs} workers for maximum throughput...`);
@@ -19,6 +22,8 @@ if (require.main === module) {
             cluster.fork();
         });
     } else {
+        if (isLocalOnly)
+            console.log(`[LOCAL_ONLY] Running in single-process mode (Clustering disabled)`);
         startApp();
     }
 } else {
@@ -27,39 +32,58 @@ if (require.main === module) {
 }
 
 function startApp() {
-    const express = require('express'); // RESTART_TRIGGER_AGGREGATION
+    const { validateEnvironment } = require('./core/configValidator');
+    // Enforce fail-closed testnet & sandbox environment validation on startup
+    validateEnvironment();
 
+    const express = require('express');
     const cors = require('cors');
     const { Pool } = require('pg');
     const https = require('https');
     const crypto = require('crypto');
-    const path = require('path');
     const fs = require('fs');
     const logger = require('./logger');
 
-    const dotenvResult = require('dotenv').config({
-        path: path.resolve(__dirname, '.env'),
-    });
+    const Redis = require('ioredis');
+    const { defaultCanonicalApprovalService } = require('./core/approvals/canonicalApprovalService');
+    const { pushToBatchQueue } = require('./core/ingestion/kafkaProducer');
 
-    if (dotenvResult.error) {
-        console.error('DOTENV FAILED:', dotenvResult.error.message);
-        process.exit(1);
+    // --- LOCAL_ONLY: IN-MEMORY IDEMPOTENCY ---
+    const localIdempotencyStore = new Map();
+    let redis;
+
+    if (process.env.LOCAL_ONLY !== 'true') {
+        redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+        redis.on('error', (err) => {
+            logger.warn(`[REDIS] Connection error: ${err.message}.`);
+        });
+    } else {
+        logger.info('[LOCAL_ONLY] Redis disabled. Using in-memory idempotency store.');
     }
 
-    const { evaluatePolicy } = require('./policyEngine');
     const { executeCryptoTransfer } = require('./adapters/cryptoAdapters');
     const { executePaymentRail } = require('./adapters/paymentsAdapters');
     const { LIMITS } = require('./constants');
     const rateLimit = require('express-rate-limit');
-    const {
-        instructionInitiateSchema,
-        instructionIdSchema,
-        adapterExecuteSchema,
-    } = require('./validators');
+    const { instructionIdSchema, adapterExecuteSchema } = require('./validators');
+    const { getArbitrageReport } = require('./core/treasury/arbitrage');
+    const { ensureStellarLiquidity } = require('./core/treasury/balancer');
 
     const app = express();
     app.use(cors());
-    app.use(express.json());
+    app.use(
+        express.json({
+            verify: (req, res, buf) => {
+                req.rawBody = buf;
+            },
+        })
+    );
+
+    // AI-2A: Strip client-supplied user impersonation headers globally before routing
+    const { stripClientImpersonationHeaders } = require('./core/identity/authMiddleware');
+    const { createAuthRouter } = require('./routes/authRouter');
+    const { createApprovalsRouter } = require('./routes/approvalsRouter');
+    app.use(stripClientImpersonationHeaders);
     const PORT = process.env.PORT || 3000;
 
     // --- SECURITY: RATE LIMITING (Institutional Grade) ---
@@ -104,6 +128,113 @@ function startApp() {
             logger.info('[DB TEST] Connected OK');
             const res = await client.query('SELECT NOW()');
             logger.info(`[DB TEST] Time: ${res.rows[0].now}`);
+
+            // Add execution_attempts column if it doesn't exist
+            await client.query(
+                'ALTER TABLE instructions ADD COLUMN IF NOT EXISTS execution_attempts INTEGER DEFAULT 0'
+            );
+            logger.info('[DB TEST] Checked and ensured execution_attempts column exists');
+
+            // Add od_limit column if it doesn't exist
+            await client.query(
+                'ALTER TABLE business_bank_accounts ADD COLUMN IF NOT EXISTS od_limit NUMERIC(15, 2) DEFAULT 2000000.00'
+            );
+            logger.info(
+                '[DB TEST] Checked and ensured od_limit column exists on business_bank_accounts'
+            );
+
+            // Add utr column if it doesn't exist
+            await client.query(
+                'ALTER TABLE instructions ADD COLUMN IF NOT EXISTS utr VARCHAR(255)'
+            );
+            logger.info('[DB TEST] Checked and ensured utr column exists on instructions');
+
+            // Add metadata JSONB column if it doesn't exist (Reliability R2B)
+            await client.query(
+                "ALTER TABLE instructions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb"
+            );
+            logger.info('[DB TEST] Checked and ensured metadata JSONB column exists on instructions');
+
+            // Add saga_state JSONB column if it doesn't exist
+            await client.query(
+                'ALTER TABLE instructions ADD COLUMN IF NOT EXISTS saga_state JSONB DEFAULT NULL'
+            );
+            logger.info('[DB TEST] Checked and ensured saga_state column exists on instructions');
+
+            // Ensure state guard trigger allows metadata updates on already-settled instructions
+            await client.query(`
+                CREATE OR REPLACE FUNCTION identity.trg_enforce_instructions_state_guard()
+                RETURNS TRIGGER AS $$
+                DECLARE
+                    v_is_super BOOLEAN := FALSE;
+                BEGIN
+                    IF TG_OP = 'UPDATE' THEN
+                        IF OLD.state = 'VOIDED' OR OLD.approval_status = 'VOIDED' THEN
+                            RAISE EXCEPTION 'Instruction % is in terminal state VOIDED and cannot be modified or transitioned', OLD.instruction_id;
+                        END IF;
+
+                        SELECT rolsuper INTO v_is_super FROM pg_roles WHERE rolname = CURRENT_USER;
+
+                        IF ((NEW.state = 'APPROVED' AND OLD.state IS DISTINCT FROM 'APPROVED')
+                            OR (NEW.approval_status = 'APPROVED' AND OLD.approval_status IS DISTINCT FROM 'APPROVED')
+                            OR (NEW.status = 'APPROVED' AND OLD.status IS DISTINCT FROM 'APPROVED'))
+                           AND CURRENT_USER <> 'fusion_workflow_definer' THEN
+                            RAISE EXCEPTION 'Direct transition of instruction % to APPROVED is prohibited. '
+                                            'State transitions must execute via identity.fn_approve_payment_instruction() '
+                                            'under fusion_workflow_definer (effective_role: %)', OLD.instruction_id, CURRENT_USER;
+                        END IF;
+
+                        IF ((NEW.state = 'VOIDED' AND OLD.state IS DISTINCT FROM 'VOIDED')
+                            OR (NEW.approval_status = 'VOIDED' AND OLD.approval_status IS DISTINCT FROM 'VOIDED')
+                            OR (NEW.status = 'VOIDED' AND OLD.status IS DISTINCT FROM 'VOIDED'))
+                           AND CURRENT_USER <> 'fusion_workflow_definer' THEN
+                            RAISE EXCEPTION 'Direct transition of instruction % to VOIDED is prohibited. '
+                                            'State transitions must execute via identity.fn_approve_payment_void() '
+                                            'under fusion_workflow_definer (effective_role: %)', OLD.instruction_id, CURRENT_USER;
+                        END IF;
+
+                        IF ((NEW.state = 'EXECUTED' AND OLD.state IS DISTINCT FROM 'EXECUTED')
+                            OR (NEW.status = 'EXECUTED' AND OLD.status IS DISTINCT FROM 'EXECUTED')) THEN
+                            IF CURRENT_USER = 'fusion_app_runtime'
+                               OR CURRENT_USER = 'fusion_webauthn_verifier'
+                               OR (CURRENT_USER <> 'fusion_workflow_definer' AND NOT COALESCE(v_is_super, FALSE)) THEN
+                                RAISE EXCEPTION 'Direct transition of instruction % to EXECUTED is prohibited. '
+                                                'State transitions must execute via identity.fn_execute_payment_instruction() '
+                                                'under fusion_workflow_definer (effective_role: %)', OLD.instruction_id, CURRENT_USER;
+                            END IF;
+                        END IF;
+
+                        IF ((NEW.state = 'SETTLED' AND OLD.state IS DISTINCT FROM 'SETTLED')
+                            OR (NEW.status = 'SETTLED' AND OLD.status IS DISTINCT FROM 'SETTLED')) THEN
+                            IF CURRENT_USER = 'fusion_app_runtime'
+                               OR CURRENT_USER = 'fusion_webauthn_verifier'
+                               OR (CURRENT_USER <> 'fusion_workflow_definer' AND NOT COALESCE(v_is_super, FALSE)) THEN
+                                RAISE EXCEPTION 'Direct transition of instruction % to SETTLED is prohibited. '
+                                                'State transitions must execute via identity.fn_settle_payment_instruction() '
+                                                'under fusion_workflow_definer (effective_role: %)', OLD.instruction_id, CURRENT_USER;
+                            END IF;
+                        END IF;
+
+                        IF (((NEW.state IN ('EXECUTED', 'SETTLED') AND NEW.state IS DISTINCT FROM OLD.state))
+                            OR ((NEW.status IN ('EXECUTED', 'SETTLED') AND NEW.status IS DISTINCT FROM OLD.status))) THEN
+                            IF OLD.approval_status IS DISTINCT FROM 'APPROVED'
+                               AND OLD.state NOT IN ('APPROVED', 'PENDING_EXECUTION', 'LOCKED', 'PENDING_SETTLEMENT', 'EXECUTED') THEN
+                                RAISE EXCEPTION 'Instruction % cannot transition to % without prior approval '
+                                                '(current approval_status: %, state: %)',
+                                                OLD.instruction_id,
+                                                COALESCE(NEW.status, NEW.state),
+                                                OLD.approval_status,
+                                                OLD.state;
+                            END IF;
+                        END IF;
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql
+                SET search_path = pg_catalog, identity, public;
+            `);
+            logger.info('[DB TEST] Checked and ensured instructions state guard allows metadata updates');
+
             client.release();
         } catch (err) {
             logger.error(`[DB TEST] Failed: ${err.message}`);
@@ -117,13 +248,39 @@ function startApp() {
     // HEALTH & MONITORING ENDPOINTS (Institutional Grade)
     // =====================================================
 
-    // Basic liveness check for load balancers
+    // Basic liveness check for load balancers (Minimal, unauthenticated)
     app.get('/api/health', (req, res) => {
         res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
     });
 
-    // Detailed health check with dependency status
-    app.get('/api/health/detailed', async (req, res) => {
+    // =====================================================
+    // AUTHENTICATION MIDDLEWARE (WORKSTREAM 0 CONTAINMENT)
+    // =====================================================
+    const authenticateClient = (req, res, next) => {
+        // Public authentication entry points & provider webhooks (HMAC-verified separately)
+        if (
+            req.originalUrl.startsWith('/api/auth') ||
+            req.originalUrl.startsWith('/api/webhooks')
+        ) {
+            return next();
+        }
+
+        // Strict API key credential check
+        const clientKey = (req.headers['x-api-key'] || '').trim();
+        const secretKey = (process.env.API_SECRET_KEY || '').trim();
+
+        if (!clientKey || !secretKey || clientKey !== secretKey) {
+            logger.warn(`[AUTH] 401 Unauthorized for ${req.path} from ${req.ip}`);
+            return res.status(401).json({
+                error: 'Unauthorized',
+                detail: 'Invalid or missing API credentials (Workstream 0 containment)',
+            });
+        }
+        next();
+    };
+
+    // Detailed health check with dependency status (Protected)
+    app.get('/api/health/detailed', authenticateClient, async (req, res) => {
         const health = {
             status: 'healthy',
             timestamp: new Date().toISOString(),
@@ -186,17 +343,21 @@ function startApp() {
     });
 
     // Update transaction counter helper
+    // eslint-disable-next-line no-unused-vars
     function trackTransaction(status, type = 'PAYMENT') {
         transactionCounter.inc({ status, type });
     }
 
-    // Prometheus-compatible metrics endpoint
-    app.get('/metrics', async (req, res) => {
+    // Prometheus-compatible metrics endpoint (Protected)
+    app.get('/metrics', authenticateClient, async (req, res) => {
         res.set('Content-Type', register.contentType);
         res.end(await register.metrics());
     });
 
-    // --- REGULATORY OBSERVABILITY ENDPOINT ---
+    // Apply authentication and rate limiting to ALL /api/ routes
+    app.use('/api/', apiLimiter, authenticateClient);
+
+    // --- REGULATORY OBSERVABILITY ENDPOINTS (PROTECTED UNDER /api/) ---
     app.get('/api/observe/instruction/:instructionId', async (req, res) => {
         try {
             const { instructionId } = req.params;
@@ -226,48 +387,75 @@ function startApp() {
         }
     });
 
-    // --- AUTHENTICATION ---
-    const authenticateClient = (req, res, next) => {
-        // 1. mTLS GUARD: Require valid certificate for all writes, but allow OBSERVABILITY to pass
-        // If the path is NOT /observe, we demand a cert.
-        const isLoadTest = process.env.LOAD_TEST_MODE === 'true';
+    // Expose pool & logger to child routers via app.locals
+    app.locals.pool = pool;
+    app.locals.logger = logger;
 
-        // Do not require mTLS or API Keys for KYC onboarding, Auth API, or Webhooks (simulating public endpoints)
-        if (
-            req.path.startsWith('/api/kyc') ||
-            req.path.startsWith('/api/auth') ||
-            req.path.startsWith('/api/webhooks')
-        ) {
-            return next();
-        }
-
-        if (!req.path.startsWith('/observe') && !isLoadTest) {
-            if (!req.client.authorized) {
-                console.warn(`[AUTH] Blocked non-mTLS request to ${req.path}`);
-                return res.status(401).json({
-                    error: 'mTLS Certificate Required',
-                    detail: 'You must present a valid client certificate for this operation.',
-                });
-            }
-        }
-
-        // 2. API KEY GUARD
-        const clientKey = req.headers['x-api-key'];
-        if (clientKey !== process.env.API_SECRET_KEY) {
-            return res.status(401).json({
-                error: 'Unauthorized',
-                detail: 'Invalid or missing API credentials (PROTOTYPE AUTH)',
-            });
-        }
-        next();
-    };
-
-    // Apply authentication and rate limiting to ALL /api/ routes
-    app.use('/api/', apiLimiter, authenticateClient);
-
-    // --- RBI COMPLIANCE MODULES ---
+    // --- RBI COMPLIANCE & ENTERPRISE IDENTITY (AI-2A & AI-2B) ---
     app.use('/api/kyc', require('./api/kyc'));
-    app.use('/api/auth', require('./api/auth'));
+    app.use('/api/auth', createAuthRouter());
+    app.use('/api/approvals', createApprovalsRouter());
+
+    // --- VIRTUAL ACCOUNT (White-Label Aggregator Model) ---
+    app.use('/api/virtual-account', require('./api/virtualAccount'));
+
+    // --- INVOICE PROCESSOR (GIFT City IFSC ISO 20022 — InvoiceProcessor Module) ---
+    // Isolated under /api/invoice/* — zero impact on existing instruction/saga/CSV routes.
+    // Invoices land in PENDING_APPROVAL state. POST /api/instruction/approve to trigger saga.
+    app.use('/api/invoice', require('./api/invoice'));
+
+    // --- ZOHO WORKFLOW PIPELINE ---
+    // Webhook ingestion, pull, status tracking, reconciliation, compliance docs
+    // All 7 workflow steps: Zoho → Decisioning → Routing → SAGA → Compliance → Reconcile
+    app.use('/api/zoho', require('./api/zoho'));
+
+    // --- CASHIQ INTELLIGENCE API ---
+    app.use('/api/cashiq', require('./api/cashiq'));
+
+    // --- AI PAYMENT OPERATIONS COPILOT (SYNTHETIC INVESTIGATION ONLY) ---
+    // Strictly synthetic exception cases CASE-01 to CASE-15; zero persistent DB queries.
+    const aiInvestigateRouter = require('./routes/aiInvestigateRouter');
+    const cashiqAiRouter = require('./routes/cashiqAiRouter');
+    const aiCopilotMount = '/api/ai';
+    app.use(aiCopilotMount, aiInvestigateRouter);
+    app.use(aiCopilotMount, cashiqAiRouter);
+
+    // --- INSTRUCTION METADATA & ANNOTATIONS (RELIABILITY R2B) ---
+    const instructionRouter = require('./routes/instructionRouter');
+    app.use('/api', instructionRouter);
+
+    // --- TREASURY ARBITRAGE SIMULATION (RELIABILITY R2C) ---
+    const arbitrageRouter = require('./routes/arbitrageRouter');
+    app.use('/api', arbitrageRouter);
+
+    // --- LEGACY AI ADVISOR (UNMOUNTED / DISABLED in Workstream 0 Containment) ---
+    // app.use('/api/ai', require('./routes/aiAdvisor'));
+    // Note: AI-1B under core/ai/ remains strictly private, internal, and unmounted.
+
+    // --- SECURE WEBHOOK INGESTION (STRIPE TESTNET & RAZORPAYX SANDBOX) ---
+    app.use('/api/webhooks', require('./routes/webhooks').router);
+
+    // --- WHATSAPP & APPROVALS ---
+    app.use('/api/whatsapp', require('./api/whatsapp'));
+
+    // Start CashSentinel alert cron (runs every hour after startup sweep)
+    const { startSentinel } = require('./core/cashiq/cashSentinel');
+    startSentinel(pool);
+
+    // --- INFRASTRUCTURE: BALANCES (RTBH Visible) ---
+    app.get('/api/balances', authenticateClient, async (req, res) => {
+        try {
+            const result = await pool.query('SELECT * FROM balances ORDER BY currency ASC');
+            res.json({
+                status: 'success',
+                data: result.rows,
+                timestamp: new Date().toISOString(),
+            });
+        } catch (err) {
+            logger.error(`[BALANCES API ERROR] ${err.message}`);
+            res.status(500).json({ error: 'Failed to fetch balances' });
+        }
+    });
 
     // =====================================================
     // 2️⃣ IDEMPOTENCY (THE GUARDRAIL)
@@ -284,13 +472,35 @@ function startApp() {
         }
 
         try {
-            const cached = await pool.query(
-                'SELECT response_json FROM idempotency_keys WHERE key_id = $1',
-                [key]
-            );
-            if (cached.rows.length > 0) {
-                console.log(`[IDEMPOTENCY] Returned cached response for key: ${key}`);
-                return res.json(JSON.parse(cached.rows[0].response_json));
+            if (process.env.LOCAL_ONLY === 'true' || !redis || redis.status !== 'ready') {
+                // FALLBACK: IN-MEMORY IDEMPOTENCY
+                if (localIdempotencyStore.has(`idempotency:${key}`)) {
+                    const cached = localIdempotencyStore.get(`idempotency:${key}`);
+                    if (cached !== 'PROCESSING') {
+                        console.log(`[IDEMPOTENCY] Returned LOCAL cached response for key: ${key}`);
+                        return res.json(JSON.parse(cached));
+                    }
+                    return res
+                        .status(409)
+                        .json({ error: 'Conflict', detail: 'Request is already processing.' });
+                }
+                localIdempotencyStore.set(`idempotency:${key}`, 'PROCESSING');
+                req.idempotencyKey = key;
+                return next();
+            }
+
+            // REDIS SETNX for ATOMIC LOCK
+            const isSet = await redis.setnx(`idempotency:${key}`, 'PROCESSING');
+            if (!isSet) {
+                // Key exists, grab the cached result
+                const cached = await redis.get(`idempotency:${key}`);
+                if (cached && cached !== 'PROCESSING') {
+                    console.log(`[IDEMPOTENCY] Returned REDIS cached response for key: ${key}`);
+                    return res.json(JSON.parse(cached));
+                }
+                return res
+                    .status(409)
+                    .json({ error: 'Conflict', detail: 'Request is already processing.' });
             }
             req.idempotencyKey = key; // Attach key to request for later saving
             next();
@@ -303,6 +513,7 @@ function startApp() {
     // --- ADAPTER BOUNDARY ---
 
     const adapterRegistry = require('./core/AdapterRegistry');
+    const { getBreaker, getAllBreakerStates } = require('./core/circuitBreaker');
 
     // Load external plugins if the directory exists
     const pluginsDir = path.join(__dirname, 'plugins');
@@ -310,7 +521,9 @@ function startApp() {
         adapterRegistry.loadPluginsFromDirectory(pluginsDir);
     }
 
-    // Register legacy core adapters to maintain backward compatibility
+    // @deprecated Legacy Core Adapter Registration.
+    // Retained for AdapterRegistry SDK backward compatibility.
+    // Production financial settlements are executed exclusively via sagaCore.processInstructionSagaAtomic().
     adapterRegistry.registerCoreAdapters([
         {
             id: 'legacy_fiat',
@@ -321,6 +534,7 @@ function startApp() {
                     'ADAPTER_SWIFT',
                     'ADAPTER_STRIPE',
                     'ADAPTER_PBM_CONTRACT',
+                    'FIAT',
                 ].includes(instruction._requestedAdapter),
             execute: async (instruction) => await executePaymentRail(instruction),
             rollback: async (intentId) => {
@@ -350,35 +564,58 @@ function startApp() {
                 return await rollbackRazorpayRail(intentId);
             },
         },
-        {
-            id: 'core_iso20022',
-            name: 'Direct Bank Connectivity (SWIFT/ISO20022)',
-            supports: (instruction) => instruction._requestedAdapter === 'ADAPTER_ISO20022',
-            execute: async (instruction) => {
-                const { executeISO20022Rail } = require('./adapters/iso20022Adapter');
-                return await executeISO20022Rail(instruction);
-            },
-            rollback: async (intentId) => {
-                const { rollbackISO20022Rail } = require('./adapters/iso20022Adapter');
-                return await rollbackISO20022Rail(intentId);
-            },
-        },
     ]);
 
-    // Generic adapter executor (Core orchestration calls this)
+    /**
+     * @deprecated Legacy direct adapter executor with Circuit Breaker protection.
+     * Superseded by sagaCore.processInstructionSagaAtomic(). Retained for legacy test/SDK reference only.
+     */
+    // eslint-disable-next-line no-unused-vars
     async function executeAdapter(adapterType, instruction) {
-        const hydratedInstruction = { ...instruction, _requestedAdapter: adapterType };
+        const breaker = getBreaker(adapterType);
 
+        // If the primary adapter's circuit is OPEN, attempt failover
+        if (!breaker.allowRequest()) {
+            logger.warn(`[CIRCUIT_BREAKER] ⚡ [${adapterType}] is OPEN. Attempting failover...`);
+
+            // Failover map: defines backup adapters for each primary
+            const FAILOVER_MAP = {
+                ADAPTER_RAZORPAY: null, // No fallback for INR domestic at this time
+            };
+            const fallbackType = FAILOVER_MAP[adapterType];
+            if (!fallbackType) {
+                throw new Error(
+                    `[CIRCUIT_BREAKER] Adapter ${adapterType} is OPEN with no failover configured.`
+                );
+            }
+            logger.info(`[CIRCUIT_BREAKER] ✈️ Routing to failover: ${fallbackType}`);
+            return await executeAdapter(fallbackType, instruction); // Recursive call to failover
+        }
+
+        const hydratedInstruction = { ...instruction, _requestedAdapter: adapterType };
         const adapter = adapterRegistry.findAdapterForInstruction(hydratedInstruction);
         if (!adapter) {
             throw new Error(`No adapter found supporting instruction type: ${adapterType}`);
         }
 
-        const context = { logger };
-        return await adapter.execute(hydratedInstruction, context);
+        try {
+            const context = { logger };
+            const result = await adapter.execute(hydratedInstruction, context);
+            // On success, report to circuit breaker
+            if (result && result.status === 'SUCCESS') breaker.onSuccess();
+            else breaker.onFailure();
+            return result;
+        } catch (err) {
+            breaker.onFailure();
+            throw err;
+        }
     }
 
-    // Generic adapter rollback executor
+    /**
+     * @deprecated Legacy direct rollback executor.
+     * Superseded by sagaCore transactional compensations. Retained for legacy test/SDK reference only.
+     */
+    // eslint-disable-next-line no-unused-vars
     async function rollbackAdapter(adapterType, instruction, intentId) {
         const hydratedInstruction = { ...instruction, _requestedAdapter: adapterType };
         const adapter = adapterRegistry.findAdapterForInstruction(hydratedInstruction);
@@ -390,6 +627,7 @@ function startApp() {
     }
 
     // --- GOVERNANCE LOGGING (CORDA) ---
+    // eslint-disable-next-line no-unused-vars
     async function notarizeToGovernance(eventType, payload) {
         // In production, this would use an HTTP Client to hit the Corda API
         const governanceProof = {
@@ -408,664 +646,513 @@ function startApp() {
         return governanceProof;
     }
 
-    // 5️⃣ DOUBLE-ENTRY INTEGRITY ASSERTION (WITH HASH CHAIN)
-    // =====================================================
-    async function writeLedger(client, instructionId, sender, recipient, amount, currency) {
-        const entryId1 = crypto.randomUUID();
-        const entryId2 = crypto.randomUUID();
-        const timestamp = new Date().toISOString();
-
-        // 1. Fetch Previous Hash (Locking unnecessary if we accept eventual consistency for audit,
-        // but for prototype strictness we could lock. For now, we select latest.)
-        const lastEntry = await client.query(
-            'SELECT hash FROM ledger_journal ORDER BY timestamp DESC, entry_id DESC LIMIT 1'
-        );
-        let prevHash = lastEntry.rows.length > 0 ? lastEntry.rows[0].hash : 'GENESIS_HASH';
-
-        // 2. CHAIN ENTRY 1: DEBIT
-        // Hash = SHA256(prevHash + entryId + instructionId + accountId + direction + amount + currency + timestamp)
-        const payload1 = `${prevHash}${entryId1}${instructionId}${sender}DEBIT${amount}${currency}${timestamp}`;
-        const hash1 = crypto.createHash('sha256').update(payload1).digest('hex');
-
-        await client.query(
-            `INSERT INTO ledger_journal (entry_id, instruction_id, account_id, direction, amount, currency, timestamp, hash, prev_hash) 
-         VALUES ($1, $2, $3, 'DEBIT', $4, $5, $6, $7, $8)`,
-            [entryId1, instructionId, sender, amount, currency, timestamp, hash1, prevHash]
-        );
-
-        // 3. CHAIN ENTRY 2: CREDIT
-        // Previous Hash for this entry is the Hash of Entry 1 (Atomic Chain)
-        const payload2 = `${hash1}${entryId2}${instructionId}${recipient}CREDIT${amount}${currency}${timestamp}`;
-        const hash2 = crypto.createHash('sha256').update(payload2).digest('hex');
-
-        await client.query(
-            `INSERT INTO ledger_journal (entry_id, instruction_id, account_id, direction, amount, currency, timestamp, hash, prev_hash) 
-         VALUES ($1, $2, $3, 'CREDIT', $4, $5, $6, $7, $8)`,
-            [entryId2, instructionId, recipient, amount, currency, timestamp, hash2, hash1]
-        );
-
-        console.log(
-            `[LEDGER] Chained Entries: ${hash1.substring(0, 8)} -> ${hash2.substring(0, 8)}`
-        );
-    }
-
-    // --- DOUBLE-ENTRY VERIFICATION ---
-    async function verifyLedgerIntegrity(client, instructionId, currency) {
-        const ledgerCheck = await client.query(
-            `SELECT 
-            SUM(CASE WHEN direction='DEBIT' THEN amount ELSE 0 END) as total_debit,
-            SUM(CASE WHEN direction='CREDIT' THEN amount ELSE 0 END) as total_credit
-         FROM ledger_journal 
-         WHERE instruction_id = $1 AND currency = $2`,
-            [instructionId, currency]
-        );
-
-        const { total_debit, total_credit } = ledgerCheck.rows[0];
-
-        if (parseFloat(total_debit) !== parseFloat(total_credit)) {
-            throw new Error(
-                `LEDGER_INTEGRITY_FAILED: Debit (${total_debit}) !== Credit (${total_credit})`
-            );
-        }
-        return true;
-    }
+    const { writeLedger, verifyLedgerIntegrity } = require('./core/orchestrator/ledgerUtils');
 
     // =====================================================
     // API ENDPOINTS
     // =====================================================
 
+    // NOTE: BYOK /api/vault/keys endpoint has been removed.
+    // Project Fusion now operates as a White-Label Aggregator.
+    // Users top up their Fusion Virtual Account instead of connecting gateway keys.
+    // All execution rails use Fusion's master credentials from .env.
+
+    // =====================================================
+    // MAKER-CHECKER: APPROVE BATCH
+    // =====================================================
+    app.post('/api/instruction/approve', async (req, res) => {
+        try {
+            const { instructionIds, approved_by } = req.body;
+            if (!instructionIds || !Array.isArray(instructionIds) || instructionIds.length === 0) {
+                return res.status(400).json({ error: 'instructionIds array is required' });
+            }
+            if (!approved_by) {
+                return res.status(400).json({ error: 'approved_by is required' });
+            }
+
+            let approvedCount = 0;
+            let rejectedCount = 0;
+
+            for (const instructionId of instructionIds) {
+                const checkResult = await pool.query(
+                    'SELECT state, sender FROM instructions WHERE instruction_id = $1',
+                    [instructionId]
+                );
+                const txn = checkResult.rows[0];
+
+                if (!txn) {
+                    rejectedCount++;
+                    continue;
+                }
+
+                // Enforce Four-Eyes: approver must not be the same as initiator
+                if (txn.sender === approved_by) {
+                    logger.warn(
+                        `[MAKER-CHECKER] Self-approval attempt by '${approved_by}' for ${instructionId}`
+                    );
+                    rejectedCount++;
+                    continue;
+                }
+
+                if (txn.state !== 'PENDING_APPROVAL') {
+                    logger.warn(
+                        `[MAKER-CHECKER] Instruction ${instructionId} not in PENDING_APPROVAL state (current: ${txn.state})`
+                    );
+                    rejectedCount++;
+                    continue;
+                }
+
+                try {
+                    await defaultCanonicalApprovalService.approvePayment({
+                        instructionId,
+                        checkerOperatorId: approved_by,
+                        notes: `Batch approved by ${approved_by}`,
+                        requireStepUp: false,
+                        pool,
+                    });
+
+                    approvedCount++;
+                    logger.info(
+                        `[MAKER-CHECKER] ✅ Batch ${instructionId} approved via CanonicalApprovalService and queued in outbox.`
+                    );
+                } catch (approveErr) {
+                    logger.error(
+                        `[MAKER-CHECKER ERROR] Failed to approve ${instructionId}: ${approveErr.message}`
+                    );
+                    rejectedCount++;
+                }
+            }
+
+            res.json({
+                success: true,
+                approved: approvedCount,
+                rejected: rejectedCount,
+                message: `${approvedCount} instruction(s) approved and queued for processing.`,
+            });
+        } catch (err) {
+            logger.error(`[MAKER-CHECKER ERROR] ${err.message}`);
+            res.status(500).json({ error: 'Approval failed' });
+        }
+    });
+
+    // =====================================================
+    // ADAPTER HEALTH: CIRCUIT BREAKER STATUS
+    // =====================================================
+    app.get('/api/adapter/health', async (req, res) => {
+        const states = getAllBreakerStates();
+        res.json({ adapters: states, timestamp: new Date().toISOString() });
+    });
+
     // =====================================================
     // API 1: INITIATE (WITH IDEMPOTENCY)
     // =====================================================
-    app.post(
-        '/api/instruction/initiate',
-        validateRequest(instructionInitiateSchema),
-        checkIdempotency,
-        async (req, res) => {
+    app.post('/api/instruction/initiate', checkIdempotency, async (req, res) => {
+        try {
+            // Support both single object and arrays for bulk ingestion
+            const payload = Array.isArray(req.body) ? req.body : [req.body];
+
+            if (payload.length === 0) return res.status(400).json({ error: 'Empty payload' });
+
+            const { parseBatch, routeBatch } = require('./core/ingestion/batchParser');
+
+            // 1. Feature-Rich Parsing: Automatically detect FCSS requirements and enrich
+            const instructions = parseBatch(payload);
+
+            // --- TREASURY POWER-UP: AUTONOMOUS LIQUIDITY & ARBITRAGE ---
+            // 1. Intelligence: Generate arbitrage report for the batch
+            const totalAmount = instructions.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+            const mainCurrency = (instructions[0] && instructions[0].currency) || 'USD';
+            const arbReport = getArbitrageReport(totalAmount, mainCurrency);
+            logger.info(`[TREASURY_POWERUP] Batch Arbitrage Logic: ${arbReport.intelligence_note}`);
+
+            // 2. Action: Ensure master Stellar account has sufficient liquidity
+            await ensureStellarLiquidity(instructions);
+
+            // NOTE: RTBH user shadow balance sync removed.
+            // User balances are now managed via Fusion Virtual Accounts (FUSION_VIRTUAL),
+            // not per-provider shadow balances pinged from Stripe/Razorpay/Airwallex.
+
+            // 4. Routing Decision
+            const routingLayout = await routeBatch(instructions);
+
+            // [CRITICAL FIX] Persist instructions to the database BEFORE routing them.
+            // This ensures bulk uploads and single API calls are actually recorded.
+            const client = await pool.connect();
             try {
-                const { amount, currency, sender, recipient, purpose, auth_token } = req.body;
-
-                // 1. Check Regulatory KYC compliance before transaction initiation
-                const userCheck = await pool.query(
-                    'SELECT kyc_status FROM users WHERE user_id = $1',
-                    [sender]
-                );
-                if (userCheck.rows.length === 0 || userCheck.rows[0].kyc_status !== 'VERIFIED') {
-                    return res
-                        .status(403)
-                        .json({ error: 'Sender KYC not verified. Please complete onboarding.' });
-                }
-
-                // 2. Verify Additional Factor of Authentication (AFA/OTP)
-                if (!auth_token || !auth_token.startsWith('afat_')) {
-                    return res
-                        .status(401)
-                        .json({ error: 'Missing or invalid auth_token. AFA (OTP) required.' });
-                }
-                const otpId = auth_token.split('_')[1];
-                const otpCheck = await pool.query(
-                    'SELECT verified FROM otps WHERE id = $1 AND user_id = $2',
-                    [otpId, sender]
-                );
-                if (otpCheck.rows.length === 0 || !otpCheck.rows[0].verified) {
-                    return res.status(401).json({ error: 'Invalid AFA provided.' });
-                }
-
-                const instructionId = crypto.randomUUID();
-
-                await pool.query(
-                    `INSERT INTO instructions (instruction_id, amount, currency, sender, recipient, purpose, state, created_at, updated_at) 
-             VALUES ($1, $2, $3, $4, $5, $6, 'INITIATED', NOW(), NOW()) RETURNING *`,
-                    [instructionId, amount, currency, sender, recipient, purpose]
-                );
-
-                const responseData = {
-                    message: 'Instruction Created',
-                    instructionId,
-                    state: 'INITIATED',
-                };
-
-                // Save Idempotency if key exists
-                if (req.idempotencyKey) {
-                    await pool.query(
-                        'INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)',
-                        [req.idempotencyKey, JSON.stringify(responseData)]
+                await client.query('BEGIN');
+                for (const inst of instructions) {
+                    await client.query(
+                        `INSERT INTO instructions 
+                            (instruction_id, amount, currency, sender, recipient, purpose, state, provider, created_at, updated_at, net_amount, tax_withheld) 
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                        [
+                            inst.instruction_id,
+                            inst.amount,
+                            inst.currency,
+                            inst.sender,
+                            inst.recipient,
+                            inst.purpose,
+                            inst.state,
+                            inst.provider,
+                            inst.created_at,
+                            inst.created_at,
+                            inst.net_amount || inst.amount,
+                            inst.tax_withheld || 0,
+                        ]
                     );
                 }
-
-                res.json(responseData);
-            } catch (err) {
-                console.error(err);
-                res.status(500).send('System Error');
+                await client.query('COMMIT');
+                logger.info(
+                    `[INGESTION] Persisted ${instructions.length} instructions to database.`
+                );
+            } catch (dbErr) {
+                await client.query('ROLLBACK');
+                logger.error(`[INGESTION FATAL] Database persist failed: ${dbErr.message}`);
+                throw dbErr;
+            } finally {
+                client.release();
             }
+
+            if (routingLayout.fiat.length > 0)
+                await pushToBatchQueue('fiat_payouts', routingLayout.fiat);
+            if (routingLayout.cryptoFlow.length > 0)
+                await pushToBatchQueue('crypto_payouts', routingLayout.cryptoFlow);
+            if (routingLayout.marketplace.length > 0)
+                await pushToBatchQueue('marketplace_microbatch', routingLayout.marketplace);
+
+            // Exporter inflows have a distinct SAGA queue
+            if (routingLayout.fcssSaga.length > 0)
+                await pushToBatchQueue('exporter_fcss_saga', routingLayout.fcssSaga);
+
+            // --- SEQUENTIAL BATCH EXECUTION (FIFO) ---
+            // To avoid timeouts on external rails (Stellar/Horizon), we process the batch
+            // ONE-BY-ONE in the background. This ensures Row 1 finishes before Row 2 starts.
+            const processBatchSequentially = async (batch, pool) => {
+                for (const inst of batch) {
+                    const instId = inst.instruction_id;
+                    try {
+                        logger.info(
+                            `[SEQUENTIAL-WORKER] ⚛️ Processing ${instId} (${inst.currency})...`
+                        );
+
+                        // 1. Auto-Approve
+                        await pool.query(
+                            "UPDATE instructions SET state = 'INITIATED', updated_at = NOW() WHERE instruction_id = $1 AND state = 'PENDING_APPROVAL'",
+                            [instId]
+                        );
+
+                        // 2. Settle & Await Settlement before moving to the next row
+                        const result = await processInstructionSagaAtomic(instId, pool);
+
+                        if (result.status === 'MANUAL_CHECK') {
+                            logger.warn(
+                                `[SEQUENTIAL-WORKER] ⚠️ ${instId} stalled: ${result.reason}`
+                            );
+                        } else {
+                            logger.info(`[SEQUENTIAL-WORKER] ✅ ${instId} settled successfully.`);
+                        }
+
+                        // 3. Throttle delay (500ms) to give the network rails breathing room
+                        await new Promise((r) => setTimeout(r, 500));
+                    } catch (e) {
+                        logger.error(`[SEQUENTIAL-WORKER-ERROR] ${instId}: ${e.message}`);
+                    }
+                }
+            };
+
+            // Fire-and-forget the sequential background worker
+            processBatchSequentially(instructions, pool);
+
+            const responseData = {
+                message: `Successfully queued ${instructions.length} instructions`,
+                instructionId: instructions.length > 0 ? instructions[0].instruction_id : null,
+                instructionIds: instructions.map((i) => i.instruction_id),
+                state: 'QUEUED',
+            };
+
+            // Save Idempotency asynchronously in Redis (expire in 24 hours) or Local Map
+            if (req.idempotencyKey) {
+                if (process.env.LOCAL_ONLY === 'true' || !redis || redis.status !== 'ready') {
+                    localIdempotencyStore.set(
+                        `idempotency:${req.idempotencyKey}`,
+                        JSON.stringify(responseData)
+                    );
+                } else {
+                    await redis.setex(
+                        `idempotency:${req.idempotencyKey}`,
+                        86400,
+                        JSON.stringify(responseData)
+                    );
+                }
+            }
+
+            res.status(202).json(responseData);
+        } catch (err) {
+            if (err instanceof TypeError || err instanceof RangeError) {
+                if (req.idempotencyKey) {
+                    if (process.env.LOCAL_ONLY === 'true' || !redis || redis.status !== 'ready') {
+                        localIdempotencyStore.delete(`idempotency:${req.idempotencyKey}`);
+                    } else {
+                        await redis.del(`idempotency:${req.idempotencyKey}`).catch(() => {});
+                    }
+                }
+                return res.status(400).json({ error: 'Validation Failed', detail: err.message });
+            }
+            console.error('[INITIATE FATAL ERROR]', err);
+            if (req.idempotencyKey) {
+                if (process.env.LOCAL_ONLY === 'true' || !redis || redis.status !== 'ready') {
+                    localIdempotencyStore.delete(`idempotency:${req.idempotencyKey}`);
+                } else {
+                    await redis.del(`idempotency:${req.idempotencyKey}`).catch(() => {});
+                }
+            }
+            res.status(500).json({ error: 'System Error', detail: err.message });
         }
-    );
+    });
+    // =====================================================
+    // SHARED ORCHESTRATION & SAGA CORE
+    // =====================================================
+    const { processInstructionSagaAtomic } = require('./core/orchestrator/sagaCore');
 
     // --- API 2: POLICY ENGINE ---
     app.post('/api/policy/evaluate', validateRequest(instructionIdSchema), async (req, res) => {
-        const client = await pool.connect();
         try {
-            const { instructionId } = req.body;
-            const result = await client.query(
-                'SELECT * FROM instructions WHERE instruction_id = $1',
-                [instructionId]
-            );
-            if (result.rows.length === 0) return res.status(404).json({ error: 'Not Found' });
-            const txn = result.rows[0];
-
-            // Use isolated policy engine (imported from policyEngine.js)
-            const permit = evaluatePolicy(txn, process.env.API_SECRET_KEY);
-
-            if (permit.decision === 'APPROVED') {
-                // ✅ Start transaction for balance lock
-                await client.query('BEGIN');
-
-                // ✅ Check and lock shadow balance
-                const bal = await client.query(
-                    `SELECT balance FROM balances 
-                 WHERE account_id = $1 AND currency = $2 FOR UPDATE`,
-                    [txn.sender, txn.currency]
-                );
-
-                // ✅ Reject if insufficient balance
-                if (bal.rows.length === 0 || Number(bal.rows[0].balance) < Number(txn.amount)) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({ error: 'Insufficient shadow balance' });
-                }
-
-                // ✅ Reserve funds (subtract from sender's balance)
-                await client.query(
-                    `UPDATE balances SET balance = balance - $1 
-                 WHERE account_id = $2 AND currency = $3`,
-                    [txn.amount, txn.sender, txn.currency]
-                );
-
-                // ✅ Fetch RFQ to guarantee conversion rate (AMM Slippage Protection)
-                const mockFxRate = txn.currency === 'USD' ? 1.0 : 0.85;
-                const quoteId = 'rfq_' + crypto.randomUUID();
-
-                // ✅ Transition to LOCKED and preserve the guaranteed price
-                await client.query(
-                    "UPDATE instructions SET state = 'LOCKED', fx_rate = $1, quote_id = $2, updated_at = NOW() WHERE instruction_id = $3",
-                    [mockFxRate, quoteId, instructionId]
-                );
-
-                await client.query('COMMIT');
-
-                res.json({ instructionId, state: 'LOCKED', policy_permit: permit });
-            } else {
-                // If rejected, go to FAILED
-                await client.query(
-                    "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
-                    [instructionId]
-                );
-
-                res.json({ instructionId, state: 'FAILED', policy_permit: permit });
-            }
+            res.json(await processInstructionSagaAtomic(req.body.instructionId, pool));
         } catch (err) {
-            try {
-                await client.query('ROLLBACK');
-            } catch (rollbackErr) {
-                console.error('Rollback Error:', rollbackErr);
-            }
-            console.error('Policy Error:', err);
-            res.status(500).send('Policy Error');
-        } finally {
-            client.release();
+            logger.error(`[POLICY-ERROR] ${err.message}`);
+            res.status(500).json({ error: err.message });
         }
     });
 
-    // =====================================================
-    // API 3: ORCHESTRATION (SMART ROUTING)
-    // =====================================================
+    // --- API 3: ORCHESTRATION (SMART ROUTING) ---
     app.post('/api/orchestration/route', validateRequest(instructionIdSchema), async (req, res) => {
         try {
-            const { instructionId } = req.body;
-            const result = await pool.query(
-                'SELECT * FROM instructions WHERE instruction_id = $1',
-                [instructionId]
-            );
-            const txn = result.rows[0];
-
-            if (txn.state !== 'LOCKED')
-                return res.status(400).json({ error: 'Instruction not in LOCKED state' });
-
-            // Logic: Least-Cost & Capability Routing (Original Logic Preserved)
-            let adapterType = 'ADAPTER_ISO20022'; // Default Fallback (Tier-1 Native)
-
-            if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency))
-                adapterType = 'ADAPTER_CRYPTO_CUSTODIAN';
-            else if (txn.currency === 'PBM_VOUCHER') adapterType = 'ADAPTER_PBM_CONTRACT';
-            else if (txn.currency === 'SGD') adapterType = 'ADAPTER_PAYNOW';
-            else if (txn.currency === 'INR') adapterType = 'ADAPTER_RAZORPAY';
-            else if (['USD', 'EUR'].includes(txn.currency)) {
-                // 💰 Institutional Routing: Amounts > 10,000 skip Stripe to save fees
-                if (parseFloat(txn.amount) >= 10000) adapterType = 'ADAPTER_ISO20022';
-                else adapterType = 'ADAPTER_STRIPE';
-            }
-
-            await pool.query(
-                "UPDATE instructions SET state = 'PENDING_EXECUTION', updated_at = NOW() WHERE instruction_id = $1",
-                [instructionId]
-            );
-
-            // Log the decision
-            await notarizeToGovernance('ROUTING_DECISION', { instructionId, adapter: adapterType });
-
-            res.json({ instructionId, state: 'PENDING_EXECUTION', selectedAdapter: adapterType });
-        } catch {
-            res.status(500).send('Orchestration Error');
+            res.json(await processInstructionSagaAtomic(req.body.instructionId, pool));
+        } catch (err) {
+            logger.error(`[ROUTING-ERROR] ${err.message}`);
+            res.status(500).json({ error: err.message });
         }
     });
 
-    // --- API 4: ATOMIC SETTLEMENT (SAGA PATTERN) ---
+    // --- API 4: ADAPTER EXECUTION (LEGACY - ROUTED VIA SAGA) ---
     app.post(
         '/api/adapter/execute',
         validateRequest(adapterExecuteSchema),
         checkIdempotency,
         async (req, res) => {
-            // 1. Initial State Check (Short-lived connection)
-            let txn;
-            const client = await pool.connect();
             try {
-                const { instructionId } = req.body;
-                const result = await client.query(
-                    'SELECT * FROM instructions WHERE instruction_id = $1',
+                const { instructionId, adapter } = req.body;
+
+                // 1. Verify instruction exists and validate for contradictory adapter requests
+                const check = await pool.query(
+                    'SELECT currency, state, purpose FROM instructions WHERE instruction_id = $1',
                     [instructionId]
                 );
-                txn = result.rows[0];
-            } finally {
-                client.release(); // ✅ RELEASED IMMEDIATELY
-            }
-
-            if (!txn) {
-                // Handle not found if needed, or if txn was undefined from query
-                return res.status(404).json({ error: 'Instruction not found' });
-            }
-
-            if (txn.state !== 'PENDING_EXECUTION') {
-                return res.status(400).json({
-                    error: 'Instruction not in PENDING_EXECUTION state',
-                    current_state: txn.state,
-                });
-            }
-
-            const { instructionId, adapter } = req.body; // Redundant but clear
-
-            try {
-                logger.info(`[SAGA] SAGA_STARTED for instruction ${instructionId}`);
-
-                // Call adapter OUTSIDE transaction (prevents Ghost Money timeout issue)
-                // If server crashes here, reconciler will find it in PENDING_EXECUTION state
-                let adapterResult;
-                try {
-                    // --- COMPLIANCE INTERCEPTOR INJECTION ---
-                    const compliance = require('./core/complianceInterceptor');
-                    const taxInfo = await compliance.runComplianceChecks(txn);
-                    logger.info(
-                        `[SAGA] Post-Compliance Amount: ${txn.amount} (Tax: ${taxInfo.tax_withheld})`
-                    );
-                    // -----------------------------------------
-
-                    // logger.info(`[SAGA] Executing adapter: ${adapter} for instruction ${instructionId}`);
-                    adapterResult = await executeAdapter(adapter, txn);
-                    logger.info({ msg: '[ADAPTER] Result', result: adapterResult });
-
-                    // Save external intent ID for reconciler to query status later
-                    if (adapterResult.intent_id) {
-                        // Need a fresh client for this update since we released the first one
-                        const updateClient = await pool.connect();
-                        try {
-                            await updateClient.query(
-                                'UPDATE instructions SET external_intent_id = $1 WHERE instruction_id = $2',
-                                [adapterResult.intent_id, instructionId]
-                            );
-                        } finally {
-                            updateClient.release();
-                        }
-                        logger.info(
-                            `[ADAPTER] Saved external_intent_id: ${adapterResult.intent_id}`
-                        );
-                    }
-                } catch (adapterErr) {
-                    logger.error(`[ADAPTER] Failed for ${instructionId}: ${adapterErr.message}`);
-                    // Don't rethrow - let final handler catch and mark state appropriately
-                    adapterResult = { status: 'FAILED', error: adapterErr.message };
+                if (check.rows.length === 0) {
+                    return res.status(404).json({ error: 'Instruction not found' });
                 }
+                const txn = check.rows[0];
 
-                // Reconnect and do final update based on adapter result
-                const finalClient = await pool.connect();
-                try {
-                    await finalClient.query('BEGIN');
-
-                    if (adapterResult.status === 'SUCCESS') {
-                        // Step 2: UPDATE STATE to PENDING_SETTLEMENT (Async Architecture)
-                        // Note: We no longer write the double-entry ledger here.
-                        // We wait for the asynchronous webhook to confirm final settlement.
-                        await finalClient.query(
-                            "UPDATE instructions SET state = 'PENDING_SETTLEMENT', updated_at = NOW() WHERE instruction_id = $1",
-                            [instructionId]
-                        );
-
-                        await finalClient.query('COMMIT');
-                        logger.info(
-                            `[SAGA] SAGA_COMPLETED (Awaiting Webhook) for instruction ${instructionId}`
-                        );
-                        trackTransaction('SUCCESS', 'PENDING_SETTLEMENT');
-                    } else {
-                        // Adapter failed
-                        await finalClient.query(
-                            "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
-                            [instructionId]
-                        );
-
-                        await finalClient.query('COMMIT');
-                        logger.error(`[SAGA] SAGA_FAILED for instruction ${instructionId}`);
-                        trackTransaction('FAILED', 'SETTLEMENT');
-                    }
-
-                    // Step 5: ASYNC GOVERNANCE (Post-Commit)
-                    await notarizeToGovernance('SETTLEMENT_NOTARIZED', {
-                        txnId: instructionId,
-                        adapterUsed: adapter,
-                        adapterResult: adapterResult,
-                        amount: txn.amount,
-                        integrityHash: crypto
-                            .createHash('sha256')
-                            .update(instructionId)
-                            .digest('hex'),
-                    });
-
-                    const responseData = {
-                        instructionId,
-                        state: adapterResult.status === 'SUCCESS' ? 'PENDING_SETTLEMENT' : 'FAILED',
-                        adapter_result: adapterResult,
-                        ledger_proof: 'PENDING_WEBHOOK',
-                    };
-
-                    if (req.idempotencyKey) {
-                        await pool.query(
-                            'INSERT INTO idempotency_keys (key_id, response_json) VALUES ($1, $2)',
-                            [req.idempotencyKey, JSON.stringify(responseData)]
-                        );
-                    }
-
-                    res.json(responseData);
-                } catch (err) {
-                    await finalClient.query('ROLLBACK');
-                    logger.error(`[SAGA] Ledger write failed for ${instructionId}: ${err.message}`);
-
-                    // --- SAGA ROLLBACK PROTOCOL (COMPENSATING TRANSACTION) ---
-                    // The funds might have moved via the adapter, but the local DB write failed. We MUST reverse it.
+                // 2. Reject contradictory adapter requests
+                if (adapter) {
+                    const currency = (txn.currency || '').toUpperCase();
                     if (
-                        adapterResult &&
-                        adapterResult.status === 'SUCCESS' &&
-                        adapterResult.intent_id
+                        adapter === 'ADAPTER_STRIPE' &&
+                        !['USD', 'EUR', 'GBP', 'CAD'].includes(currency)
                     ) {
-                        try {
-                            logger.warn(
-                                `[SAGA] Ledger failed after Adapter Success. Triggering COMPENSATING TRANSACTION for ${instructionId}`
-                            );
-                            const rollbackObj = await rollbackAdapter(
-                                adapter,
-                                txn,
-                                adapterResult.intent_id
-                            );
-                            logger.info(
-                                `[SAGA] ✅ Compensating transaction result: ${JSON.stringify(rollbackObj)}`
-                            );
-
-                            await pool.query(
-                                "UPDATE instructions SET state = 'ROLLED_BACK', updated_at = NOW() WHERE instruction_id = $1",
-                                [instructionId]
-                            );
-                            logger.warn(
-                                `[SAGA] State marked as ROLLED_BACK. Funds returned to sender.`
-                            );
-                        } catch (rollbackErr) {
-                            logger.error(
-                                `[SAGA FATAL] ❌ Compensating transaction FAILED: ${rollbackErr.message}`
-                            );
-                            await pool.query(
-                                "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                                [instructionId]
-                            );
-                            logger.error(`[SAGA FATAL] Moved to MANUAL_CHECK. Funds may be stuck.`);
-                        }
-                    } else {
-                        // Adapter already failed or didn't execute, but ledger block crashed. Safe to fail.
-                        await pool.query(
-                            "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
-                            [instructionId]
-                        );
+                        return res.status(400).json({
+                            error: 'Contradictory adapter request',
+                            detail: `Adapter 'ADAPTER_STRIPE' cannot execute currency '${currency}'. Authoritative route required.`,
+                        });
                     }
-
-                    res.status(500).json({
-                        error: 'Settlement Failed',
-                        reason: err.message,
-                        instruction_id: instructionId,
-                        state: 'MANUAL_CHECK',
-                    });
-                } finally {
-                    finalClient.release();
+                    if (adapter === 'ADAPTER_RAZORPAY' && currency !== 'INR') {
+                        return res.status(400).json({
+                            error: 'Contradictory adapter request',
+                            detail: `Adapter 'ADAPTER_RAZORPAY' cannot execute currency '${currency}'. Only domestic INR is supported.`,
+                        });
+                    }
+                    if (adapter === 'ADAPTER_CRYPTO_CUSTODIAN' && currency !== 'XLM') {
+                        return res.status(400).json({
+                            error: 'Contradictory adapter request',
+                            detail: `Adapter 'ADAPTER_CRYPTO_CUSTODIAN' cannot execute asset '${currency}'. Only XLM on Stellar Testnet is supported.`,
+                        });
+                    }
+                    if (['ADAPTER_PAYNOW', 'ADAPTER_MOCK_HFT'].includes(adapter)) {
+                        return res.status(400).json({
+                            error: 'Unsupported adapter',
+                            detail: `Adapter '${adapter}' is deprecated and unsupported. Execution rejected.`,
+                        });
+                    }
                 }
-            } catch (err) {
-                logger.error(
-                    `[SAGA] Unexpected error for ${req.body.instructionId}: ${err.message}`
+
+                // 3. Emit HTTP Deprecation warning headers
+                res.set('Deprecation', 'true');
+                res.set(
+                    'Warning',
+                    '299 - "The adapter parameter on /api/adapter/execute is deprecated. Provider routing is automatically authoritative based on instruction currency and policy."'
                 );
-                res.status(500).json({
-                    error: 'System Error',
-                    reason: err.message,
-                });
+
+                // 4. Delegate to authoritative Saga
+                const result = await processInstructionSagaAtomic(instructionId, pool);
+                res.json(result);
+            } catch (err) {
+                logger.error(`[EXECUTION-ERROR] ${err.message}`);
+                res.status(500).json({ error: err.message });
             }
         }
     );
 
     // =====================================================
-    // API 5: ASYNC WEBHOOK INGESTION (IDEMPOTENT)
+    // API 4.5: EXPORTER FX SAGA (FCSS)
     // =====================================================
-    app.post('/api/webhooks/gateway', express.json(), async (req, res) => {
+    app.post('/api/saga/exporter-fx', authenticateClient, async (req, res) => {
         try {
-            const event = req.body;
-            // Support both standard Stripe webhook format and custom mock formats
-            const eventId = event.id || `mock_evt_${Date.now()}`;
+            const { instructionId } = req.body || {};
+            if (!instructionId) return res.status(400).json({ error: 'instructionId required' });
 
-            // Extract Intent ID based on provider payload structure
-            const intentId =
-                event.data?.object?.id || event.intent_id || event.payload?.payment?.entity?.id;
-
-            // Determine success based on event type
-            const isSuccess =
-                event.type === 'payment_intent.succeeded' ||
-                event.event === 'payout.processed' ||
-                event.status === 'succeeded';
-
-            if (!intentId) {
-                return res.status(400).send('Invalid webhook payload: Missing Intent ID');
-            }
-
-            logger.info(`[WEBHOOK] 📥 Received Async Webhook for Intent: ${intentId}`);
-
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-
-                // 1. IDEMPOTENCY CHECK (Database level)
-                // Ensure we NEVER process the exact same webhook multiple times (Double-Spend Protection)
-                const insertResult = await client.query(
-                    `INSERT INTO idempotency_keys (key_id, response_json) 
-                     VALUES ($1, $2) ON CONFLICT (key_id) DO NOTHING RETURNING key_id`,
-                    [`webhook_${eventId}`, JSON.stringify({ received: true })]
-                );
-
-                if (insertResult.rows.length === 0) {
-                    logger.warn(`[WEBHOOK] 🛑 Duplicate event received and ignored: ${eventId}`);
-                    await client.query('ROLLBACK');
-                    return res.status(200).send('Duplicate ignored');
-                }
-
-                // 2. LOOKUP INSTRUCTION BY INTENT_ID
-                // Use row-level locking (FOR UPDATE) to prevent race conditions
-                const txnResult = await client.query(
-                    'SELECT * FROM instructions WHERE external_intent_id = $1 FOR UPDATE',
-                    [intentId]
-                );
-
-                if (txnResult.rows.length === 0) {
-                    logger.warn(`[WEBHOOK] Intent ${intentId} not found in database.`);
-                    await client.query('ROLLBACK');
-                    return res.status(404).send('Instruction not found');
-                }
-
-                const txn = txnResult.rows[0];
-
-                if (
-                    txn.state === 'SETTLED' ||
-                    txn.state === 'FAILED' ||
-                    txn.state === 'ROLLED_BACK'
-                ) {
-                    logger.info(
-                        `[WEBHOOK] Instruction ${txn.instruction_id} already in terminal state (${txn.state}).`
-                    );
-                    await client.query('ROLLBACK');
-                    return res.status(200).send('Already processed');
-                }
-
-                if (isSuccess) {
-                    logger.info(`[WEBHOOK] ✅ Finalizing Settlement for ${txn.instruction_id}`);
-
-                    // Step 3: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
-                    // We only write to the immutable ledger AFTER the webhook guarantees funds moved
-                    await writeLedger(
-                        client,
-                        txn.instruction_id,
-                        txn.sender,
-                        txn.recipient,
-                        txn.amount,
-                        txn.currency
-                    );
-
-                    // Step 4: VERIFY DOUBLE-ENTRY INTEGRITY
-                    await verifyLedgerIntegrity(client, txn.instruction_id, txn.currency);
-
-                    // Step 5: UPDATE STATE TO FINALLY SETTLED
-                    await client.query(
-                        "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
-                        [txn.instruction_id]
-                    );
-
-                    await client.query('COMMIT');
-                    logger.info(
-                        `[WEBHOOK] 🎉 SAGA_COMPLETED successfully for ${txn.instruction_id}`
-                    );
-                    trackTransaction('SUCCESS', 'SETTLEMENT_WEBHOOK');
-
-                    // Step 6: ASYNC GOVERNANCE NOTARIZATION
-                    await notarizeToGovernance('WEBHOOK_SETTLEMENT_NOTARIZED', {
-                        txnId: txn.instruction_id,
-                        intentId: intentId,
-                        amount: txn.amount,
-                        integrityHash: require('crypto')
-                            .createHash('sha256')
-                            .update(txn.instruction_id)
-                            .digest('hex'),
-                    });
-                } else {
-                    logger.error(`[WEBHOOK] ❌ Payment Failed upstream for ${txn.instruction_id}`);
-
-                    // Trigger SAGA Compensating Transaction logic since the gateway failed
-                    // (Assuming fiat failed, we just mark it failed. If this was a nested leg, rollback rules apply)
-                    await client.query(
-                        "UPDATE instructions SET state = 'FAILED', updated_at = NOW() WHERE instruction_id = $1",
-                        [txn.instruction_id]
-                    );
-                    await client.query('COMMIT');
-                }
-
-                res.status(200).json({ received: true, instruction_id: txn.instruction_id });
-            } catch (err) {
-                await client.query('ROLLBACK');
-                logger.error(`[WEBHOOK DB ERROR] ❌ ${err.message}`);
-                res.status(500).send('Internal Server Error processing webhook');
-            } finally {
-                client.release();
-            }
+            logger.warn(`[EXPORTER_FX_SAGA] Request for ${instructionId} rejected: FCSS rail adapter is not implemented in this release.`);
+            return res.status(501).json({
+                error: 'FEATURE_NOT_IMPLEMENTED',
+                detail: 'FCSS (Foreign Currency Settlement System) rail adapter is not implemented in this release',
+                instructionId,
+            });
         } catch (err) {
-            logger.error(`[WEBHOOK FATAL] ${err.message}`);
-            res.status(500).send('Webhook parsing error');
+            logger.error(`[EXPORTER_FX_SAGA] Endpoint error: ${err.message}`);
+            res.status(500).json({ error: 'SAGA Execution Failed', reason: err.message });
         }
     });
 
-    // --- RECONCILIATION WORKER (Advanced Multi-Rail Recovery) ---
-    setInterval(async () => {
-        logger.info('[RECONCILER] Running scan for stuck transactions...');
+    // =====================================================
+    // API 5: ASYNC WEBHOOK INGESTION (MODERNIZED)
+    // =====================================================
+    // Secure webhook routes (/stripe, /razorpay, /gateway) are mounted at /api/webhooks
+    // via routes/webhooks.js with strict HMAC validation and atomic deduplication.
+
+    /**
+     * LIVELY RECONCILIATION ENGINE
+     * Accelerated for Testnet Responsiveness (GIFT City 2026 Prototype)
+     */
+    async function runReconciliationScan() {
+        logger.debug('[RECONCILER] Running scan for stuck transactions...');
         try {
             const stuck = await pool.query(`
-            SELECT instruction_id, external_intent_id, amount, currency, sender, recipient, state 
-            FROM instructions 
-            WHERE state IN ('PENDING_EXECUTION', 'PENDING_SETTLEMENT') 
-            AND updated_at < NOW() - INTERVAL '30 seconds'
-        `);
+                SELECT instruction_id, external_intent_id, amount, currency, sender, recipient, state, updated_at, tax_withheld, net_amount, zoho_invoice_id, saga_state 
+                FROM instructions 
+                WHERE state IN ('PENDING_EXECUTION', 'PENDING_SETTLEMENT') 
+                AND updated_at < NOW() - INTERVAL '5 seconds'
+            `);
 
             for (const txn of stuck.rows) {
                 const id = txn.instruction_id;
                 const intentId = txn.external_intent_id;
 
+                // --- P1-D: SAFE EXPORTER-FX WORKFLOW IDENTIFICATION & RECOVERY ---
+                let sagaMeta = null;
+                try {
+                    sagaMeta = txn.saga_state
+                        ? (typeof txn.saga_state === 'object' ? txn.saga_state : JSON.parse(txn.saga_state))
+                        : null;
+                } catch {
+                    sagaMeta = null;
+                }
+
+                const isExporterFxWorkflow = Boolean(
+                    sagaMeta && (sagaMeta.lastStep || sagaMeta.batchPlan || sagaMeta.fcssResult || sagaMeta.femaResult)
+                );
+
+                if (isExporterFxWorkflow) {
+                    logger.warn(
+                        `[RECONCILER] Stale Exporter FX instruction detected: ${id} (State: ${txn.state}, Step: ${sagaMeta.lastStep || 'UNKNOWN'}). Initiating safe recovery.`
+                    );
+                    // If an exporter FX instruction is stuck in PENDING_EXECUTION or PENDING_SETTLEMENT:
+                    // Because FCSS rail status cannot be verified automatically without adapter, outcome is ambiguous.
+                    // Escalate to MANUAL_CHECK idempotently. Do NOT retry FCSS operations automatically.
+                    // Do NOT overwrite newer legitimate state: lock row and verify state before updating.
+                    const client = await pool.connect();
+                    try {
+                        await client.query('BEGIN');
+                        const lockRes = await client.query(
+                            'SELECT state, saga_state FROM instructions WHERE instruction_id = $1 FOR UPDATE',
+                            [id]
+                        );
+                        if (
+                            lockRes.rows.length > 0 &&
+                            ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(lockRes.rows[0].state)
+                        ) {
+                            const curSaga = lockRes.rows[0].saga_state
+                                ? (typeof lockRes.rows[0].saga_state === 'object'
+                                      ? lockRes.rows[0].saga_state
+                                      : JSON.parse(lockRes.rows[0].saga_state))
+                                : {};
+                            curSaga.reconciledAt = new Date().toISOString();
+                            curSaga.reconciliationNote =
+                                'Stale Exporter FX instruction escalated to MANUAL_CHECK: external rail outcome is ambiguous and requires human verification';
+
+                            await client.query(
+                                "UPDATE instructions SET state = 'MANUAL_CHECK', saga_state = $1, error_message = $2, updated_at = NOW() WHERE instruction_id = $3",
+                                [
+                                    JSON.stringify(curSaga),
+                                    'Exporter FX stale execution: escalated to MANUAL_CHECK for manual review',
+                                    id,
+                                ]
+                            );
+                            await client.query('COMMIT');
+                            logger.info(
+                                `[RECONCILER] ✅ Exporter FX instruction ${id} safely escalated to MANUAL_CHECK`
+                            );
+                        } else {
+                            await client.query('ROLLBACK');
+                        }
+                    } catch (reconErr) {
+                        await client.query('ROLLBACK');
+                        logger.error(
+                            `[RECONCILER] Failed to escalate Exporter FX ${id} to MANUAL_CHECK: ${reconErr.message}`
+                        );
+                    } finally {
+                        client.release();
+                    }
+                    continue;
+                }
+
                 if (!intentId) {
                     logger.warn(
                         `[RECONCILER] Instruction ${id} has no external_intent_id, marking for manual check`
                     );
-                    await pool.query(
-                        "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                        [id]
-                    );
                     continue;
                 }
 
-                logger.info(`[RECONCILER] Checking stuck instruction: ${id} (intent: ${intentId})`);
+                logger.info(`[RECONCILER] Polling status for ${id} (Intent: ${intentId})`);
 
                 try {
-                    // Dynamic Adapter Selection for Query (Matching Orchestration Logic)
                     let adapter;
                     if (['BTC', 'ETH', 'USDC', 'XLM'].includes(txn.currency)) {
                         adapter = require('./adapters/cryptoAdapters');
                     } else if (txn.currency === 'INR') {
                         adapter = require('./adapters/razorpayAdapter');
                     } else if (txn.currency === 'SGD') {
-                        // ADAPTER_PAYNOW routing
                         adapter = require('./adapters/paymentsAdapters');
-                    } else if (['USD', 'EUR'].includes(txn.currency)) {
-                        // Institutional Routing Match: > 10,000 uses ISO20022
-                        if (parseFloat(txn.amount) >= 10000) {
-                            adapter = require('./adapters/iso20022Adapter');
-                        } else {
-                            adapter = require('./adapters/paymentsAdapters');
-                        }
+                    } else if (['USD', 'EUR', 'GBP', 'CAD'].includes(txn.currency)) {
+                        adapter = require('./adapters/paymentsAdapters');
                     }
 
-                    if (!adapter) {
-                        logger.warn(
-                            `[RECONCILER] No adapter resolution for ${id} (${txn.currency})`
-                        );
-                        continue;
-                    }
+                    if (!adapter) continue;
 
-                    const status = await adapter.queryStatus(intentId);
+                    const statusResult = await adapter.queryStatus(intentId);
+                    const status =
+                        typeof statusResult === 'object' ? statusResult.status : statusResult;
+                    const utr = typeof statusResult === 'object' ? statusResult.utr : null;
 
-                    // Status Mapping: Support succeeded/processed for success, canceled/failed for failure
-                    const isSuccess = status === 'succeeded' || status === 'processed';
-                    const isFailed = status === 'canceled' || status === 'failed';
+                    // Normalizing status across Stripe (succeeded) and RazorpayX (processed)
+                    const isSuccess = ['succeeded', 'processed', 'SUCCESS'].includes(status);
+                    const isFailed = ['canceled', 'failed', 'FAILURE'].includes(status);
 
                     if (isSuccess) {
                         logger.info(
                             `[RECONCILER] ✅ Confirming success for ${id} via Adapter Status (${status})`
                         );
-
                         const client = await pool.connect();
                         try {
                             await client.query('BEGIN');
-
-                            // Re-check state inside transaction with FOR UPDATE lock to prevent race conditions
                             const lockCheck = await client.query(
                                 'SELECT state FROM instructions WHERE instruction_id = $1 FOR UPDATE',
                                 [id]
@@ -1075,45 +1162,51 @@ function startApp() {
                                 lockCheck.rows.length > 0 &&
                                 lockCheck.rows[0].state !== 'SETTLED'
                             ) {
-                                // Step 3: EXECUTE DOUBLE-ENTRY LEDGER (Atomic Write)
-                                // Standardized with Webhook Handler logic
+                                // PASS PERSISTED TAX INFO during recovery
                                 await writeLedger(
                                     client,
                                     id,
                                     txn.sender,
                                     txn.recipient,
-                                    txn.amount,
-                                    txn.currency
+                                    txn.net_amount,
+                                    txn.currency,
+                                    txn.tax_withheld || 0
                                 );
-
-                                // Step 4: VERIFY DOUBLE-ENTRY INTEGRITY
-                                await verifyLedgerIntegrity(client, id, txn.currency);
-
-                                // Step 5: UPDATE STATE TO FINALLY SETTLED
+                                await verifyLedgerIntegrity(
+                                    client,
+                                    id,
+                                    txn.currency,
+                                    txn.tax_withheld || 0
+                                );
                                 await client.query(
-                                    "UPDATE instructions SET state = 'SETTLED', updated_at = NOW() WHERE instruction_id = $1",
-                                    [id]
+                                    "UPDATE instructions SET state = 'SETTLED', utr = $1, updated_at = NOW() WHERE instruction_id = $2",
+                                    [utr || null, id]
                                 );
-
+                                if (txn.zoho_invoice_id) {
+                                    await client.query(
+                                        `UPDATE invoices SET state = 'SETTLED', updated_at = NOW() WHERE invoice_id = $1 OR invoice_id = $2`,
+                                        [txn.zoho_invoice_id, `ZOHO-${txn.zoho_invoice_id}`]
+                                    );
+                                }
                                 await client.query('COMMIT');
                                 logger.info(`[RECONCILER] 🎉 Recovered and SETTLED: ${id}`);
-                                trackTransaction('SUCCESS', 'RECONCILER_RECOVERY');
 
-                                // Step 6: ASYNC GOVERNANCE NOTARIZATION
-                                await notarizeToGovernance('RECONCILER_SETTLEMENT_NOTARIZED', {
-                                    txnId: id,
-                                    intentId: intentId,
-                                    amount: txn.amount,
-                                    integrityHash: crypto
-                                        .createHash('sha256')
-                                        .update(id)
-                                        .digest('hex'),
-                                });
+                                // POST-SETTLEMENT: Zoho Reconciliation
+                                const {
+                                    reconcileToZoho,
+                                } = require('./core/reconciliation/reconciliationService');
+                                const settledTxn = { ...txn, zoho_invoice_id: txn.zoho_invoice_id };
+                                reconcileToZoho(pool, settledTxn, utr || intentId).catch((e) =>
+                                    logger.error(
+                                        `[RECONCILER] Zoho reconciliation error for ${id}: ${e.message}`
+                                    )
+                                );
                             } else {
                                 await client.query('ROLLBACK');
                             }
                         } catch (err) {
                             await client.query('ROLLBACK');
+                            logger.error(`[RECONCILER DB ERROR] ❌ ${err.message}`);
                             throw err;
                         } finally {
                             client.release();
@@ -1124,18 +1217,6 @@ function startApp() {
                             [id]
                         );
                         logger.info(`[RECONCILER] Marked ${id} as FAILED`);
-                    } else {
-                        // Still pending or unknown - increment wait or mark manual check if too old
-                        const ageInSeconds =
-                            (Date.now() - new Date(txn.updated_at).getTime()) / 1000;
-                        if (ageInSeconds > 300) {
-                            // 5 minutes
-                            await pool.query(
-                                "UPDATE instructions SET state = 'MANUAL_CHECK', updated_at = NOW() WHERE instruction_id = $1",
-                                [id]
-                            );
-                            logger.warn(`[RECONCILER] Marked ${id} as MANUAL_CHECK (Timed out)`);
-                        }
                     }
                 } catch (adapterErr) {
                     logger.error(
@@ -1144,9 +1225,14 @@ function startApp() {
                 }
             }
         } catch (err) {
-            logger.error(`[RECONCILER] Critical error in reconciliation loop: ${err.message}`);
+            logger.error(`[RECONCILER] Critical error: ${err.message}`);
         }
-    }, 60000); // Run every 60 seconds
+    }
+
+    // ACCELERATED POLLING: Scan every 8 seconds for real-time testnet feel (only if not running tests)
+    if (process.env.NODE_ENV !== 'test') {
+        setInterval(runReconciliationScan, 8000);
+    }
 
     // =====================================================
     // =====================================================
@@ -1184,7 +1270,9 @@ function startApp() {
                 currency: txn.currency,
                 state: txn.state,
                 purpose: txn.purpose,
+                error_message: txn.error_message, // Failure rationale
                 // SCRUBBED: sender, recipient (PII)
+
                 sender_hash:
                     crypto.createHash('sha256').update(txn.sender).digest('hex').substring(0, 8) +
                     '...',
@@ -1195,8 +1283,14 @@ function startApp() {
                         .digest('hex')
                         .substring(0, 8) + '...',
                 timestamp: txn.created_at,
-                trace_id: txn.external_intent_id || 'N/A',
+                trace_id:
+                    txn.currency === 'INR'
+                        ? txn.utr || txn.external_intent_id || 'N/A'
+                        : txn.external_intent_id || 'N/A',
+                utr: txn.utr || null,
+                external_intent_id: txn.external_intent_id || null,
                 ledger_hashes: txn.ledger_hashes || [],
+                metadata: txn.metadata || {},
             }));
 
             res.json({
@@ -1214,29 +1308,66 @@ function startApp() {
         }
     });
 
-    // START SERVER (HTTPS + mTLS ENFORCED)
-    // =====================================================
-    const httpsOptions = {
-        key: fs.readFileSync(path.join(__dirname, 'certs', 'server.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'certs', 'server.crt')),
-        ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
-        requestCert: true, // Request a certificate from the client (mTLS)
-        rejectUnauthorized: false, // Allow handshake to succeed (we enforce 'authorized' in middleware)
-    };
+    let server;
+    if (process.env.LOCAL_ONLY === 'true') {
+        const http = require('http');
+        server = http.createServer(app);
+    } else {
+        const httpsOptions = {
+            key: fs.readFileSync(path.join(__dirname, 'certs', 'server.key')),
+            cert: fs.readFileSync(path.join(__dirname, 'certs', 'server.crt')),
+            ca: fs.readFileSync(path.join(__dirname, 'certs', 'ca.crt')),
+            requestCert: true, // Request a certificate from the client (mTLS)
+            rejectUnauthorized: false, // Allow handshake to succeed (we enforce 'authorized' in middleware)
+        };
+        server = https.createServer(httpsOptions, app);
+    }
 
-    const server = https.createServer(httpsOptions, app);
+    const isLocalOnly = process.env.LOCAL_ONLY === 'true';
+    const listenHost = isLocalOnly ? '127.0.0.1' : (process.env.HOST || '0.0.0.0');
+
+    // Attach server and socket configuration for programmatic inspection and testing
+    app.server = server;
+    app.locals = app.locals || {};
+    app.locals.listenHost = listenHost;
+    app.locals.listenPort = PORT;
+    app.locals.isLocalOnly = isLocalOnly;
+    app.runReconciliationScan = runReconciliationScan;
 
     // Only listen if this is the main module (not imported by Jest)
     if (require.main === module) {
-        server.listen(PORT, () => {
+        server.listen(PORT, listenHost, () => {
+            const protocol = isLocalOnly ? 'http' : 'https';
             logger.info(
-                `[STARTUP] Project Fusion Enterprise Core (SECURE) running on https://localhost:${PORT}`
+                `[STARTUP] Project Fusion Enterprise Core (${isLocalOnly ? 'LOCAL' : 'SECURE'}) running on ${protocol}://${listenHost}:${PORT}`
             );
             logger.info(
                 '[STARTUP] mTLS SECURITY ENFORCED: Mutual identity required for all API calls'
             );
             logger.info('[STARTUP] HSM SIMULATION ACTIVE: Sensitive keys isolated in Vault');
             logger.info('[STARTUP] Ready for high-security regulatory discussion');
+
+            // --- RECONCILIATION ENGINE (SAGA SELF-HEALING) ---
+            // Ensuring the engine is "SWITCHED ON" for automated status recovery
+            setInterval(() => {
+                runReconciliationScan().catch((err) =>
+                    logger.error(`[RECONCILER FATAL] ${err.message}`)
+                );
+            }, 30000); // 30s interval
+
+            // Immediate first run
+            runReconciliationScan();
+
+            // --- OUTBOX DISPATCHER (ADR-002 SAGA RELIABILITY) ---
+            // Automatic boot recovery for pending outbox events across restarts
+            defaultCanonicalApprovalService.drainDispatchOutbox({ pool }).catch((err) =>
+                logger.warn(`[OUTBOX_STARTUP] Outbox initial drain warning: ${err.message}`)
+            );
+            setInterval(() => {
+                defaultCanonicalApprovalService.drainDispatchOutbox({ pool }).catch((err) =>
+                    logger.warn(`[OUTBOX_SWEEP] Outbox periodic sweep warning: ${err.message}`)
+                );
+            }, 15000); // 15s interval
         });
     }
 

@@ -18,7 +18,7 @@ config:
           name: 'Hold Peak Load (500 TPS)'
     defaults:
         headers:
-            x-api-key: 'fusion_bank_secret_key_2025'
+            x-api-key: '{{ $env.API_SECRET_KEY }}'
             Content-Type: 'application/json'
     plugins:
         metrics-by-endpoint: {}

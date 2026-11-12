@@ -24,7 +24,7 @@ describe('Adapter SDK & Registry', () => {
 
         const result = await adapter.execute(mockInstruction, mockContext);
 
-        expect(result.status).toBe('SUCCESS');
+        expect(result.status).toBe('SIMULATED');
         expect(result.adapter_type).toBe('ALIPAY_SDK');
     });
 });

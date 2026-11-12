@@ -1,15 +1,19 @@
+'use strict';
+
 // DIGITAL ASSET CUSTODIAN ADAPTER
 
 const Stellar = require('@stellar/stellar-sdk');
+const crypto = require('crypto');
 
 // Configuration for Stellar Testnet
 const server = new Stellar.Horizon.Server('https://horizon-testnet.stellar.org');
 const NET_PASSPHRASE = 'Test SDF Network ; September 2015'; // Explicit Testnet
 
-async function executeCryptoTransfer(instruction) {
+async function executeCryptoRail(instruction) {
     const { amount, sender, recipient } = instruction;
 
     const logger = require('../logger');
+    const instructionId = instruction.instruction_id || instruction.instructionId;
     logger.info(`[STELLAR] Executing: ${amount} XLM from ${sender} to ${recipient}`);
 
     try {
@@ -28,20 +32,31 @@ async function executeCryptoTransfer(instruction) {
             `[STELLAR] Dest:   ${isRedacted ? destinationPublicKey.substring(0, 4) + '...' + destinationPublicKey.substring(52) : destinationPublicKey}`
         );
 
-        // 2. Ensure Source Account Exists (Fund via Friendbot if Demo)
+        // 4. Ensure Source Account Exists AND has sufficient reserve for the REQUESTED amount
+        let sourceAccount;
+        const requiredAmount = parseFloat(amount) + 2.0; // Amount + safe reserve
+        
         try {
-            await server.loadAccount(sourcePublicKey);
+            sourceAccount = await server.loadAccount(sourcePublicKey);
+            let balanceXLM = parseFloat(sourceAccount.balances.find(b => b.asset_type === 'native').balance);
+            
+            let refillCount = 0;
+            while (balanceXLM < requiredAmount && refillCount < 3) { // Reduced retries for speed
+                logger.info(`[STELLAR] Balance (${balanceXLM} XLM) insufficient for ${amount} XLM request. Refilling... (${refillCount+1}/3)`);
+                await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
+                await new Promise((r) => setTimeout(r, 4000));
+                sourceAccount = await server.loadAccount(sourcePublicKey);
+                balanceXLM = parseFloat(sourceAccount.balances.find(b => b.asset_type === 'native').balance);
+                refillCount++;
+            }
         } catch {
-            logger.info('[STELLAR] Source not found. Funding via Friendbot...');
+            logger.info('[STELLAR] Source not found. Initializing via Friendbot...');
             await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
-            logger.info('[STELLAR] Waiting for ledger (8s)...');
-            await new Promise((r) => setTimeout(r, 8000));
+            await new Promise((r) => setTimeout(r, 5000));
+            sourceAccount = await server.loadAccount(sourcePublicKey);
         }
 
-        // 3. Load Source Account for Sequence Number
-        const sourceAccount = await server.loadAccount(sourcePublicKey);
-
-        // 4. Check if Destination Exists
+        // 5. Build Operation (Create or Pay)
         let destExists = true;
         try {
             await server.loadAccount(destinationPublicKey);
@@ -49,7 +64,6 @@ async function executeCryptoTransfer(instruction) {
             destExists = false;
         }
 
-        // 5. Build Operation (Create or Pay)
         const op = destExists
             ? Stellar.Operation.payment({
                   destination: destinationPublicKey,
@@ -61,7 +75,7 @@ async function executeCryptoTransfer(instruction) {
                   startingBalance: amount.toString(),
               });
 
-        // 6. Build Transaction (Using secure source public key)
+        // 6. Build and Sign Transaction
         const transaction = new Stellar.TransactionBuilder(sourceAccount, {
             fee: Stellar.BASE_FEE,
             networkPassphrase: NET_PASSPHRASE,
@@ -70,7 +84,6 @@ async function executeCryptoTransfer(instruction) {
             .setTimeout(60)
             .build();
 
-        // 7. Sign via HSM Vault (Key remains isolated)
         await signStellarTransaction(sender, transaction, NET_PASSPHRASE);
 
         // 8. Submit to Network
@@ -106,15 +119,51 @@ async function queryStatus(intentId) {
     const logger = require('../logger');
     try {
         logger.info(`[STELLAR] Querying Horizon for transaction status: ${intentId}`);
-        // We can actually check the Stellar network
-        await server.loadTransaction(intentId);
+        // CORRECT API for Stellar SDK v13+:
+        await server.transactions().transaction(intentId).call();
         return 'succeeded';
     } catch (err) {
         if (err.response && err.response.status === 404) {
             return 'pending';
         }
+        logger.error(`[STELLAR RECONCILE ERROR] ${err.message}`);
         return 'UNKNOWN';
     }
 }
 
-module.exports = { executeCryptoTransfer, queryStatus };
+/**
+ * Fetches real-time XLM balance for a given public key.
+ * @param {string} address - Stellar public key
+ * @returns {Promise<number>} - Balance in XLM
+ */
+async function getCryptoBalance(address) {
+    const logger = require('../logger');
+    try {
+        let account;
+        try {
+            account = await server.loadAccount(address);
+        } catch (err) {
+            if (err.response && err.response.status === 404) {
+                logger.info(`[STELLAR] Syncing NEW account: ${address}. Provisioning via Friendbot...`);
+                await fetch(`https://friendbot.stellar.org?addr=${address}`);
+                await new Promise((r) => setTimeout(r, 6000));
+                account = await server.loadAccount(address);
+            } else {
+                throw err;
+            }
+        }
+        
+        const nativeBalance = account.balances.find((b) => b.asset_type === 'native');
+        return nativeBalance ? parseFloat(nativeBalance.balance) : 0;
+    } catch (err) {
+        logger.error(`[STELLAR BALANCE ERROR] ${err.message}`);
+        throw err;
+    }
+}
+
+module.exports = Object.freeze({
+    executeCryptoRail,
+    executeCryptoTransfer: executeCryptoRail, // Backward-compatibility alias
+    queryStatus,
+    getCryptoBalance,
+});

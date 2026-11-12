@@ -1,7 +1,9 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es6"
+        "target": "es2022",
+        "checkJs": false,
+        "moduleResolution": "node"
     },
-    "exclude": ["node_modules"]
+    "exclude": ["node_modules", "client", "coverage", ".next", "dist"]
 }

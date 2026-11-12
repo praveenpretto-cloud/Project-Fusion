@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "server.js",
+        "seed_budgets.js",
+        "swagger.js",
+        "scripts/*.js",
+        "scripts/dev/*.js",
+        "tests/*.js",
+        "tests/unit/*.test.js",
+        "tests/integration/*.test.js",
+        "tests/integration/verify_step4d2_migration028.js",
+        "tests/e2e/*.js"
+      ],
+      "project": [
+        "*.js!",
+        "core/**/*.js!",
+        "adapters/**/*.js!",
+        "api/**/*.js!",
+        "routes/**/*.js!",
+        "services/**/*.js!",
+        "plugins/**/*.js!",
+        "scripts/**/*.js",
+        "tests/**/*.js"
+      ],
+      "ignoreDependencies": [
+        "swagger-ui-express",
+        "husky"
+      ],
+      "ignoreBinaries": [
+        "docker-compose"
+      ],
+      "includeEntryExports": false
+    },
+    "client": {
+      "next": true
+    }
+  },
+  "rules": {
+    "files": "off",
+    "exports": "off",
+    "types": "off",
+    "nsExports": "off",
+    "nsTypes": "off"
+  }
+}

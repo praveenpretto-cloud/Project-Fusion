@@ -16,13 +16,44 @@ const TRANSACTION_STATES = {
 
 const ADAPTER_TYPES = {
     PAYMENTS: 'ADAPTER_PAYNOW',
-    CRYPTO: 'ADAPTER_CRYPTO_CUSTODIAN',
+    DIGITAL_ASSET: 'ADAPTER_DIGITAL_ASSET_CUSTODIAN',
 };
 
 const CURRENCIES = {
     FIAT: ['USD', 'SGD', 'EUR', 'GBP', 'INR'],
-    CRYPTO: ['XLM', 'BTC', 'ETH', 'USDC'],
+    DIGITAL_ASSET: ['XLM', 'BTC', 'ETH', 'USDC'],
     ALL: ['USD', 'SGD', 'EUR', 'GBP', 'INR', 'XLM', 'BTC', 'ETH', 'USDC'],
+};
+
+const ASSET_PRECISION = {
+    // Verified sandbox / testnet rails
+    XLM: 7,
+    USD: 2,
+    EUR: 2,
+    GBP: 2,
+    INR: 2,
+    CAD: 2,
+    SGD: 2,
+
+    // Policy consistency for simulated digital assets (strictly no execution privileges)
+    BTC: 8,
+    ETH: 18,
+    USDC: 6,
+    CNY: 2,
+};
+
+const ASSET_MIN_AMOUNT = {
+    ETH: '0.000000000000000001',
+    BTC: '0.00000001',
+    XLM: '0.0000001',
+    USDC: '0.000001',
+    USD: '0.01',
+    EUR: '0.01',
+    GBP: '0.01',
+    INR: '0.01',
+    CAD: '0.01',
+    SGD: '0.01',
+    CNY: '0.01',
 };
 
 const LIMITS = {
@@ -38,5 +69,7 @@ module.exports = {
     TRANSACTION_STATES,
     ADAPTER_TYPES,
     CURRENCIES,
+    ASSET_PRECISION,
+    ASSET_MIN_AMOUNT,
     LIMITS,
 };

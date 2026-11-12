@@ -38,7 +38,21 @@ certs/
 *.pem
 *.p12
 
-#Testing
+# Testing & Output
 coverage/
 .next/
 client/.next/
+*.log
+tests/ledger_dual_rail_results.txt
+
+# Editor & OS artifacts
+.DS_Store
+.vscode/
+.idea/
+
+# Large binaries & archives
+*.zip
+*.tar.gz
+*.tgz
+Ollama-darwin.zip
+

@@ -8,7 +8,11 @@
 const https = require('https');
 const crypto = require('crypto');
 
-const API_KEY = 'fusion_bank_secret_key_2025';
+const API_KEY = process.env.API_SECRET_KEY;
+if (!API_KEY) {
+    console.error('Error: API_SECRET_KEY environment variable is required. Exiting.');
+    process.exit(1);
+}
 
 // Single user for this rail
 const INR_USER = `inr_rail_test_${Date.now()}`;

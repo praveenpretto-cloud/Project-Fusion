@@ -8,7 +8,11 @@ const https = require('https');
 const crypto = require('crypto');
 
 // const BASE_URL = 'https://localhost:3000'; // Removed unused
-const API_KEY = 'fusion_bank_secret_key_2025';
+const API_KEY = process.env.API_SECRET_KEY;
+if (!API_KEY) {
+    console.error('Error: API_SECRET_KEY environment variable is required. Exiting.');
+    process.exit(1);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HTTP HELPER

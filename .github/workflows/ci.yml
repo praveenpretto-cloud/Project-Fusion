@@ -11,14 +11,38 @@ jobs:
     build-and-test:
         runs-on: ubuntu-latest
 
+        services:
+            postgres:
+                image: postgres:${{ matrix.postgres }}-alpine
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: testpassword
+                    POSTGRES_DB: fusion_test_db
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd pg_isready
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 5
+
         env:
             CI: true
+            DB_USER: postgres
+            DB_PASSWORD: testpassword
+            DB_NAME: fusion_test_db
+            DB_HOST: 127.0.0.1
+            DB_PORT: 5432
+            TEST_DATABASE_URL: postgres://postgres:testpassword@127.0.0.1:5432/fusion_test_db
 
         strategy:
             matrix:
                 node:
                     - 18
                     - 20
+                postgres:
+                    - 15
+                    - 16
         permissions:
             contents: read
             actions: read
@@ -35,3 +59,5 @@ jobs:
             - run: npm run lint
             - run: npm run format:check
             - run: npm run test:unit
+            - name: Run PostgreSQL Integration Tests
+              run: npx jest tests/integration/ai2aIdentityPostgresIntegration.test.js --runInBand

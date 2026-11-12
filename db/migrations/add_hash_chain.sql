@@ -1,7 +1,7 @@
 -- Migration: Add hash chain columns to ledger_journal
 -- Purpose: Enable blockchain-like tamper evidence
 
-ALTER TABLE ledger_journal 
+ALTER TABLE ledger_journal
 ADD COLUMN IF NOT EXISTS hash VARCHAR(64),
 ADD COLUMN IF NOT EXISTS prev_hash VARCHAR(64);
 

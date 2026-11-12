@@ -1,11 +1,25 @@
 // POLICY ENGINE
 
 const crypto = require('crypto');
+const logger = require('./logger');
 
 function evaluatePolicy(transaction, apiSecretKey) {
     // PROTOTYPE ONLY: Hardcoded rules
     let decision = 'APPROVED';
     let rationale = 'Standard compliance checks passed';
+    let recommendedRail = null;
+
+    // Inter-Company Treasury Routing Rule
+    if (transaction.purpose === 'TREASURY' && ['USD', 'USDC'].includes(transaction.currency)) {
+        recommendedRail = 'ADAPTER_CRYPTO_CUSTODIAN';
+        rationale = 'Inter-Company Treasury bypassing external 3rd party margins via USDC.';
+    }
+
+    // Supply Chain Smart Routing (Mock RFQ check)
+    if (transaction.purpose === 'SUPPLY_CHAIN_VENDOR' && parseFloat(transaction.amount) >= 10000) {
+        recommendedRail = 'ADAPTER_ISO20022';
+        rationale = 'Supply Chain High-Value routing optimized for SWIFT (ISO20022)';
+    }
 
     // Rule 1: PBM Constraints
     if (
@@ -17,9 +31,23 @@ function evaluatePolicy(transaction, apiSecretKey) {
     }
 
     // Rule 2: AML Thresholds
-    if (parseFloat(transaction.amount) > 100000) {
+    // RBI CTR (Currency Transaction Report) threshold: ₹10,00,000 (₹10L)
+    // Above this, flag for manual review — do NOT block automatically for wire transfers.
+    // STR (Suspicious Transaction Report) is subjective and handled by compliance team.
+    const AML_CTR_THRESHOLD_INR = 1000000; // ₹10L
+    const AML_HARD_LIMIT_INR = 50000000; // ₹5 Crore absolute safety ceiling
+    const amountInINR = parseFloat(transaction.amount) *
+        (['INR'].includes(transaction.currency) ? 1 : 83.2); // Approximate USD→INR conversion
+
+    if (amountInINR > AML_HARD_LIMIT_INR) {
         decision = 'REJECTED';
-        rationale = 'AML Violation: Transaction threshold exceeded';
+        rationale = `AML Violation: Transaction amount (₹${(amountInINR / 10000000).toFixed(1)}Cr) exceeds maximum safety ceiling of ₹5Cr.`;
+    } else if (amountInINR > AML_CTR_THRESHOLD_INR) {
+        // Flag for enhanced due diligence — but do NOT auto-reject wire transfers
+        // (FEMA allows high-value wire transfers with proper documentation)
+        rationale = `High-Value Transaction: CTR filing required (₹${(amountInINR / 100000).toFixed(1)}L). Routed to enhanced review queue.`;
+        logger.info?.(`[POLICY] CTR flag: Amount ${amountInINR.toFixed(0)} INR exceeds ₹10L threshold.`);
+        // In production: submit CTR to FIU-IND via API; do not block the instruction.
     }
 
     // In production, these rules would come from OPA:
@@ -54,6 +82,7 @@ function evaluatePolicy(transaction, apiSecretKey) {
         instruction_id: transaction.instruction_id,
         decision,
         rationale,
+        recommended_rail: recommendedRail,
 
         // Economic lock semantics (MANDATORY)
         locked_account: transaction.sender,
