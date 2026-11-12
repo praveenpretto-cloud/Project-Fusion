@@ -15,6 +15,12 @@
  */
 
 const crypto = require('crypto');
+
+// Ensure WebCrypto is available on globalThis for Node.js 18 compatibility with @simplewebauthn/server
+if (!globalThis.crypto && crypto.webcrypto) {
+    globalThis.crypto = crypto.webcrypto;
+}
+
 const {
     verifyAuthenticationResponse,
     verifyRegistrationResponse,
