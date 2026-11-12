@@ -12,9 +12,9 @@
 const logger = require('../logger');
 
 const DEFAULTS = {
-    FAILURE_THRESHOLD: 5,      // Consecutive failures before tripping OPEN
-    SUCCESS_THRESHOLD: 2,      // Consecutive successes in HALF_OPEN before closing
-    TIMEOUT_MS: 30_000,        // How long to wait in OPEN before trying HALF_OPEN (30 seconds)
+    FAILURE_THRESHOLD: 5, // Consecutive failures before tripping OPEN
+    SUCCESS_THRESHOLD: 2, // Consecutive successes in HALF_OPEN before closing
+    TIMEOUT_MS: 30_000, // How long to wait in OPEN before trying HALF_OPEN (30 seconds)
 };
 
 class CircuitBreaker {
@@ -37,7 +37,9 @@ class CircuitBreaker {
             if (this.successCount >= this.successThreshold) {
                 this.state = 'CLOSED';
                 this.successCount = 0;
-                logger.info(`[CIRCUIT_BREAKER] ✅ [${this.name}] Circuit CLOSED — Adapter recovered.`);
+                logger.info(
+                    `[CIRCUIT_BREAKER] ✅ [${this.name}] Circuit CLOSED — Adapter recovered.`
+                );
             }
         }
     }
@@ -52,7 +54,7 @@ class CircuitBreaker {
             this.state = 'OPEN';
             logger.error(
                 `[CIRCUIT_BREAKER] ❌ [${this.name}] Circuit OPENED — Adapter is unhealthy. ` +
-                `Will retry in ${this.timeoutMs / 1000}s.`
+                    `Will retry in ${this.timeoutMs / 1000}s.`
             );
         }
     }
@@ -65,7 +67,9 @@ class CircuitBreaker {
             const elapsed = Date.now() - this.lastFailureTime;
             if (elapsed >= this.timeoutMs) {
                 this.state = 'HALF_OPEN';
-                logger.warn(`[CIRCUIT_BREAKER] 🔁 [${this.name}] Circuit HALF_OPEN — Probing recovery.`);
+                logger.warn(
+                    `[CIRCUIT_BREAKER] 🔁 [${this.name}] Circuit HALF_OPEN — Probing recovery.`
+                );
                 return true; // Allow one probe request
             }
             return false; // Still open

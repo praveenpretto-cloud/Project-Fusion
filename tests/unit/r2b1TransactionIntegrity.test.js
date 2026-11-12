@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * PROJECT FUSION — R2B.1 TRANSACTION INTEGRITY VERIFICATION SUITE
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Verifies three critical properties:
  * 1. Atomicity between annotation persistence and audit logging (Task 1).
  *    - Audit failure -> annotation update rolls back completely.
@@ -21,9 +21,7 @@
 const express = require('express');
 const { parseCookies } = require('../../core/identity/authMiddleware');
 const instructionRouter = require('../../routes/instructionRouter');
-const {
-    PRIMARY_AUTHORIZED_BUSINESS_ID,
-} = require('../../routes/instructionRouter');
+const { PRIMARY_AUTHORIZED_BUSINESS_ID } = require('../../routes/instructionRouter');
 const { SessionManager, SESSION_COOKIE_NAME } = require('../../core/identity/sessionManager');
 
 const TEST_INSTRUCTION_ID = '961d220c-53cf-464d-a3ce-4026517e5038';
@@ -40,7 +38,12 @@ function createTransactionalMockPool({
         amount: '50000.00',
         currency: 'INR',
         state: 'SETTLED',
-        metadata: { version: 1, category: 'UNKNOWN', notes: 'Initial seed', business_id: PRIMARY_AUTHORIZED_BUSINESS_ID },
+        metadata: {
+            version: 1,
+            category: 'UNKNOWN',
+            notes: 'Initial seed',
+            business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
+        },
     },
     failAuditInsert = false,
     failInstructionUpdate = false,
@@ -130,7 +133,9 @@ function createTransactionalMockPool({
                     // UPDATE instructions SET metadata
                     if (s.includes('UPDATE instructions SET metadata')) {
                         if (failInstructionUpdate) {
-                            throw new Error('SIMULATED_DB_ERROR: Disk I/O failure during instruction update');
+                            throw new Error(
+                                'SIMULATED_DB_ERROR: Disk I/O failure during instruction update'
+                            );
                         }
                         const id = params[1];
                         const metaStr = params[0];
@@ -151,7 +156,9 @@ function createTransactionalMockPool({
                     // INSERT INTO identity.auth_audit_log
                     if (s.includes('INSERT INTO identity.auth_audit_log')) {
                         if (failAuditInsert) {
-                            throw new Error('SIMULATED_DB_ERROR: Foreign key constraint or disk failure in identity.auth_audit_log');
+                            throw new Error(
+                                'SIMULATED_DB_ERROR: Foreign key constraint or disk failure in identity.auth_audit_log'
+                            );
                         }
                         const rawMeta = params[4];
                         const auditRecord = {
@@ -240,7 +247,9 @@ function makeRequest(app, { method = 'GET', url = '/', headers = {}, body = null
             app,
         };
 
-        const match = url.match(/^\/api\/instructions?\/([a-zA-Z0-9-]+)(\/metadata|\/dev-session)?/);
+        const match = url.match(
+            /^\/api\/instructions?\/([a-zA-Z0-9-]+)(\/metadata|\/dev-session)?/
+        );
         if (match) {
             req.params = { id: match[1] };
         }
@@ -408,7 +417,9 @@ describe('Project Fusion — R2B.1 Transaction Integrity Verification', () => {
             expect(audit.operator_id).toBe(AUTHENTICATED_OPERATOR_ID);
             expect(audit.metadata.instruction_id).toBe(TEST_INSTRUCTION_ID);
             expect(audit.metadata.version).toBe(2);
-            expect(audit.metadata.changed_fields).toEqual(expect.arrayContaining(['category', 'notes', 'gstApplicable']));
+            expect(audit.metadata.changed_fields).toEqual(
+                expect.arrayContaining(['category', 'notes', 'gstApplicable'])
+            );
         });
 
         test('Property 1.4: Audit actor is strictly derived from authenticated session, never client payload', async () => {
@@ -458,7 +469,12 @@ describe('Project Fusion — R2B.1 Transaction Integrity Verification', () => {
                     amount: '100000.00',
                     currency: 'INR',
                     state: 'SETTLED',
-                    metadata: { version: 1, category: 'UNKNOWN', notes: 'Initial baseline', business_id: PRIMARY_AUTHORIZED_BUSINESS_ID },
+                    metadata: {
+                        version: 1,
+                        category: 'UNKNOWN',
+                        notes: 'Initial baseline',
+                        business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
+                    },
                 },
             });
             const app = buildTestApp({ sessionManager, mockPool: fixture.mockPool });
@@ -501,7 +517,9 @@ describe('Project Fusion — R2B.1 Transaction Integrity Verification', () => {
             const conflictRes = conflicts[0];
             expect(conflictRes.body.error).toBe('CONFLICT');
             expect(conflictRes.body.code).toBe('CONCURRENT_MODIFICATION_CONFLICT');
-            expect(conflictRes.body.detail).toContain('Record was modified concurrently by another operator');
+            expect(conflictRes.body.detail).toContain(
+                'Record was modified concurrently by another operator'
+            );
             expect(conflictRes.body.currentMetadata.version).toBe(2);
 
             // Invariant 4: No silent overwrite in persistent storage
@@ -524,7 +542,12 @@ describe('Project Fusion — R2B.1 Transaction Integrity Verification', () => {
                     amount: '100000.00',
                     currency: 'INR',
                     state: 'SETTLED',
-                    metadata: { version: 1, category: 'UNKNOWN', notes: 'Initial baseline', business_id: PRIMARY_AUTHORIZED_BUSINESS_ID },
+                    metadata: {
+                        version: 1,
+                        category: 'UNKNOWN',
+                        notes: 'Initial baseline',
+                        business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
+                    },
                 },
             });
             const app = buildTestApp({ sessionManager, mockPool: fixture.mockPool });
@@ -555,4 +578,3 @@ describe('Project Fusion — R2B.1 Transaction Integrity Verification', () => {
         });
     });
 });
-

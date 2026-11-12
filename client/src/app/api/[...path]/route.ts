@@ -4,27 +4,42 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 import path from 'path';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+export async function POST(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+) {
     const resolvedParams = await params;
     return handleProxy(request, resolvedParams.path, 'POST');
 }
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+) {
     const resolvedParams = await params;
     return handleProxy(request, resolvedParams.path, 'GET');
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+) {
     const resolvedParams = await params;
     return handleProxy(request, resolvedParams.path, 'PUT');
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+) {
     const resolvedParams = await params;
     return handleProxy(request, resolvedParams.path, 'DELETE');
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+export async function PATCH(
+    request: NextRequest,
+    { params }: { params: Promise<{ path: string[] }> }
+) {
     const resolvedParams = await params;
     return handleProxy(request, resolvedParams.path, 'PATCH');
 }
@@ -48,17 +63,21 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
         const isLoopbackHost =
             (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') &&
             (hostHeader.startsWith('localhost:') ||
-             hostHeader === 'localhost' ||
-             hostHeader.startsWith('127.0.0.1:') ||
-             hostHeader === '127.0.0.1' ||
-             hostHeader.startsWith('[::1]:') ||
-             hostHeader === '[::1]');
+                hostHeader === 'localhost' ||
+                hostHeader.startsWith('127.0.0.1:') ||
+                hostHeader === '127.0.0.1' ||
+                hostHeader.startsWith('[::1]:') ||
+                hostHeader === '[::1]');
 
         // Check if caller provides forwarding headers indicating an external client
         const forwardedFor = request.headers.get('x-forwarded-for');
         const realIp = request.headers.get('x-real-ip');
         const isForwardedFromExternal = Boolean(
-            (forwardedFor && !forwardedFor.split(',')[0].trim().match(/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/)) ||
+            (forwardedFor &&
+                !forwardedFor
+                    .split(',')[0]
+                    .trim()
+                    .match(/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/)) ||
             (realIp && !realIp.trim().match(/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/))
         );
 
@@ -66,7 +85,8 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
             return NextResponse.json(
                 {
                     error: 'FORBIDDEN',
-                    message: 'Observability telemetry endpoints are restricted to local loopback access only.'
+                    message:
+                        'Observability telemetry endpoints are restricted to local loopback access only.',
                 },
                 { status: 403 }
             );
@@ -88,7 +108,9 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
 
         if (!fs.existsSync(keyPath) || !fs.existsSync(certPath) || !fs.existsSync(caPath)) {
             return NextResponse.json(
-                { error: 'TLS certificate configuration missing for upstream HTTPS connection (Workstream 0 containment)' },
+                {
+                    error: 'TLS certificate configuration missing for upstream HTTPS connection (Workstream 0 containment)',
+                },
                 { status: 503 }
             );
         }
@@ -112,7 +134,9 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
         const secretKey = (process.env.API_SECRET_KEY || '').trim();
         if (!secretKey) {
             return NextResponse.json(
-                { error: 'Backend service credentials unconfigured (Workstream 0 containment: missing API_SECRET_KEY)' },
+                {
+                    error: 'Backend service credentials unconfigured (Workstream 0 containment: missing API_SECRET_KEY)',
+                },
                 { status: 503 }
             );
         }
@@ -133,7 +157,8 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
             headers['authorization'] = authHeader;
         }
 
-        const csrfToken = request.headers.get('x-csrf-token') || request.headers.get('x-xsrf-token');
+        const csrfToken =
+            request.headers.get('x-csrf-token') || request.headers.get('x-xsrf-token');
         if (csrfToken) {
             headers['x-csrf-token'] = csrfToken;
         }
@@ -190,7 +215,7 @@ async function handleProxy(request: NextRequest, pathArray: string[], method: st
             getSetCookie?: () => string[];
         };
         const extendedHeaders = res.headers as unknown as ExtendedHeaders;
-        const rawSetCookies: string[] = 
+        const rawSetCookies: string[] =
             extendedHeaders.raw?.()['set-cookie'] ||
             (extendedHeaders.getSetCookie ? extendedHeaders.getSetCookie() : []) ||
             (res.headers.get('set-cookie') ? [res.headers.get('set-cookie')!] : []);

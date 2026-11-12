@@ -59,9 +59,14 @@ function createMockRes() {
 
 function createMockPool(initialState = {}) {
     const db = {
-        instructions: new Map((initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])),
+        instructions: new Map(
+            (initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])
+        ),
         processed_webhook_events: new Map(
-            (initialState.processed_webhook_events || []).map((e) => [`${e.provider}:${e.event_id}`, { ...e }])
+            (initialState.processed_webhook_events || []).map((e) => [
+                `${e.provider}:${e.event_id}`,
+                { ...e },
+            ])
         ),
         ledger_journal: [],
     };
@@ -94,15 +99,18 @@ function createMockPool(initialState = {}) {
                         stagedInstructions = new Map();
                         for (const [k, v] of db.instructions) stagedInstructions.set(k, { ...v });
                         stagedEvents = new Map();
-                        for (const [k, v] of db.processed_webhook_events) stagedEvents.set(k, { ...v });
+                        for (const [k, v] of db.processed_webhook_events)
+                            stagedEvents.set(k, { ...v });
                         stagedJournal = [...db.ledger_journal];
                         return { rows: [] };
                     }
 
                     if (normalized === 'COMMIT') {
                         if (inTxn) {
-                            for (const [k, v] of stagedInstructions) db.instructions.set(k, { ...v });
-                            for (const [k, v] of stagedEvents) db.processed_webhook_events.set(k, { ...v });
+                            for (const [k, v] of stagedInstructions)
+                                db.instructions.set(k, { ...v });
+                            for (const [k, v] of stagedEvents)
+                                db.processed_webhook_events.set(k, { ...v });
                             db.ledger_journal = stagedJournal;
                             inTxn = false;
                         }
@@ -128,7 +136,17 @@ function createMockPool(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO LEDGER_JOURNAL')) {
-                        const [entryId, instructionId, accountId, direction, amount, currency, timestamp, hash, prevHash] = params;
+                        const [
+                            entryId,
+                            instructionId,
+                            accountId,
+                            direction,
+                            amount,
+                            currency,
+                            timestamp,
+                            hash,
+                            prevHash,
+                        ] = params;
                         const targetJournal = inTxn ? stagedJournal : db.ledger_journal;
                         targetJournal.push({
                             entry_id: entryId,
@@ -161,7 +179,8 @@ function createMockPool(initialState = {}) {
 
                     // INSERT INTO processed_webhook_events
                     if (normalized.startsWith('INSERT INTO PROCESSED_WEBHOOK_EVENTS')) {
-                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] = params;
+                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] =
+                            params;
                         const key = `${provider}:${eventId}`;
                         const targetStore = inTxn ? stagedEvents : db.processed_webhook_events;
 
@@ -193,10 +212,14 @@ function createMockPool(initialState = {}) {
                     }
 
                     // SELECT * FROM instructions WHERE external_intent_id = $1 ...
-                    if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')) {
+                    if (
+                        normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')
+                    ) {
                         const intentId = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.external_intent_id === intentId);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.external_intent_id === intentId
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
@@ -204,7 +227,9 @@ function createMockPool(initialState = {}) {
                     if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE INSTRUCTION_ID')) {
                         const id = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.instruction_id === id);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.instruction_id === id
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
@@ -250,14 +275,21 @@ function createMockPool(initialState = {}) {
                     }
 
                     // UPDATE instructions SET state = $1, status = $1, metadata = $2 ...
-                    if (normalized.includes("UPDATE INSTRUCTIONS SET STATE = $1") || normalized.includes("UPDATE INSTRUCTIONS SET STATUS = $1")) {
+                    if (
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATE = $1') ||
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATUS = $1')
+                    ) {
                         const [targetState, metaStr, instructionId] = params;
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
                         if (targetStore.has(instructionId)) {
                             const inst = targetStore.get(instructionId);
                             inst.state = targetState;
                             inst.status = targetState;
-                            try { inst.metadata = JSON.parse(metaStr); } catch { inst.metadata = metaStr; }
+                            try {
+                                inst.metadata = JSON.parse(metaStr);
+                            } catch {
+                                inst.metadata = metaStr;
+                            }
                         }
                         return { rows: [] };
                     }
@@ -278,13 +310,29 @@ function createMockPool(initialState = {}) {
                 release: () => {},
             };
         },
-        mockWriteLedger: async (client, instructionId, sender, recipient, amount, currency, tax) => {
+        mockWriteLedger: async (
+            client,
+            instructionId,
+            sender,
+            recipient,
+            amount,
+            currency,
+            tax
+        ) => {
             if (shouldFailLedgerWrite) {
                 throw new Error('LEDGER_WRITE_IO_FAILURE: Database connection terminated abruptly');
             }
             ledgerWriteCount++;
         },
-        mockWriteCompensatingLedger: async (client, instructionId, sender, recipient, amount, currency, refundId) => {
+        mockWriteCompensatingLedger: async (
+            client,
+            instructionId,
+            sender,
+            recipient,
+            amount,
+            currency,
+            refundId
+        ) => {
             if (shouldFailLedgerWrite) {
                 throw new Error('LEDGER_WRITE_IO_FAILURE: Database connection terminated abruptly');
             }
@@ -358,7 +406,8 @@ describe('Project Fusion — Sprint 2.1: Webhook Security & Idempotency', () => 
                 livemode: false,
             });
 
-            const forgedHeader = 't=1700000000,v1=9999999999999999999999999999999999999999999999999999999999999999';
+            const forgedHeader =
+                't=1700000000,v1=9999999999999999999999999999999999999999999999999999999999999999';
 
             expect(() => {
                 verifyStripeSignature(payload, forgedHeader, TEST_STRIPE_SECRET);
@@ -635,7 +684,9 @@ describe('Project Fusion — Sprint 2.1: Webhook Security & Idempotency', () => 
             expect(res.status).toBe(200);
             expect(res.body.ignored).toBe(true);
             // State MUST remain SETTLED
-            expect(mockPool.getDb().instructions.get('inst_out_of_order_001').state).toBe('SETTLED');
+            expect(mockPool.getDb().instructions.get('inst_out_of_order_001').state).toBe(
+                'SETTLED'
+            );
         });
 
         test('database transaction rollbacks on ledger error, leaving event unrecorded for retry', async () => {
@@ -668,9 +719,13 @@ describe('Project Fusion — Sprint 2.1: Webhook Security & Idempotency', () => 
             expect(res.body.error).toMatch(/Database transaction failed/);
 
             // State must NOT be settled
-            expect(mockPool.getDb().instructions.get('inst_fail_io').state).toBe('PENDING_SETTLEMENT');
+            expect(mockPool.getDb().instructions.get('inst_fail_io').state).toBe(
+                'PENDING_SETTLEMENT'
+            );
             // Event must NOT be permanently marked as processed
-            expect(mockPool.getDb().processed_webhook_events.has('STRIPE:evt_retryable_failure_001')).toBe(false);
+            expect(
+                mockPool.getDb().processed_webhook_events.has('STRIPE:evt_retryable_failure_001')
+            ).toBe(false);
         });
 
         test('legitimate post-settlement Stripe refund transitions state to REFUNDED, not FAILED', async () => {
@@ -896,7 +951,9 @@ describe('Project Fusion — Sprint 2.1: Webhook Security & Idempotency', () => 
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('CURRENCY_MISMATCH');
             expect(mockPool.getLedgerWriteCount()).toBe(0); // Zero ledger postings!
-            expect(mockPool.getDb().instructions.get('inst_cur_mismatch').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_cur_mismatch').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
 
         test('flags MANUAL_CHECK and prevents ledger posting on amount mismatch', async () => {
@@ -938,7 +995,9 @@ describe('Project Fusion — Sprint 2.1: Webhook Security & Idempotency', () => 
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('AMOUNT_MISMATCH');
             expect(mockPool.getLedgerWriteCount()).toBe(0); // Zero ledger postings!
-            expect(mockPool.getDb().instructions.get('inst_amt_mismatch').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_amt_mismatch').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
 
         test('handles payment_intent.processing by remaining in PENDING_SETTLEMENT without posting to ledger', async () => {

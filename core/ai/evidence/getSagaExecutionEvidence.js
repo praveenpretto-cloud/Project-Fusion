@@ -4,10 +4,10 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 /**
  * Tool 3: getSagaExecutionEvidence
- * 
+ *
  * Retrieves Saga step breakdown and escrow flags for invoice workflows.
  * Generic payment instructions that lack persisted invoice linkages return INCOMPLETE_GENERIC_SAGA.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {string} identifier - Instruction UUID, Invoice ID, or Saga ID
  * @returns {Promise<object>} Structured Saga execution evidence
@@ -17,12 +17,17 @@ async function getSagaExecutionEvidence(client, identifier) {
         throw new Error('getSagaExecutionEvidence: client with query method is required');
     }
 
-    if (!identifier || typeof identifier !== 'string' || identifier.trim().length === 0 || identifier.trim().length > 255) {
+    if (
+        !identifier ||
+        typeof identifier !== 'string' ||
+        identifier.trim().length === 0 ||
+        identifier.trim().length > 255
+    ) {
         return {
             success: false,
             status: 'INVALID_IDENTIFIER',
             message: 'identifier must be a non-empty string under 256 characters',
-            data: null
+            data: null,
         };
     }
 
@@ -50,8 +55,9 @@ async function getSagaExecutionEvidence(client, identifier) {
                 success: true,
                 status: 'INCOMPLETE_GENERIC_SAGA',
                 identifier: cleanId,
-                message: 'Generic payment instructions do not persist intermediate Saga step history in PostgreSQL',
-                steps: []
+                message:
+                    'Generic payment instructions do not persist intermediate Saga step history in PostgreSQL',
+                steps: [],
             };
         }
 
@@ -73,7 +79,7 @@ async function getSagaExecutionEvidence(client, identifier) {
                 success: false,
                 status: 'NOT_FOUND',
                 message: `No invoice or Saga record found matching identifier '${cleanId}'`,
-                data: null
+                data: null,
             };
         }
 
@@ -82,7 +88,10 @@ async function getSagaExecutionEvidence(client, identifier) {
                 success: false,
                 status: 'AMBIGUOUS_IDENTIFIER_MATCH',
                 message: `Identifier '${cleanId}' collided between multiple invoice records`,
-                candidates: lookupResult.rows.map(r => ({ invoice_id: r.invoice_id, saga_id: r.saga_id }))
+                candidates: lookupResult.rows.map((r) => ({
+                    invoice_id: r.invoice_id,
+                    saga_id: r.saga_id,
+                })),
             };
         }
 
@@ -98,7 +107,7 @@ async function getSagaExecutionEvidence(client, identifier) {
     `;
 
     const stepsResult = await client.query(stepsSql, [resolvedInvoiceId]);
-    const stepRows = (stepsResult && stepsResult.rows) ? stepsResult.rows : [];
+    const stepRows = stepsResult && stepsResult.rows ? stepsResult.rows : [];
 
     return {
         success: true,
@@ -106,17 +115,17 @@ async function getSagaExecutionEvidence(client, identifier) {
         invoice_id: invoiceRecord.invoice_id,
         saga_id: invoiceRecord.saga_id,
         invoice_state: invoiceRecord.state,
-        steps: stepRows.map(s => ({
+        steps: stepRows.map((s) => ({
             step_id: s.step_id,
             amount_pct: s.amount_pct ? s.amount_pct.toString() : null,
             condition: s.condition,
             rail: s.rail,
             status: s.status,
             escrow_flagged: Boolean(s.escrow_flagged),
-            escrow_disclaimer: s.escrow_flagged 
+            escrow_disclaimer: s.escrow_flagged
                 ? 'Internal pipeline conditional hold flag (GIFT IFSC PSR 2024); does not establish third-party legal escrow custody'
-                : null
-        }))
+                : null,
+        })),
     };
 }
 

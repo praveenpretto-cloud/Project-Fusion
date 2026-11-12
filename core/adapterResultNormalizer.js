@@ -54,9 +54,24 @@ try {
     const cryptoAdapters = require('../adapters/cryptoAdapters');
     const razorpayAdapter = require('../adapters/razorpayAdapter');
     const paymentsAdapters = require('../adapters/paymentsAdapters');
-    SERVER_OWNED_INSTANCES.set(cryptoAdapters, { id: 'core_stellar', asset: 'XLM', mode: 'TESTNET', provider: 'STELLAR_TESTNET' });
-    SERVER_OWNED_INSTANCES.set(razorpayAdapter, { id: 'core_razorpay', asset: 'INR', mode: 'SANDBOX', provider: 'RAZORPAYX_SANDBOX' });
-    SERVER_OWNED_INSTANCES.set(paymentsAdapters, { id: 'core_stripe', assets: ['USD', 'EUR', 'GBP', 'CAD'], mode: 'TEST_MODE', provider: 'STRIPE_TESTNET' });
+    SERVER_OWNED_INSTANCES.set(cryptoAdapters, {
+        id: 'core_stellar',
+        asset: 'XLM',
+        mode: 'TESTNET',
+        provider: 'STELLAR_TESTNET',
+    });
+    SERVER_OWNED_INSTANCES.set(razorpayAdapter, {
+        id: 'core_razorpay',
+        asset: 'INR',
+        mode: 'SANDBOX',
+        provider: 'RAZORPAYX_SANDBOX',
+    });
+    SERVER_OWNED_INSTANCES.set(paymentsAdapters, {
+        id: 'core_stripe',
+        assets: ['USD', 'EUR', 'GBP', 'CAD'],
+        mode: 'TEST_MODE',
+        provider: 'STRIPE_TESTNET',
+    });
 } catch {
     // Graceful fallback during isolated bootstrapping
 }
@@ -100,7 +115,13 @@ function isMockAdapter(adp) {
     if (!adp || typeof adp !== 'object') return false;
     if (adp.is_mock === true) return true;
     if (adp.id === 'plugin_alipay_mock') return true;
-    if (typeof adp.id === 'string' && (adp.id.startsWith('adapter_mock_') || adp.id.startsWith('mock_plugin_') || adp.id.startsWith('simulated_'))) return true;
+    if (
+        typeof adp.id === 'string' &&
+        (adp.id.startsWith('adapter_mock_') ||
+            adp.id.startsWith('mock_plugin_') ||
+            adp.id.startsWith('simulated_'))
+    )
+        return true;
     if (adp.simulated === true) return true;
     return false;
 }
@@ -129,15 +150,21 @@ function resolveServerTrust(adapter, inst, options = {}) {
 
     // 1. Mock adapters are unconditionally untrusted for real financial settlement
     if (isMockAdapter(adapter)) {
-        return { isTrusted: false, isMock: true, reason: 'Adapter is a designated simulation mock' };
+        return {
+            isTrusted: false,
+            isMock: true,
+            reason: 'Adapter is a designated simulation mock',
+        };
     }
 
-    const currency = (inst && inst.currency) ? String(inst.currency).toUpperCase() : null;
-    const purpose = (inst && inst.purpose) ? String(inst.purpose).toUpperCase() : '';
-    const route = (inst && (inst.route_selected || inst._requestedAdapter || inst.rail))
-        ? String(inst.route_selected || inst._requestedAdapter || inst.rail).toUpperCase()
-        : '';
-    const paymentMethod = (inst && inst.payment_method) ? String(inst.payment_method).toUpperCase() : '';
+    const currency = inst && inst.currency ? String(inst.currency).toUpperCase() : null;
+    const purpose = inst && inst.purpose ? String(inst.purpose).toUpperCase() : '';
+    const route =
+        inst && (inst.route_selected || inst._requestedAdapter || inst.rail)
+            ? String(inst.route_selected || inst._requestedAdapter || inst.rail).toUpperCase()
+            : '';
+    const paymentMethod =
+        inst && inst.payment_method ? String(inst.payment_method).toUpperCase() : '';
 
     // Check if this execution is an injected override
     const isInjectedOverride = Boolean(options.isInjectedOverride);
@@ -174,7 +201,11 @@ function resolveServerTrust(adapter, inst, options = {}) {
     }
 
     // Policy Rule 1: Stellar Testnet — ONLY native XLM is trusted
-    if (providerId === 'core_stellar' || providerId === 'sandbox_stellar' || providerId === 'legacy_crypto') {
+    if (
+        providerId === 'core_stellar' ||
+        providerId === 'sandbox_stellar' ||
+        providerId === 'legacy_crypto'
+    ) {
         if (currency === 'XLM') {
             return { isTrusted: true, provider: 'STELLAR_TESTNET', asset: 'XLM' };
         }
@@ -196,7 +227,11 @@ function resolveServerTrust(adapter, inst, options = {}) {
     }
 
     // Policy Rule 3: Stripe Test Mode — ONLY supported fiat currencies, NOT bank rails / SWIFT / ISO20022 / Nium
-    if (providerId === 'core_stripe' || providerId === 'sandbox_stripe' || providerId === 'legacy_fiat') {
+    if (
+        providerId === 'core_stripe' ||
+        providerId === 'sandbox_stripe' ||
+        providerId === 'legacy_fiat'
+    ) {
         const isSupportedFiat = ['USD', 'EUR', 'GBP', 'CAD'].includes(currency);
         const candidates = [purpose, route, paymentMethod].filter(Boolean);
         const isBankRailClaim = candidates.some((str) => {
@@ -267,9 +302,12 @@ function isVerifiedSandboxAdapter(adp, inst = null, options = {}) {
  * @returns {object} - Normalized result object
  */
 function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
-    const authoritativeInstructionId = (inst && inst.instruction_id)
-        ? inst.instruction_id
-        : ((inst && inst.id) ? inst.id : `instruction_${idx}`);
+    const authoritativeInstructionId =
+        inst && inst.instruction_id
+            ? inst.instruction_id
+            : inst && inst.id
+              ? inst.id
+              : `instruction_${idx}`;
 
     // 1. Null or undefined -> UNKNOWN
     if (res === null || res === undefined) {
@@ -285,7 +323,9 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
     if (typeof res === 'boolean') {
         return {
             status: res ? 'UNKNOWN' : 'FAILED',
-            ...(res ? { note: 'Boolean true does not establish financial settlement' } : { error: 'Adapter returned false' }),
+            ...(res
+                ? { note: 'Boolean true does not establish financial settlement' }
+                : { error: 'Adapter returned false' }),
             instruction_id: authoritativeInstructionId,
             input_index: idx,
         };
@@ -307,10 +347,15 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
 
     // Preserve adapter-provided ID separately if conflicting with authoritative input ID
     const adapterProvidedId = resObj.instruction_id;
-    const hasIdMismatch = Boolean(adapterProvidedId && adapterProvidedId !== authoritativeInstructionId);
+    const hasIdMismatch = Boolean(
+        adapterProvidedId && adapterProvidedId !== authoritativeInstructionId
+    );
 
     // Check for meaningful failure indicators
-    const hasFailureSignal = resObj.success === false || hasMeaningfulError(resObj.error) || hasMeaningfulErrors(resObj.errors);
+    const hasFailureSignal =
+        resObj.success === false ||
+        hasMeaningfulError(resObj.error) ||
+        hasMeaningfulErrors(resObj.errors);
     const hasSuccessSignal = resObj.success === true;
 
     // Check if status is present and is a non-empty string
@@ -319,8 +364,15 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
 
         if (KNOWN_STATUSES.includes(upperStatus)) {
             // Check for contradictions:
-            const isPositiveStatus = ['SUCCESS', 'PENDING', 'PENDING_SETTLEMENT', 'PROCESSING'].includes(upperStatus);
-            const isContradictory = (isPositiveStatus && hasFailureSignal) || (upperStatus === 'FAILED' && hasSuccessSignal);
+            const isPositiveStatus = [
+                'SUCCESS',
+                'PENDING',
+                'PENDING_SETTLEMENT',
+                'PROCESSING',
+            ].includes(upperStatus);
+            const isContradictory =
+                (isPositiveStatus && hasFailureSignal) ||
+                (upperStatus === 'FAILED' && hasSuccessSignal);
 
             if (isContradictory) {
                 return {
@@ -400,9 +452,14 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
     // 5. No explicit status string present on object
     // If failure indicators exist, classify as FAILED
     if (hasFailureSignal) {
-        const errMsg = resObj.error instanceof Error
-            ? resObj.error.message
-            : (typeof resObj.error === 'string' ? resObj.error : (resObj.errors ? JSON.stringify(resObj.errors) : 'Adapter indicated execution failure'));
+        const errMsg =
+            resObj.error instanceof Error
+                ? resObj.error.message
+                : typeof resObj.error === 'string'
+                  ? resObj.error
+                  : resObj.errors
+                    ? JSON.stringify(resObj.errors)
+                    : 'Adapter indicated execution failure';
         return {
             ...resObj,
             status: 'FAILED',
@@ -420,7 +477,9 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
         instruction_id: authoritativeInstructionId,
         ...(hasIdMismatch ? { adapter_instruction_id: adapterProvidedId } : {}),
         input_index: idx,
-        ...(resObj.success === true ? { note: 'success:true without explicit status is unverified' } : {}),
+        ...(resObj.success === true
+            ? { note: 'success:true without explicit status is unverified' }
+            : {}),
     };
 }
 
@@ -428,9 +487,12 @@ function normalizeResult(res, inst, idx = 0, adapter = null, options = {}) {
  * Normalizes caught errors into a standard FAILED result object.
  */
 function normalizeError(err, inst, idx = 0, defaultMessage = 'Adapter execution failed') {
-    const authoritativeInstructionId = (inst && inst.instruction_id)
-        ? inst.instruction_id
-        : ((inst && inst.id) ? inst.id : `instruction_${idx}`);
+    const authoritativeInstructionId =
+        inst && inst.instruction_id
+            ? inst.instruction_id
+            : inst && inst.id
+              ? inst.id
+              : `instruction_${idx}`;
     const errorMessage = err?.message || (typeof err === 'string' ? err : defaultMessage);
     const errorObj = {
         status: 'FAILED',

@@ -34,7 +34,9 @@ describe('Input Validators', () => {
 
             const { error } = instructionInitiateSchema.validate(invalidData);
             expect(error).toBeDefined();
-            expect(error.message).toContain('Unsafe JavaScript Number monetary inputs are rejected');
+            expect(error.message).toContain(
+                'Unsafe JavaScript Number monetary inputs are rejected'
+            );
         });
 
         test('should accept XLM with up to 7 decimal places', () => {

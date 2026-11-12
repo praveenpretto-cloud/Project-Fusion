@@ -45,7 +45,9 @@ function startApp() {
     const logger = require('./logger');
 
     const Redis = require('ioredis');
-    const { defaultCanonicalApprovalService } = require('./core/approvals/canonicalApprovalService');
+    const {
+        defaultCanonicalApprovalService,
+    } = require('./core/approvals/canonicalApprovalService');
     const { pushToBatchQueue } = require('./core/ingestion/kafkaProducer');
 
     // --- LOCAL_ONLY: IN-MEMORY IDEMPOTENCY ---
@@ -153,7 +155,9 @@ function startApp() {
             await client.query(
                 "ALTER TABLE instructions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb"
             );
-            logger.info('[DB TEST] Checked and ensured metadata JSONB column exists on instructions');
+            logger.info(
+                '[DB TEST] Checked and ensured metadata JSONB column exists on instructions'
+            );
 
             // Add saga_state JSONB column if it doesn't exist
             await client.query(
@@ -233,7 +237,9 @@ function startApp() {
                 $$ LANGUAGE plpgsql
                 SET search_path = pg_catalog, identity, public;
             `);
-            logger.info('[DB TEST] Checked and ensured instructions state guard allows metadata updates');
+            logger.info(
+                '[DB TEST] Checked and ensured instructions state guard allows metadata updates'
+            );
 
             client.release();
         } catch (err) {
@@ -1010,7 +1016,9 @@ function startApp() {
             const { instructionId } = req.body || {};
             if (!instructionId) return res.status(400).json({ error: 'instructionId required' });
 
-            logger.warn(`[EXPORTER_FX_SAGA] Request for ${instructionId} rejected: FCSS rail adapter is not implemented in this release.`);
+            logger.warn(
+                `[EXPORTER_FX_SAGA] Request for ${instructionId} rejected: FCSS rail adapter is not implemented in this release.`
+            );
             return res.status(501).json({
                 error: 'FEATURE_NOT_IMPLEMENTED',
                 detail: 'FCSS (Foreign Currency Settlement System) rail adapter is not implemented in this release',
@@ -1050,14 +1058,20 @@ function startApp() {
                 let sagaMeta = null;
                 try {
                     sagaMeta = txn.saga_state
-                        ? (typeof txn.saga_state === 'object' ? txn.saga_state : JSON.parse(txn.saga_state))
+                        ? typeof txn.saga_state === 'object'
+                            ? txn.saga_state
+                            : JSON.parse(txn.saga_state)
                         : null;
                 } catch {
                     sagaMeta = null;
                 }
 
                 const isExporterFxWorkflow = Boolean(
-                    sagaMeta && (sagaMeta.lastStep || sagaMeta.batchPlan || sagaMeta.fcssResult || sagaMeta.femaResult)
+                    sagaMeta &&
+                    (sagaMeta.lastStep ||
+                        sagaMeta.batchPlan ||
+                        sagaMeta.fcssResult ||
+                        sagaMeta.femaResult)
                 );
 
                 if (isExporterFxWorkflow) {
@@ -1077,12 +1091,14 @@ function startApp() {
                         );
                         if (
                             lockRes.rows.length > 0 &&
-                            ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(lockRes.rows[0].state)
+                            ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(
+                                lockRes.rows[0].state
+                            )
                         ) {
                             const curSaga = lockRes.rows[0].saga_state
-                                ? (typeof lockRes.rows[0].saga_state === 'object'
-                                      ? lockRes.rows[0].saga_state
-                                      : JSON.parse(lockRes.rows[0].saga_state))
+                                ? typeof lockRes.rows[0].saga_state === 'object'
+                                    ? lockRes.rows[0].saga_state
+                                    : JSON.parse(lockRes.rows[0].saga_state)
                                 : {};
                             curSaga.reconciledAt = new Date().toISOString();
                             curSaga.reconciliationNote =
@@ -1324,7 +1340,7 @@ function startApp() {
     }
 
     const isLocalOnly = process.env.LOCAL_ONLY === 'true';
-    const listenHost = isLocalOnly ? '127.0.0.1' : (process.env.HOST || '0.0.0.0');
+    const listenHost = isLocalOnly ? '127.0.0.1' : process.env.HOST || '0.0.0.0';
 
     // Attach server and socket configuration for programmatic inspection and testing
     app.server = server;
@@ -1360,13 +1376,17 @@ function startApp() {
 
             // --- OUTBOX DISPATCHER (ADR-002 SAGA RELIABILITY) ---
             // Automatic boot recovery for pending outbox events across restarts
-            defaultCanonicalApprovalService.drainDispatchOutbox({ pool }).catch((err) =>
-                logger.warn(`[OUTBOX_STARTUP] Outbox initial drain warning: ${err.message}`)
-            );
-            setInterval(() => {
-                defaultCanonicalApprovalService.drainDispatchOutbox({ pool }).catch((err) =>
-                    logger.warn(`[OUTBOX_SWEEP] Outbox periodic sweep warning: ${err.message}`)
+            defaultCanonicalApprovalService
+                .drainDispatchOutbox({ pool })
+                .catch((err) =>
+                    logger.warn(`[OUTBOX_STARTUP] Outbox initial drain warning: ${err.message}`)
                 );
+            setInterval(() => {
+                defaultCanonicalApprovalService
+                    .drainDispatchOutbox({ pool })
+                    .catch((err) =>
+                        logger.warn(`[OUTBOX_SWEEP] Outbox periodic sweep warning: ${err.message}`)
+                    );
             }, 15000); // 15s interval
         });
     }

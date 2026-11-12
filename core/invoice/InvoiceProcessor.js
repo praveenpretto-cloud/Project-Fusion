@@ -196,10 +196,10 @@ class InvoiceProcessor {
         let rows;
         try {
             rows = csvParse(csvText, {
-                columns: true,           // First row is header
+                columns: true, // First row is header
                 skip_empty_lines: true,
                 trim: true,
-                relax_quotes: true,      // Handles messy Indian CSV exports
+                relax_quotes: true, // Handles messy Indian CSV exports
                 relax_column_count: true, // Handles rows with extra commas
             });
         } catch (csvErr) {
@@ -244,10 +244,24 @@ class InvoiceProcessor {
     _mapFields(raw) {
         // Canonical camelCase keys that must NEVER be lowercased/remapped
         const CANONICAL_PASS_THROUGH = new Set([
-            'invoiceId', 'invoiceDate', 'dueDate', 'totalAmount', 'currency',
-            'lineItems', 'paymentTermsDays', 'rawConditions', 'extractedConditions',
-            'sourceType', 'seller', 'buyer', 'iso20022', 'enrichmentHash',
-            'isoCompliant', 'enrichedAt', 'amlPreCheck', '_pdfMeta',
+            'invoiceId',
+            'invoiceDate',
+            'dueDate',
+            'totalAmount',
+            'currency',
+            'lineItems',
+            'paymentTermsDays',
+            'rawConditions',
+            'extractedConditions',
+            'sourceType',
+            'seller',
+            'buyer',
+            'iso20022',
+            'enrichmentHash',
+            'isoCompliant',
+            'enrichedAt',
+            'amlPreCheck',
+            '_pdfMeta',
         ]);
 
         const mapped = {};
@@ -284,26 +298,29 @@ class InvoiceProcessor {
      */
     _buildInvoiceObject(mapped) {
         // ── Invoice ID (idempotency key) ─────────────────────────────────────
-        const invoiceId = (mapped.invoiceId || mapped.invoice_id || '').toString().trim()
-            || `INV-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+        const invoiceId =
+            (mapped.invoiceId || mapped.invoice_id || '').toString().trim() ||
+            `INV-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
 
         // ── Dates ────────────────────────────────────────────────────────────
-        const invoiceDate = this._normaliseDate(mapped.invoiceDate || mapped.invoice_date)
-            || new Date().toISOString().split('T')[0];
+        const invoiceDate =
+            this._normaliseDate(mapped.invoiceDate || mapped.invoice_date) ||
+            new Date().toISOString().split('T')[0];
 
-        const paymentTermsDays = parseInt(mapped.paymentTermsDays || mapped.payment_terms_days || 90) || 90;
+        const paymentTermsDays =
+            parseInt(mapped.paymentTermsDays || mapped.payment_terms_days || 90) || 90;
 
         let dueDate = this._normaliseDate(mapped.dueDate || mapped.due_date);
         if (!dueDate) {
             // Auto-calculate from invoice date + payment terms
-            const dueDateMs = new Date(invoiceDate).getTime() + (paymentTermsDays * 24 * 60 * 60 * 1000);
+            const dueDateMs =
+                new Date(invoiceDate).getTime() + paymentTermsDays * 24 * 60 * 60 * 1000;
             dueDate = new Date(dueDateMs).toISOString().split('T')[0];
         }
 
         // ── Amount & Currency ────────────────────────────────────────────────
-        const totalAmount = parseFloat(
-            String(mapped.totalAmount || mapped.amount || 0).replace(/,/g, '')
-        ) || 0;
+        const totalAmount =
+            parseFloat(String(mapped.totalAmount || mapped.amount || 0).replace(/,/g, '')) || 0;
 
         const currency = (mapped.currency || 'USD').toString().trim().toUpperCase();
 
@@ -312,18 +329,43 @@ class InvoiceProcessor {
             name: (mapped.seller_name || mapped.seller?.name || '').toString().trim(),
             gstPan: (mapped.seller_gstin || mapped.seller?.gstPan || '').toString().trim() || null,
             structuredAddress: {
-                streetName: mapped.seller_street || mapped.seller?.structuredAddress?.streetName || '',
-                buildingNumber: mapped.seller_building || mapped.seller?.structuredAddress?.buildingNumber || '',
-                townName: mapped.seller_city || mapped.seller_town || mapped.seller?.structuredAddress?.townName || '',
-                countrySubDivision: mapped.seller_state || mapped.seller?.structuredAddress?.countrySubDivision || '',
-                postCode: (mapped.seller_pincode || mapped.seller_postcode || mapped.seller?.structuredAddress?.postCode || '').toString().trim(),
-                country: (mapped.seller_country || mapped.seller?.structuredAddress?.country || 'IN').toUpperCase(),
+                streetName:
+                    mapped.seller_street || mapped.seller?.structuredAddress?.streetName || '',
+                buildingNumber:
+                    mapped.seller_building ||
+                    mapped.seller?.structuredAddress?.buildingNumber ||
+                    '',
+                townName:
+                    mapped.seller_city ||
+                    mapped.seller_town ||
+                    mapped.seller?.structuredAddress?.townName ||
+                    '',
+                countrySubDivision:
+                    mapped.seller_state ||
+                    mapped.seller?.structuredAddress?.countrySubDivision ||
+                    '',
+                postCode: (
+                    mapped.seller_pincode ||
+                    mapped.seller_postcode ||
+                    mapped.seller?.structuredAddress?.postCode ||
+                    ''
+                )
+                    .toString()
+                    .trim(),
+                country: (
+                    mapped.seller_country ||
+                    mapped.seller?.structuredAddress?.country ||
+                    'IN'
+                ).toUpperCase(),
             },
         };
 
         // Allow pre-built seller.structuredAddress to pass through directly
         if (mapped.seller && typeof mapped.seller === 'object' && mapped.seller.structuredAddress) {
-            seller.structuredAddress = { ...seller.structuredAddress, ...mapped.seller.structuredAddress };
+            seller.structuredAddress = {
+                ...seller.structuredAddress,
+                ...mapped.seller.structuredAddress,
+            };
             seller.name = seller.name || mapped.seller.name || '';
             seller.gstPan = seller.gstPan || mapped.seller.gstPan || null;
         }
@@ -332,17 +374,38 @@ class InvoiceProcessor {
         const buyer = {
             name: (mapped.buyer_name || mapped.buyer?.name || '').toString().trim(),
             structuredAddress: {
-                streetName: mapped.buyer_street || mapped.buyer?.structuredAddress?.streetName || '',
-                buildingNumber: mapped.buyer_building || mapped.buyer?.structuredAddress?.buildingNumber || '',
-                townName: mapped.buyer_city || mapped.buyer_town || mapped.buyer?.structuredAddress?.townName || '',
-                countrySubDivision: mapped.buyer_state || mapped.buyer?.structuredAddress?.countrySubDivision || '',
-                postCode: (mapped.buyer_pincode || mapped.buyer_postcode || mapped.buyer?.structuredAddress?.postCode || '').toString().trim(),
-                country: (mapped.buyer_country || mapped.buyer?.structuredAddress?.country || 'US').toUpperCase(),
+                streetName:
+                    mapped.buyer_street || mapped.buyer?.structuredAddress?.streetName || '',
+                buildingNumber:
+                    mapped.buyer_building || mapped.buyer?.structuredAddress?.buildingNumber || '',
+                townName:
+                    mapped.buyer_city ||
+                    mapped.buyer_town ||
+                    mapped.buyer?.structuredAddress?.townName ||
+                    '',
+                countrySubDivision:
+                    mapped.buyer_state || mapped.buyer?.structuredAddress?.countrySubDivision || '',
+                postCode: (
+                    mapped.buyer_pincode ||
+                    mapped.buyer_postcode ||
+                    mapped.buyer?.structuredAddress?.postCode ||
+                    ''
+                )
+                    .toString()
+                    .trim(),
+                country: (
+                    mapped.buyer_country ||
+                    mapped.buyer?.structuredAddress?.country ||
+                    'US'
+                ).toUpperCase(),
             },
         };
 
         if (mapped.buyer && typeof mapped.buyer === 'object' && mapped.buyer.structuredAddress) {
-            buyer.structuredAddress = { ...buyer.structuredAddress, ...mapped.buyer.structuredAddress };
+            buyer.structuredAddress = {
+                ...buyer.structuredAddress,
+                ...mapped.buyer.structuredAddress,
+            };
             buyer.name = buyer.name || mapped.buyer.name || '';
         }
 
@@ -398,10 +461,14 @@ class InvoiceProcessor {
     _validate(invoice) {
         if (!invoice.invoiceId) throw new Error('Invoice must have an invoiceId');
         if (!invoice.totalAmount || invoice.totalAmount <= 0) {
-            logger.warn(`[INVOICE_PROCESSOR] ⚠️ Invoice ${invoice.invoiceId} has zero or missing totalAmount`);
+            logger.warn(
+                `[INVOICE_PROCESSOR] ⚠️ Invoice ${invoice.invoiceId} has zero or missing totalAmount`
+            );
         }
         if (!invoice.currency) {
-            logger.warn(`[INVOICE_PROCESSOR] ⚠️ Invoice ${invoice.invoiceId} missing currency — defaulting to USD`);
+            logger.warn(
+                `[INVOICE_PROCESSOR] ⚠️ Invoice ${invoice.invoiceId} missing currency — defaulting to USD`
+            );
             invoice.currency = 'USD';
         }
         if (!invoice.seller?.name) {
@@ -512,33 +579,33 @@ class InvoiceProcessor {
             const hash = crypto.createHash('md5').update(stepIdStr).digest('hex');
             const detUuid = `${hash.substring(0, 8)}-${hash.substring(8, 12)}-4${hash.substring(13, 16)}-a${hash.substring(17, 20)}-${hash.substring(20, 32)}`;
             return {
-            instruction_id: detUuid,
-            amount: step.amountAbsolute.toString(),
-            currency: step.currency,
-            sender: invoice.buyer.name,      // Buyer is the payer
-            recipient: invoice.seller.name,  // Seller is the payee
-            purpose: `INVOICE_PAYMENT_${step.condition.toUpperCase()}`,
-            state: 'PENDING_APPROVAL',       // Human approval required before saga triggers
-            provider: null,                  // Determined at routing time by sagaCore
-            net_amount: step.amountAbsolute,
-            tax_withheld: 0,                 // Calculated by complianceInterceptor at execution
-            // Invoice-specific metadata (stored in saga_state JSON column)
-            _invoiceMeta: {
-                invoiceId: invoice.invoiceId,
-                sagaId,
-                stepId: step.stepId,
-                stepIndex: idx + 1,
-                totalSteps: sagaSteps.length,
-                condition: step.condition,
-                triggerType: step.triggerType,
-                timeoutDays: step.timeoutDays,
-                escrow_required: step.escrow_required,
-                escrow_note: step.escrow_note,
-                amountPct: step.amountPct,
-                rail: step.rail,
-                compensatingAction: step.compensatingAction,
-            },
-        };
+                instruction_id: detUuid,
+                amount: step.amountAbsolute.toString(),
+                currency: step.currency,
+                sender: invoice.buyer.name, // Buyer is the payer
+                recipient: invoice.seller.name, // Seller is the payee
+                purpose: `INVOICE_PAYMENT_${step.condition.toUpperCase()}`,
+                state: 'PENDING_APPROVAL', // Human approval required before saga triggers
+                provider: null, // Determined at routing time by sagaCore
+                net_amount: step.amountAbsolute,
+                tax_withheld: 0, // Calculated by complianceInterceptor at execution
+                // Invoice-specific metadata (stored in saga_state JSON column)
+                _invoiceMeta: {
+                    invoiceId: invoice.invoiceId,
+                    sagaId,
+                    stepId: step.stepId,
+                    stepIndex: idx + 1,
+                    totalSteps: sagaSteps.length,
+                    condition: step.condition,
+                    triggerType: step.triggerType,
+                    timeoutDays: step.timeoutDays,
+                    escrow_required: step.escrow_required,
+                    escrow_note: step.escrow_note,
+                    amountPct: step.amountPct,
+                    rail: step.rail,
+                    compensatingAction: step.compensatingAction,
+                },
+            };
         });
 
         // Saga config shape for logging/audit (not directly passed to orchestrator)
@@ -561,14 +628,15 @@ class InvoiceProcessor {
             instructions,
             useDefaultRules: conditionsResult.useDefaultRules,
             totalEscrowAmount: conditionsResult.totalEscrowAmount || 0,
-            hasEscrow: sagaSteps.some(s => s.escrow_required),
+            hasEscrow: sagaSteps.some((s) => s.escrow_required),
             // Regulatory flags
             regulatory: {
                 isoMessageType: invoice.iso20022?.messageType || 'pacs.008.001.10',
                 femaReporting: invoice.iso20022?.femaReporting || null,
                 purposeCode: 'IVPT',
                 giftIFSCPSR2024: true,
-                escrowNote: '[PROTOTYPE] Conditional holds shadow-debited on balances table. Production requires IBU escrow at GIFT City.',
+                escrowNote:
+                    '[PROTOTYPE] Conditional holds shadow-debited on balances table. Production requires IBU escrow at GIFT City.',
             },
             // Full ISO 20022 envelope if enrichment was done
             iso20022: invoice.iso20022 || null,
@@ -582,7 +650,9 @@ class InvoiceProcessor {
             createdAt: new Date().toISOString(),
         };
 
-        logger.info(`[INVOICE_PROCESSOR] ✅ Saga config created: ${sagaId} | ${sagaSteps.length} steps | ${invoice.currency} ${invoice.totalAmount} | Escrow: ${sagaConfig.hasEscrow}`);
+        logger.info(
+            `[INVOICE_PROCESSOR] ✅ Saga config created: ${sagaId} | ${sagaSteps.length} steps | ${invoice.currency} ${invoice.totalAmount} | Escrow: ${sagaConfig.hasEscrow}`
+        );
 
         return sagaConfig;
     }
@@ -608,7 +678,9 @@ class InvoiceProcessor {
             invoice = await this.parseInvoice(input);
             // If bulk, process each independently
             if (Array.isArray(invoice)) {
-                logger.info(`[INVOICE_PROCESSOR] Bulk pipeline: processing ${invoice.length} invoices`);
+                logger.info(
+                    `[INVOICE_PROCESSOR] Bulk pipeline: processing ${invoice.length} invoices`
+                );
                 return await this._processBulkPipeline(invoice);
             }
         } catch (parseErr) {
@@ -655,12 +727,18 @@ class InvoiceProcessor {
 
         for (let i = 0; i < invoices.length; i += CHUNK_SIZE) {
             const chunk = invoices.slice(i, i + CHUNK_SIZE);
-            logger.info(`[INVOICE_PROCESSOR] Bulk chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(invoices.length / CHUNK_SIZE)} (${chunk.length} invoices)`);
+            logger.info(
+                `[INVOICE_PROCESSOR] Bulk chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(invoices.length / CHUNK_SIZE)} (${chunk.length} invoices)`
+            );
 
             // Process chunk (synchronous — CPU only, no I/O blocking)
             for (const invoice of chunk) {
                 if (invoice._parseError) {
-                    results.push({ success: false, errors: [invoice._parseError], _rawRow: invoice._rawRow });
+                    results.push({
+                        success: false,
+                        errors: [invoice._parseError],
+                        _rawRow: invoice._rawRow,
+                    });
                     continue;
                 }
 
@@ -682,12 +760,14 @@ class InvoiceProcessor {
 
             // Yield to event loop between chunks to prevent blocking (non-blocking promise tick)
             if (i + CHUNK_SIZE < invoices.length) {
-                await new Promise(resolve => setImmediate(resolve));
+                await new Promise((resolve) => setImmediate(resolve));
             }
         }
 
-        const successCount = results.filter(r => r.success).length;
-        logger.info(`[INVOICE_PROCESSOR] ✅ Bulk complete: ${successCount}/${invoices.length} processed successfully`);
+        const successCount = results.filter((r) => r.success).length;
+        logger.info(
+            `[INVOICE_PROCESSOR] ✅ Bulk complete: ${successCount}/${invoices.length} processed successfully`
+        );
 
         return {
             success: true,

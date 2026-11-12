@@ -5,7 +5,7 @@ async function main() {
     try {
         const hq = await getStellarPublicKey('Corporate_HQ');
         const alice = await getStellarPublicKey('Alice_Retail');
-        
+
         console.log('HQ Address:', hq);
         console.log('Alice Address:', alice);
 
@@ -16,7 +16,9 @@ async function main() {
                 const response = await axios.get(`https://friendbot.stellar.org/?addr=${addr}`);
                 console.log(`Success: ${response.status}`);
             } catch (err) {
-                console.error(`Funding failed or account already exists for ${addr}: ${err.message}`);
+                console.error(
+                    `Funding failed or account already exists for ${addr}: ${err.message}`
+                );
             }
         }
     } catch (err) {

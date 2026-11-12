@@ -4,10 +4,10 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 /**
  * Tool 4: getSettlementAndWebhookEvidence
- * 
+ *
  * Retrieves verified inbound webhook events from processed_webhook_events.
  * Prohibits inferring unrecorded duplicate delivery counts or assuming Stellar RPC without proof.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {object} params - Search parameters
  * @param {string} [params.instructionId] - Instruction UUID
@@ -21,15 +21,20 @@ async function getSettlementAndWebhookEvidence(client, params = {}) {
 
     const { instructionId, externalIntentId } = params;
 
-    const hasInstructionId = instructionId && typeof instructionId === 'string' && UUID_REGEX.test(instructionId.trim());
-    const hasIntentId = externalIntentId && typeof externalIntentId === 'string' && externalIntentId.trim().length > 0;
+    const hasInstructionId =
+        instructionId && typeof instructionId === 'string' && UUID_REGEX.test(instructionId.trim());
+    const hasIntentId =
+        externalIntentId &&
+        typeof externalIntentId === 'string' &&
+        externalIntentId.trim().length > 0;
 
     if (!hasInstructionId && !hasIntentId) {
         return {
             success: false,
             status: 'INVALID_PARAMETERS',
-            message: 'At least one valid parameter (instructionId UUID or externalIntentId string) is required',
-            events: []
+            message:
+                'At least one valid parameter (instructionId UUID or externalIntentId string) is required',
+            events: [],
         };
     }
 
@@ -53,7 +58,8 @@ async function getSettlementAndWebhookEvidence(client, params = {}) {
 
     // Effective search parameters
     const targetInstId = cleanInstId || (instructionRow ? instructionRow.instruction_id : null);
-    const targetIntentId = cleanIntentId || (instructionRow ? instructionRow.external_intent_id : null);
+    const targetIntentId =
+        cleanIntentId || (instructionRow ? instructionRow.external_intent_id : null);
 
     const webhookSql = `
         SELECT 
@@ -71,23 +77,24 @@ async function getSettlementAndWebhookEvidence(client, params = {}) {
     `;
 
     const webhookResult = await client.query(webhookSql, [targetInstId, targetIntentId]);
-    const eventRows = (webhookResult && webhookResult.rows) ? webhookResult.rows : [];
+    const eventRows = webhookResult && webhookResult.rows ? webhookResult.rows : [];
 
     if (eventRows.length > 0) {
         return {
             success: true,
             status: 'WEBHOOK_RECORDED',
             events_count: eventRows.length,
-            events: eventRows.map(e => ({
+            events: eventRows.map((e) => ({
                 event_id: e.event_id,
                 provider: e.provider,
                 event_type: e.event_type,
                 instruction_id: e.instruction_id,
                 external_intent_id: e.external_intent_id,
                 payload_hash: e.payload_hash,
-                processed_at: e.processed_at ? new Date(e.processed_at).toISOString() : null
+                processed_at: e.processed_at ? new Date(e.processed_at).toISOString() : null,
             })),
-            delivery_tracking_note: 'Duplicate delivery count is not persisted by PostgreSQL (ON CONFLICT DO NOTHING drop policy)'
+            delivery_tracking_note:
+                'Duplicate delivery count is not persisted by PostgreSQL (ON CONFLICT DO NOTHING drop policy)',
         };
     }
 
@@ -99,12 +106,15 @@ async function getSettlementAndWebhookEvidence(client, params = {}) {
         status: 'WEBHOOK_NOT_RECORDED',
         events_count: 0,
         events: [],
-        provider_identity: instructionRow && instructionRow.provider ? 'UNVERIFIED_BROAD_CATEGORY' : 'NOT_RECORDED',
-        delivery_tracking_note: 'No webhook event matching the references is recorded in processed_webhook_events'
+        provider_identity:
+            instructionRow && instructionRow.provider
+                ? 'UNVERIFIED_BROAD_CATEGORY'
+                : 'NOT_RECORDED',
+        delivery_tracking_note:
+            'No webhook event matching the references is recorded in processed_webhook_events',
     };
 }
 
 module.exports = {
     getSettlementAndWebhookEvidence,
 };
-

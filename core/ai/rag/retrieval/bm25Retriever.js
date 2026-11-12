@@ -8,19 +8,125 @@ const DEFAULT_B = 0.75;
 
 // Standard English stop words to prevent common conversational words from polluting lexical scores
 const STOP_WORDS = new Set([
-    'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at',
-    'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by',
-    'could', 'did', 'do', 'does', 'doing', 'down', 'during',
-    'each', 'few', 'for', 'from', 'further',
-    'had', 'has', 'have', 'having', 'he', 'her', 'here', 'hers', 'him', 'his', 'how',
-    'i', 'if', 'in', 'into', 'is', 'it', 'its',
-    'me', 'more', 'most', 'my',
-    'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or', 'other', 'ought', 'our', 'ours', 'out', 'over', 'own',
-    'same', 'she', 'should', 'so', 'some', 'such',
-    'than', 'that', 'the', 'their', 'theirs', 'them', 'then', 'there', 'these', 'they', 'this', 'those', 'through', 'to', 'too',
-    'under', 'until', 'up', 'use', 'used', 'uses', 'using', 'very',
-    'was', 'we', 'were', 'what', 'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'would',
-    'you', 'your', 'yours'
+    'a',
+    'about',
+    'above',
+    'after',
+    'again',
+    'against',
+    'all',
+    'am',
+    'an',
+    'and',
+    'any',
+    'are',
+    'as',
+    'at',
+    'be',
+    'because',
+    'been',
+    'before',
+    'being',
+    'below',
+    'between',
+    'both',
+    'but',
+    'by',
+    'could',
+    'did',
+    'do',
+    'does',
+    'doing',
+    'down',
+    'during',
+    'each',
+    'few',
+    'for',
+    'from',
+    'further',
+    'had',
+    'has',
+    'have',
+    'having',
+    'he',
+    'her',
+    'here',
+    'hers',
+    'him',
+    'his',
+    'how',
+    'i',
+    'if',
+    'in',
+    'into',
+    'is',
+    'it',
+    'its',
+    'me',
+    'more',
+    'most',
+    'my',
+    'no',
+    'nor',
+    'not',
+    'of',
+    'off',
+    'on',
+    'once',
+    'only',
+    'or',
+    'other',
+    'ought',
+    'our',
+    'ours',
+    'out',
+    'over',
+    'own',
+    'same',
+    'she',
+    'should',
+    'so',
+    'some',
+    'such',
+    'than',
+    'that',
+    'the',
+    'their',
+    'theirs',
+    'them',
+    'then',
+    'there',
+    'these',
+    'they',
+    'this',
+    'those',
+    'through',
+    'to',
+    'too',
+    'under',
+    'until',
+    'up',
+    'use',
+    'used',
+    'uses',
+    'using',
+    'very',
+    'was',
+    'we',
+    'were',
+    'what',
+    'when',
+    'where',
+    'which',
+    'while',
+    'who',
+    'whom',
+    'why',
+    'with',
+    'would',
+    'you',
+    'your',
+    'yours',
 ]);
 
 /**
@@ -32,7 +138,7 @@ function tokenize(text) {
         .toLowerCase()
         .replace(/[^a-z0-9_.-]+/g, ' ')
         .split(/\s+/)
-        .filter(t => t.length >= 2 && !STOP_WORDS.has(t));
+        .filter((t) => t.length >= 2 && !STOP_WORDS.has(t));
 }
 
 class BM25Retriever {
@@ -79,7 +185,7 @@ class BM25Retriever {
             }
         }
 
-        this.avgDocLength = this.docCount > 0 ? (totalLength / this.docCount) : 0;
+        this.avgDocLength = this.docCount > 0 ? totalLength / this.docCount : 0;
 
         // Precompute IDF for all terms
         for (const [term, postings] of this.invertedIndex.entries()) {
@@ -92,8 +198,8 @@ class BM25Retriever {
 
     /**
      * Searches index using BM25 scoring with technical error-code boosting.
-     * 
-     * @param {string} query 
+     *
+     * @param {string} query
      * @param {object} [options]
      * @param {string} [options.provider]
      * @param {string} [options.error_code]
@@ -104,12 +210,16 @@ class BM25Retriever {
         return telemetry.withSyncSpan(SPAN_NAMES.RAG_BM25_SEARCH, (span) => {
             const topK = options.topK || 5;
             span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_TOP_K, topK);
-            if (options.provider) span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_PROVIDER, options.provider);
-            if (options.error_code) span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_ERROR_CODE, options.error_code);
+            if (options.provider)
+                span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_PROVIDER, options.provider);
+            if (options.error_code)
+                span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_ERROR_CODE, options.error_code);
 
             const queryTokens = tokenize(query);
             const targetProvider = options.provider ? options.provider.toUpperCase().trim() : null;
-            const targetErrorCode = options.error_code ? options.error_code.toLowerCase().trim() : null;
+            const targetErrorCode = options.error_code
+                ? options.error_code.toLowerCase().trim()
+                : null;
 
             const scores = new Array(this.docCount).fill(0);
 
@@ -122,7 +232,8 @@ class BM25Retriever {
                 for (const [chunkIdx, tf] of postings.entries()) {
                     const docLen = this.docLengths[chunkIdx];
                     const numerator = tf * (this.k1 + 1);
-                    const denominator = tf + this.k1 * (1 - this.b + this.b * (docLen / this.avgDocLength));
+                    const denominator =
+                        tf + this.k1 * (1 - this.b + this.b * (docLen / this.avgDocLength));
                     scores[chunkIdx] += idf * (numerator / denominator);
                 }
             }
@@ -134,13 +245,19 @@ class BM25Retriever {
                 const chunk = this.chunks[i];
 
                 // Filter by provider if specified
-                if (targetProvider && targetProvider !== 'ALL' && chunk.provider !== targetProvider) {
+                if (
+                    targetProvider &&
+                    targetProvider !== 'ALL' &&
+                    chunk.provider !== targetProvider
+                ) {
                     continue;
                 }
 
                 // Filter by exact error code if specified
                 if (targetErrorCode) {
-                    const hasErrorCode = (chunk.error_codes || []).some(c => c.toLowerCase() === targetErrorCode);
+                    const hasErrorCode = (chunk.error_codes || []).some(
+                        (c) => c.toLowerCase() === targetErrorCode
+                    );
                     if (!hasErrorCode && !chunk.content.toLowerCase().includes(targetErrorCode)) {
                         continue;
                     }
@@ -150,7 +267,7 @@ class BM25Retriever {
 
                 // Technical token boost: If chunk explicitly contains query technical tokens
                 for (const token of queryTokens) {
-                    if ((chunk.error_codes || []).some(c => c.toLowerCase() === token)) {
+                    if ((chunk.error_codes || []).some((c) => c.toLowerCase() === token)) {
                         score += 5.0; // Strong exact technical identifier boost
                     }
                 }
@@ -159,7 +276,7 @@ class BM25Retriever {
                     scoredChunks.push({
                         chunk,
                         score,
-                        raw_bm25: scores[i]
+                        raw_bm25: scores[i],
                     });
                 }
             }
@@ -175,6 +292,5 @@ class BM25Retriever {
 
 module.exports = {
     BM25Retriever,
-    tokenize
+    tokenize,
 };
-

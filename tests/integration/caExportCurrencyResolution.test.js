@@ -26,7 +26,9 @@ describe('CA Export Currency Source-of-Truth SQL Engine Verification', () => {
 
     beforeAll(async () => {
         pool = new Pool({
-            connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/fusion_db'
+            connectionString:
+                process.env.DATABASE_URL ||
+                'postgresql://postgres:postgres@localhost:5432/fusion_db',
         });
         client = await pool.connect();
     });
@@ -56,14 +58,54 @@ describe('CA Export Currency Source-of-Truth SQL Engine Verification', () => {
             );
 
             const fixtures = [
-                { id: '93939393-0000-0000-0000-000000000001', raw: { currency: 'usd' }, expected: 'USD', desc: 'Explicit transaction currency usd' },
-                { id: '93939393-0000-0000-0000-000000000002', raw: { currency_code: 'eur' }, expected: 'EUR', desc: 'Explicit transaction currency_code eur' },
-                { id: '93939393-0000-0000-0000-000000000003', raw: { account_currency: 'gbp' }, expected: 'GBP', desc: 'Explicit account_currency gbp' },
-                { id: '93939393-0000-0000-0000-000000000004', raw: { domestic_enforcement: 'INR' }, expected: 'INR', desc: 'Proven domestic_enforcement INR contract' },
-                { id: '93939393-0000-0000-0000-000000000005', raw: { domestic_contract: 'true' }, expected: 'INR', desc: 'Proven domestic_contract true' },
-                { id: '93939393-0000-0000-0000-000000000006', raw: { aa_consent_imported: true }, expected: 'UNKNOWN', desc: 'AA consent import without currency metadata' },
-                { id: '93939393-0000-0000-0000-000000000007', raw: {}, expected: 'UNKNOWN', desc: 'Empty raw_json metadata' },
-                { id: '93939393-0000-0000-0000-000000000008', raw: null, expected: 'UNKNOWN', desc: 'Null raw_json metadata' },
+                {
+                    id: '93939393-0000-0000-0000-000000000001',
+                    raw: { currency: 'usd' },
+                    expected: 'USD',
+                    desc: 'Explicit transaction currency usd',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000002',
+                    raw: { currency_code: 'eur' },
+                    expected: 'EUR',
+                    desc: 'Explicit transaction currency_code eur',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000003',
+                    raw: { account_currency: 'gbp' },
+                    expected: 'GBP',
+                    desc: 'Explicit account_currency gbp',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000004',
+                    raw: { domestic_enforcement: 'INR' },
+                    expected: 'INR',
+                    desc: 'Proven domestic_enforcement INR contract',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000005',
+                    raw: { domestic_contract: 'true' },
+                    expected: 'INR',
+                    desc: 'Proven domestic_contract true',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000006',
+                    raw: { aa_consent_imported: true },
+                    expected: 'UNKNOWN',
+                    desc: 'AA consent import without currency metadata',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000007',
+                    raw: {},
+                    expected: 'UNKNOWN',
+                    desc: 'Empty raw_json metadata',
+                },
+                {
+                    id: '93939393-0000-0000-0000-000000000008',
+                    raw: null,
+                    expected: 'UNKNOWN',
+                    desc: 'Null raw_json metadata',
+                },
             ];
 
             for (const f of fixtures) {
@@ -105,7 +147,7 @@ describe('CA Export Currency Source-of-Truth SQL Engine Verification', () => {
             expect(res.rows.length).toBe(fixtures.length);
 
             for (const row of res.rows) {
-                const match = fixtures.find(f => f.id === row.txn_id);
+                const match = fixtures.find((f) => f.id === row.txn_id);
                 expect(match).toBeDefined();
                 expect(row.currency).toBe(match.expected);
             }
@@ -121,4 +163,3 @@ describe('CA Export Currency Source-of-Truth SQL Engine Verification', () => {
         expect(parseInt(verifyClean.rows[0].count, 10)).toBe(0);
     });
 });
-

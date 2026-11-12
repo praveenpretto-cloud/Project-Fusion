@@ -18,8 +18,12 @@ describe('AI Model Providers Unit Tests', () => {
 
         test('throws error if abstract generate() or ping() called directly', async () => {
             const provider = new BaseModelProvider();
-            await expect(provider.generate({})).rejects.toThrow('BaseModelProvider.generate() must be implemented by subclass');
-            await expect(provider.ping()).rejects.toThrow('BaseModelProvider.ping() must be implemented by subclass');
+            await expect(provider.generate({})).rejects.toThrow(
+                'BaseModelProvider.generate() must be implemented by subclass'
+            );
+            await expect(provider.ping()).rejects.toThrow(
+                'BaseModelProvider.ping() must be implemented by subclass'
+            );
         });
 
         test('isAvailable returns false if ping() throws', async () => {
@@ -41,22 +45,27 @@ describe('AI Model Providers Unit Tests', () => {
         });
 
         test('rejects external or non-loopback host names', () => {
-            expect(() => new OllamaProvider({ host: 'http://api.openai.com/v1' }))
-                .toThrow(/Only approved local loopback/);
-            expect(() => new OllamaProvider({ host: 'http://192.168.1.100:11434' }))
-                .toThrow(/Only approved local loopback/);
-            expect(() => new OllamaProvider({ host: 'http://evil-server.com' }))
-                .toThrow(/Only approved local loopback/);
+            expect(() => new OllamaProvider({ host: 'http://api.openai.com/v1' })).toThrow(
+                /Only approved local loopback/
+            );
+            expect(() => new OllamaProvider({ host: 'http://192.168.1.100:11434' })).toThrow(
+                /Only approved local loopback/
+            );
+            expect(() => new OllamaProvider({ host: 'http://evil-server.com' })).toThrow(
+                /Only approved local loopback/
+            );
         });
 
         test('rejects invalid URL string', () => {
-            expect(() => new OllamaProvider({ host: 'not-a-valid-url' }))
-                .toThrow(/Only approved local loopback/);
+            expect(() => new OllamaProvider({ host: 'not-a-valid-url' })).toThrow(
+                /Only approved local loopback/
+            );
         });
 
         test('rejects non-http / non-https protocols', () => {
-            expect(() => new OllamaProvider({ host: 'ftp://127.0.0.1:11434' }))
-                .toThrow(/Only approved local loopback/);
+            expect(() => new OllamaProvider({ host: 'ftp://127.0.0.1:11434' })).toThrow(
+                /Only approved local loopback/
+            );
         });
 
         test('defaults to llama3.1:latest as documented development model', () => {
@@ -81,8 +90,8 @@ describe('AI Model Providers Unit Tests', () => {
             const provider = new OllamaProvider({ defaultModel: 'missing-model-xyz' });
             provider.client = {
                 list: jest.fn().mockResolvedValue({
-                    models: [{ name: 'llama3.1:latest' }]
-                })
+                    models: [{ name: 'llama3.1:latest' }],
+                }),
             };
 
             const pingRes = await provider.ping();
@@ -94,17 +103,23 @@ describe('AI Model Providers Unit Tests', () => {
         test('generate returns AI_UNAVAILABLE when model is not found in daemon', async () => {
             const provider = new OllamaProvider({ defaultModel: 'uninstalled-model' });
             provider.client = {
-                chat: jest.fn().mockRejectedValue(new Error('model "uninstalled-model" not found, try pulling it first'))
+                chat: jest
+                    .fn()
+                    .mockRejectedValue(
+                        new Error('model "uninstalled-model" not found, try pulling it first')
+                    ),
             };
 
             const res = await provider.generate({
                 systemInstruction: 'sys',
                 evidenceContext: {},
-                investigationQuestion: 'test'
+                investigationQuestion: 'test',
             });
 
             expect(res.status).toBe(PROVIDER_STATUSES.AI_UNAVAILABLE);
-            expect(res.error).toContain('not installed in local Ollama daemon. Missing prerequisite.');
+            expect(res.error).toContain(
+                'not installed in local Ollama daemon. Missing prerequisite.'
+            );
         });
     });
 
@@ -115,7 +130,7 @@ describe('AI Model Providers Unit Tests', () => {
                 model: 'test-model',
                 systemInstruction: 'Test system',
                 evidenceContext: {},
-                investigationQuestion: 'What happened?'
+                investigationQuestion: 'What happened?',
             });
 
             expect(res.status).toBe(PROVIDER_STATUSES.SUCCESS);
@@ -198,11 +213,11 @@ describe('AI Model Providers Unit Tests', () => {
             const mock = new MockModelProvider();
             await mock.generate({
                 model: 'model-a',
-                investigationQuestion: 'Question A'
+                investigationQuestion: 'Question A',
             });
             await mock.generate({
                 model: 'model-b',
-                investigationQuestion: 'Question B'
+                investigationQuestion: 'Question B',
             });
 
             expect(mock.invocationHistory.length).toBe(2);
@@ -223,8 +238,9 @@ describe('AI Model Providers Unit Tests', () => {
         });
 
         test('throws error when type is unknown or invalid', () => {
-            expect(() => createModelProvider('unsupported-type'))
-                .toThrow(/Unsupported model provider type/);
+            expect(() => createModelProvider('unsupported-type')).toThrow(
+                /Unsupported model provider type/
+            );
         });
     });
 });

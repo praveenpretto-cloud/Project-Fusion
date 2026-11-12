@@ -42,16 +42,28 @@ function parseFrontmatter(rawContent) {
  * Validates mandatory document source metadata.
  */
 function validateDocumentMetadata(metadata, filePath) {
-    const mandatory = ['source_id', 'title', 'publisher', 'provider', 'source_url', 'document_version', 'last_verified_at'];
+    const mandatory = [
+        'source_id',
+        'title',
+        'publisher',
+        'provider',
+        'source_url',
+        'document_version',
+        'last_verified_at',
+    ];
     for (const key of mandatory) {
         if (!metadata[key] || typeof metadata[key] !== 'string') {
-            throw new Error(`Document metadata missing mandatory field '${key}' in file: ${filePath}`);
+            throw new Error(
+                `Document metadata missing mandatory field '${key}' in file: ${filePath}`
+            );
         }
     }
 
     const providerNorm = metadata.provider.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
     if (!VALID_PROVIDERS.has(providerNorm)) {
-        throw new Error(`Invalid provider '${metadata.provider}' in ${filePath}. Must be one of: ${Array.from(VALID_PROVIDERS).join(', ')}`);
+        throw new Error(
+            `Invalid provider '${metadata.provider}' in ${filePath}. Must be one of: ${Array.from(VALID_PROVIDERS).join(', ')}`
+        );
     }
     metadata.provider = providerNorm;
 }
@@ -59,14 +71,16 @@ function validateDocumentMetadata(metadata, filePath) {
 class DocumentLoader {
     /**
      * Loads and validates a single markdown document file.
-     * 
-     * @param {string} filePath 
+     *
+     * @param {string} filePath
      * @returns {object} Loaded document metadata and body
      */
     static loadFile(filePath) {
         const stats = fs.statSync(filePath);
         if (stats.size > MAX_FILE_SIZE_BYTES) {
-            throw new Error(`Document file exceeds maximum permitted size of ${MAX_FILE_SIZE_BYTES} bytes: ${filePath} (${stats.size} bytes)`);
+            throw new Error(
+                `Document file exceeds maximum permitted size of ${MAX_FILE_SIZE_BYTES} bytes: ${filePath} (${stats.size} bytes)`
+            );
         }
 
         const rawContent = fs.readFileSync(filePath, 'utf8');
@@ -86,14 +100,14 @@ class DocumentLoader {
             licensing: metadata.licensing || 'Authoritative Technical Summary',
             file_path: filePath,
             content_hash: contentHash,
-            body
+            body,
         };
     }
 
     /**
      * Recursively scans directory for markdown documentation.
-     * 
-     * @param {string} baseDir 
+     *
+     * @param {string} baseDir
      * @returns {object[]} Array of loaded documents
      */
     static loadDirectory(baseDir) {
@@ -121,6 +135,5 @@ module.exports = {
     DocumentLoader,
     parseFrontmatter,
     MAX_FILE_SIZE_BYTES,
-    VALID_PROVIDERS
+    VALID_PROVIDERS,
 };
-

@@ -22,7 +22,10 @@ const crypto = require('crypto');
 const logger = require('../../logger');
 const { toCanonicalDecimal } = require('../orchestrator/financialDecimal');
 const { defaultRbacService, PERMISSIONS } = require('../identity/rbacService');
-const { defaultWebAuthnService, computePaymentContextDigest } = require('../identity/webauthnService');
+const {
+    defaultWebAuthnService,
+    computePaymentContextDigest,
+} = require('../identity/webauthnService');
 const { WebAuthnVerifierService } = require('../identity/webauthnVerifierService');
 
 const APPROVAL_STATUS = Object.freeze({
@@ -40,17 +43,20 @@ class MakerCheckerService {
     constructor(options = {}) {
         this.rbacService = options.rbacService || defaultRbacService;
         this.webauthnService = options.webauthnService || defaultWebAuthnService;
-        this.webauthnVerifierService = options.webauthnVerifierService || new WebAuthnVerifierService({
-            rpId: this.webauthnService?.rpId,
-            origin: this.webauthnService?.origin,
-            pool: options.verifierPool || null,
-        });
+        this.webauthnVerifierService =
+            options.webauthnVerifierService ||
+            new WebAuthnVerifierService({
+                rpId: this.webauthnService?.rpId,
+                origin: this.webauthnService?.origin,
+                pool: options.verifierPool || null,
+            });
         this.stepUpThreshold = options.stepUpThreshold || DEFAULT_STEP_UP_THRESHOLD;
         this.pool = options.pool || null;
 
         // In-memory mock store strictly restricted to explicitly configured offline unit test environments
         // Production and multi-instance runtimes strictly require PostgreSQL persistence and fail closed if unavailable
-        this.allowTestMockFallback = options.allowTestMockFallback === true && process.env.NODE_ENV === 'test';
+        this.allowTestMockFallback =
+            options.allowTestMockFallback === true && process.env.NODE_ENV === 'test';
         this.inMemoryApprovals = new Map(); // instructionId -> approvalRecord
         this.inMemoryVoidRequests = new Map(); // voidRequestId -> voidRequestRecord
     }
@@ -65,7 +71,9 @@ class MakerCheckerService {
             if (this.allowTestMockFallback) {
                 return null;
             }
-            const err = new Error('Database persistence layer is unavailable: PostgreSQL connection is strictly required for financial approval and void operations');
+            const err = new Error(
+                'Database persistence layer is unavailable: PostgreSQL connection is strictly required for financial approval and void operations'
+            );
             err.statusCode = 503;
             err.code = 'DATABASE_UNAVAILABLE';
             throw err;
@@ -92,13 +100,17 @@ class MakerCheckerService {
         pool = null,
     } = {}) {
         if (!instructionId || !makerOperatorId || amount === undefined || !currency) {
-            const err = new Error('instructionId, makerOperatorId, amount, and currency are required');
+            const err = new Error(
+                'instructionId, makerOperatorId, amount, and currency are required'
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // 1. RBAC check: Maker must have 'payment:initiate'
-        await this.rbacService.assertPermission(makerOperatorId, PERMISSIONS.PAYMENT_INITIATE, { pool });
+        await this.rbacService.assertPermission(makerOperatorId, PERMISSIONS.PAYMENT_INITIATE, {
+            pool,
+        });
 
         const normCurrency = String(currency).toUpperCase().trim();
         let canonicalAmount;
@@ -114,7 +126,11 @@ class MakerCheckerService {
             canonicalAmount = parsedNum.toFixed(2);
         }
 
-        if (canonicalAmount.startsWith('-') || canonicalAmount === '0' || /^0+(\.0+)?$/.test(canonicalAmount)) {
+        if (
+            canonicalAmount.startsWith('-') ||
+            canonicalAmount === '0' ||
+            /^0+(\.0+)?$/.test(canonicalAmount)
+        ) {
             const err = new Error('Amount must be a positive numeric value');
             err.statusCode = 400;
             throw err;
@@ -195,15 +211,21 @@ class MakerCheckerService {
                     err.code = 'MAKER_IMMUTABLE';
                     throw err;
                 }
-                if (existing.status === APPROVAL_STATUS.APPROVED || existing.status === APPROVAL_STATUS.REJECTED) {
-                    const err = new Error(`Cannot modify approval in terminal state ${existing.status}`);
+                if (
+                    existing.status === APPROVAL_STATUS.APPROVED ||
+                    existing.status === APPROVAL_STATUS.REJECTED
+                ) {
+                    const err = new Error(
+                        `Cannot modify approval in terminal state ${existing.status}`
+                    );
                     err.statusCode = 409;
                     throw err;
                 }
             }
 
             const finalBeneficiary = beneficiary || recipient || 'beneficiary_default_1';
-            const finalDestAccount = destination_account || destinationAccount || 'dest_default_acc';
+            const finalDestAccount =
+                destination_account || destinationAccount || 'dest_default_acc';
             const finalProvider = provider || 'STRIPE_TEST';
             const finalEnvironment = environment || 'sandbox';
 
@@ -250,7 +272,9 @@ class MakerCheckerService {
             });
         }
 
-        logger.info(`[MAKER-CHECKER] Instruction ${instructionId} submitted for approval by maker ${makerOperatorId}`);
+        logger.info(
+            `[MAKER-CHECKER] Instruction ${instructionId} submitted for approval by maker ${makerOperatorId}`
+        );
         return approvalRecord;
     }
 
@@ -282,7 +306,8 @@ class MakerCheckerService {
         const dbPool = this._getDbPool(pool);
         if (dbPool) {
             let client;
-            const isClientProvided = typeof dbPool.release === 'function' && dbPool.totalCount === undefined;
+            const isClientProvided =
+                typeof dbPool.release === 'function' && dbPool.totalCount === undefined;
             let releaseNeeded = false;
 
             if (isClientProvided) {
@@ -311,7 +336,9 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 if (res.rows.length === 0) {
-                    const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                    const err = new Error(
+                        `Payment approval request for instruction "${instructionId}" not found`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
@@ -323,9 +350,16 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 const instructionRow = instRes.rows[0] || {};
-                const instructionVersion = instructionRow.version || existingRecord.instruction_version || 1;
-                if (existingRecord.instruction_version && instructionRow.version && existingRecord.instruction_version !== instructionRow.version) {
-                    const err = new Error('Instruction version mismatch: payment details have been amended. Pending approval is invalidated.');
+                const instructionVersion =
+                    instructionRow.version || existingRecord.instruction_version || 1;
+                if (
+                    existingRecord.instruction_version &&
+                    instructionRow.version &&
+                    existingRecord.instruction_version !== instructionRow.version
+                ) {
+                    const err = new Error(
+                        'Instruction version mismatch: payment details have been amended. Pending approval is invalidated.'
+                    );
                     err.statusCode = 409;
                     err.code = 'INSTRUCTION_VERSION_MISMATCH';
                     throw err;
@@ -344,19 +378,29 @@ class MakerCheckerService {
                         pool: client,
                     });
 
-                    logger.error(`[MAKER-CHECKER VIOLATION] Operator ${checkerOperatorId} attempted to self-approve instruction ${instructionId}`);
-                    const err = new Error('Maker-Checker violation: An operator cannot approve their own payment instruction.');
+                    logger.error(
+                        `[MAKER-CHECKER VIOLATION] Operator ${checkerOperatorId} attempted to self-approve instruction ${instructionId}`
+                    );
+                    const err = new Error(
+                        'Maker-Checker violation: An operator cannot approve their own payment instruction.'
+                    );
                     err.statusCode = 403;
                     err.code = 'MAKER_CHECKER_VIOLATION';
                     throw err;
                 }
 
                 // 3. RBAC check: Checker must have 'payment:approve'
-                await this.rbacService.assertPermission(checkerOperatorId, PERMISSIONS.PAYMENT_APPROVE, { pool: client });
+                await this.rbacService.assertPermission(
+                    checkerOperatorId,
+                    PERMISSIONS.PAYMENT_APPROVE,
+                    { pool: client }
+                );
 
                 // 4. Compliance Hold Check
                 if (existingRecord.compliance_held) {
-                    const err = new Error('Payment instruction is under compliance hold and cannot be approved until released');
+                    const err = new Error(
+                        'Payment instruction is under compliance hold and cannot be approved until released'
+                    );
                     err.statusCode = 403;
                     err.code = 'COMPLIANCE_HOLD_ACTIVE';
                     throw err;
@@ -365,16 +409,31 @@ class MakerCheckerService {
                 // 5. State validation
                 const currentStatus = existingRecord.status;
                 if (currentStatus !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                    const err = new Error(`Cannot approve instruction in status "${currentStatus}". Current status must be PENDING_APPROVAL.`);
-                    err.statusCode = currentStatus === APPROVAL_STATUS.APPROVED || currentStatus === APPROVAL_STATUS.REJECTED ? 409 : 400;
+                    const err = new Error(
+                        `Cannot approve instruction in status "${currentStatus}". Current status must be PENDING_APPROVAL.`
+                    );
+                    err.statusCode =
+                        currentStatus === APPROVAL_STATUS.APPROVED ||
+                        currentStatus === APPROVAL_STATUS.REJECTED
+                            ? 409
+                            : 400;
                     err.code = 'INVALID_APPROVAL_STATE';
                     throw err;
                 }
 
                 // 6. WebAuthn Step-Up Authentication (with UV enforcement and payment context binding)
-                const normCurrency = String(instructionRow.currency || existingRecord.currency).toUpperCase().trim();
-                const amount = toCanonicalDecimal(instructionRow.amount !== undefined ? instructionRow.amount : existingRecord.amount, normCurrency);
-                const mustStepUp = requireStepUp === true || (requireStepUp !== false && Number(amount) >= this.stepUpThreshold);
+                const normCurrency = String(instructionRow.currency || existingRecord.currency)
+                    .toUpperCase()
+                    .trim();
+                const amount = toCanonicalDecimal(
+                    instructionRow.amount !== undefined
+                        ? instructionRow.amount
+                        : existingRecord.amount,
+                    normCurrency
+                );
+                const mustStepUp =
+                    requireStepUp === true ||
+                    (requireStepUp !== false && Number(amount) >= this.stepUpThreshold);
 
                 const expectedPaymentContext = {
                     approvalId: existingRecord.approval_id || existingRecord.approvalId,
@@ -382,10 +441,19 @@ class MakerCheckerService {
                     version: instructionVersion,
                     amount,
                     currency: normCurrency,
-                    beneficiary: instructionRow.recipient || existingRecord.recipient || existingRecord.beneficiary || '',
-                    destination_account: instructionRow.destination_account || existingRecord.destination_account || existingRecord.destinationAccount || '',
+                    beneficiary:
+                        instructionRow.recipient ||
+                        existingRecord.recipient ||
+                        existingRecord.beneficiary ||
+                        '',
+                    destination_account:
+                        instructionRow.destination_account ||
+                        existingRecord.destination_account ||
+                        existingRecord.destinationAccount ||
+                        '',
                     provider: instructionRow.provider || existingRecord.provider || 'STRIPE_TEST',
-                    environment: instructionRow.environment || existingRecord.environment || 'sandbox',
+                    environment:
+                        instructionRow.environment || existingRecord.environment || 'sandbox',
                     action: 'APPROVE',
                     checkerOperatorId,
                 };
@@ -394,14 +462,19 @@ class MakerCheckerService {
                 let verifiedChallengeId = null;
                 if (mustStepUp) {
                     if (!webauthnAssertion || !credentialId) {
-                        const err = new Error('WebAuthn step-up authentication is required to approve this payment instruction');
+                        const err = new Error(
+                            'WebAuthn step-up authentication is required to approve this payment instruction'
+                        );
                         err.statusCode = 403;
                         err.code = 'STEP_UP_REQUIRED';
                         throw err;
                     }
 
                     let verifyRes;
-                    if (this.webauthnVerifierService && (this.webauthnVerifierService.verifierPool || client)) {
+                    if (
+                        this.webauthnVerifierService &&
+                        (this.webauthnVerifierService.verifierPool || client)
+                    ) {
                         verifyRes = await this.webauthnVerifierService.verifyAndRecordAssertion({
                             operatorId: checkerOperatorId,
                             credentialId,
@@ -467,7 +540,9 @@ class MakerCheckerService {
             // In-memory execution
             const existingRecord = this.inMemoryApprovals.get(instructionId);
             if (!existingRecord) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
@@ -486,8 +561,12 @@ class MakerCheckerService {
                     },
                 });
 
-                logger.error(`[MAKER-CHECKER VIOLATION] Operator ${checkerOperatorId} attempted to self-approve instruction ${instructionId}`);
-                const err = new Error('Maker-Checker violation: An operator cannot approve their own payment instruction.');
+                logger.error(
+                    `[MAKER-CHECKER VIOLATION] Operator ${checkerOperatorId} attempted to self-approve instruction ${instructionId}`
+                );
+                const err = new Error(
+                    'Maker-Checker violation: An operator cannot approve their own payment instruction.'
+                );
                 err.statusCode = 403;
                 err.code = 'MAKER_CHECKER_VIOLATION';
                 throw err;
@@ -498,7 +577,9 @@ class MakerCheckerService {
 
             // Compliance Hold Check
             if (existingRecord.compliance_held) {
-                const err = new Error('Payment instruction is under compliance hold and cannot be approved until released');
+                const err = new Error(
+                    'Payment instruction is under compliance hold and cannot be approved until released'
+                );
                 err.statusCode = 403;
                 err.code = 'COMPLIANCE_HOLD_ACTIVE';
                 throw err;
@@ -507,8 +588,14 @@ class MakerCheckerService {
             // State validation
             const currentStatus = existingRecord.status;
             if (currentStatus !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                const err = new Error(`Cannot approve instruction in status "${currentStatus}". Current status must be PENDING_APPROVAL.`);
-                err.statusCode = currentStatus === APPROVAL_STATUS.APPROVED || currentStatus === APPROVAL_STATUS.REJECTED ? 409 : 400;
+                const err = new Error(
+                    `Cannot approve instruction in status "${currentStatus}". Current status must be PENDING_APPROVAL.`
+                );
+                err.statusCode =
+                    currentStatus === APPROVAL_STATUS.APPROVED ||
+                    currentStatus === APPROVAL_STATUS.REJECTED
+                        ? 409
+                        : 400;
                 err.code = 'INVALID_APPROVAL_STATE';
                 throw err;
             }
@@ -516,16 +603,20 @@ class MakerCheckerService {
             // WebAuthn Step-up
             const normCurrency = String(existingRecord.currency).toUpperCase().trim();
             const amount = toCanonicalDecimal(existingRecord.amount, normCurrency);
-            const mustStepUp = requireStepUp === true || (requireStepUp !== false && Number(amount) >= this.stepUpThreshold);
+            const mustStepUp =
+                requireStepUp === true ||
+                (requireStepUp !== false && Number(amount) >= this.stepUpThreshold);
 
             const expectedPaymentContext = {
                 approvalId: existingRecord.approvalId || existingRecord.approval_id,
                 instructionId,
-                version: existingRecord.instruction_version || existingRecord.instructionVersion || 1,
+                version:
+                    existingRecord.instruction_version || existingRecord.instructionVersion || 1,
                 amount,
                 currency: normCurrency,
                 beneficiary: existingRecord.recipient || existingRecord.beneficiary || '',
-                destination_account: existingRecord.destination_account || existingRecord.destinationAccount || '',
+                destination_account:
+                    existingRecord.destination_account || existingRecord.destinationAccount || '',
                 provider: existingRecord.provider || 'STRIPE_TEST',
                 environment: existingRecord.environment || 'sandbox',
                 action: 'APPROVE',
@@ -535,7 +626,9 @@ class MakerCheckerService {
 
             if (mustStepUp) {
                 if (!webauthnAssertion || !credentialId) {
-                    const err = new Error('WebAuthn step-up authentication is required to approve this payment instruction');
+                    const err = new Error(
+                        'WebAuthn step-up authentication is required to approve this payment instruction'
+                    );
                     err.statusCode = 403;
                     err.code = 'STEP_UP_REQUIRED';
                     throw err;
@@ -573,7 +666,9 @@ class MakerCheckerService {
             });
         }
 
-        logger.info(`[MAKER-CHECKER] ✅ Instruction ${instructionId} APPROVED by checker ${checkerOperatorId}`);
+        logger.info(
+            `[MAKER-CHECKER] ✅ Instruction ${instructionId} APPROVED by checker ${checkerOperatorId}`
+        );
         return updatedRecord;
     }
 
@@ -584,14 +679,11 @@ class MakerCheckerService {
      * 2. Checker possesses 'payment:reject'
      * 3. Single transactional boundary with SELECT ... FOR UPDATE
      */
-    async rejectPayment({
-        instructionId,
-        checkerOperatorId,
-        rejectionReason,
-        pool = null,
-    } = {}) {
+    async rejectPayment({ instructionId, checkerOperatorId, rejectionReason, pool = null } = {}) {
         if (!instructionId || !checkerOperatorId || !rejectionReason) {
-            const err = new Error('instructionId, checkerOperatorId, and rejectionReason are required');
+            const err = new Error(
+                'instructionId, checkerOperatorId, and rejectionReason are required'
+            );
             err.statusCode = 400;
             throw err;
         }
@@ -600,7 +692,8 @@ class MakerCheckerService {
         const dbPool = this._getDbPool(pool);
         if (dbPool) {
             let client;
-            const isClientProvided = typeof dbPool.release === 'function' && dbPool.totalCount === undefined;
+            const isClientProvided =
+                typeof dbPool.release === 'function' && dbPool.totalCount === undefined;
             let releaseNeeded = false;
 
             if (isClientProvided) {
@@ -628,7 +721,9 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 if (res.rows.length === 0) {
-                    const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                    const err = new Error(
+                        `Payment approval request for instruction "${instructionId}" not found`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
@@ -647,18 +742,26 @@ class MakerCheckerService {
                         pool: client,
                     });
 
-                    const err = new Error('Maker-Checker violation: An operator cannot review or reject their own payment instruction.');
+                    const err = new Error(
+                        'Maker-Checker violation: An operator cannot review or reject their own payment instruction.'
+                    );
                     err.statusCode = 403;
                     err.code = 'MAKER_CHECKER_VIOLATION';
                     throw err;
                 }
 
                 // RBAC check: Checker must have 'payment:reject'
-                await this.rbacService.assertPermission(checkerOperatorId, PERMISSIONS.PAYMENT_REJECT, { pool: client });
+                await this.rbacService.assertPermission(
+                    checkerOperatorId,
+                    PERMISSIONS.PAYMENT_REJECT,
+                    { pool: client }
+                );
 
                 // State validation
                 if (existingRecord.status !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                    const err = new Error(`Rejection conflict: instruction is already ${existingRecord.status}`);
+                    const err = new Error(
+                        `Rejection conflict: instruction is already ${existingRecord.status}`
+                    );
                     err.statusCode = 409;
                     err.code = 'APPROVAL_CONFLICT';
                     throw err;
@@ -681,7 +784,9 @@ class MakerCheckerService {
                         [instructionId]
                     );
                     const postStatus = conflictRes.rows[0]?.status;
-                    const err = new Error(`Rejection conflict: instruction is already ${postStatus}`);
+                    const err = new Error(
+                        `Rejection conflict: instruction is already ${postStatus}`
+                    );
                     err.statusCode = 409;
                     err.code = 'APPROVAL_CONFLICT';
                     throw err;
@@ -720,7 +825,9 @@ class MakerCheckerService {
         } else {
             const existingRecord = this.inMemoryApprovals.get(instructionId);
             if (!existingRecord) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
@@ -738,7 +845,9 @@ class MakerCheckerService {
                     },
                 });
 
-                const err = new Error('Maker-Checker violation: An operator cannot review or reject their own payment instruction.');
+                const err = new Error(
+                    'Maker-Checker violation: An operator cannot review or reject their own payment instruction.'
+                );
                 err.statusCode = 403;
                 err.code = 'MAKER_CHECKER_VIOLATION';
                 throw err;
@@ -747,7 +856,9 @@ class MakerCheckerService {
             await this.rbacService.assertPermission(checkerOperatorId, PERMISSIONS.PAYMENT_REJECT);
 
             if (existingRecord.status !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                const err = new Error(`Rejection conflict: instruction is already ${existingRecord.status}`);
+                const err = new Error(
+                    `Rejection conflict: instruction is already ${existingRecord.status}`
+                );
                 err.statusCode = 409;
                 err.code = 'APPROVAL_CONFLICT';
                 throw err;
@@ -772,7 +883,9 @@ class MakerCheckerService {
             });
         }
 
-        logger.info(`[MAKER-CHECKER] 🛑 Instruction ${instructionId} REJECTED by checker ${checkerOperatorId}`);
+        logger.info(
+            `[MAKER-CHECKER] 🛑 Instruction ${instructionId} REJECTED by checker ${checkerOperatorId}`
+        );
         return updatedRecord;
     }
 
@@ -790,7 +903,9 @@ class MakerCheckerService {
         }
 
         // RBAC check: Officer must have 'compliance:hold'
-        await this.rbacService.assertPermission(officerOperatorId, PERMISSIONS.COMPLIANCE_HOLD, { pool });
+        await this.rbacService.assertPermission(officerOperatorId, PERMISSIONS.COMPLIANCE_HOLD, {
+            pool,
+        });
 
         let record;
         const dbPool = this._getDbPool(pool);
@@ -812,14 +927,18 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 if (res.rows.length === 0) {
-                    const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                    const err = new Error(
+                        `Payment approval request for instruction "${instructionId}" not found`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
                 const existingRecord = res.rows[0];
 
                 if (existingRecord.status !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                    const err = new Error(`Cannot place compliance hold on instruction in terminal status "${existingRecord.status}"`);
+                    const err = new Error(
+                        `Cannot place compliance hold on instruction in terminal status "${existingRecord.status}"`
+                    );
                     err.statusCode = 409;
                     throw err;
                 }
@@ -871,12 +990,16 @@ class MakerCheckerService {
         } else {
             const existingRecord = this.inMemoryApprovals.get(instructionId);
             if (!existingRecord) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
             if (existingRecord.status !== APPROVAL_STATUS.PENDING_APPROVAL) {
-                const err = new Error(`Cannot place compliance hold on instruction in terminal status "${existingRecord.status}"`);
+                const err = new Error(
+                    `Cannot place compliance hold on instruction in terminal status "${existingRecord.status}"`
+                );
                 err.statusCode = 409;
                 throw err;
             }
@@ -902,7 +1025,9 @@ class MakerCheckerService {
             });
         }
 
-        logger.info(`[COMPLIANCE] ⚠️ Instruction ${instructionId} placed on compliance hold by officer ${officerOperatorId}: ${reason}`);
+        logger.info(
+            `[COMPLIANCE] ⚠️ Instruction ${instructionId} placed on compliance hold by officer ${officerOperatorId}: ${reason}`
+        );
         return record;
     }
 
@@ -920,7 +1045,9 @@ class MakerCheckerService {
         }
 
         // RBAC check: Officer must have 'compliance:release'
-        await this.rbacService.assertPermission(officerOperatorId, PERMISSIONS.COMPLIANCE_RELEASE, { pool });
+        await this.rbacService.assertPermission(officerOperatorId, PERMISSIONS.COMPLIANCE_RELEASE, {
+            pool,
+        });
 
         let record;
         const dbPool = this._getDbPool(pool);
@@ -942,14 +1069,18 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 if (res.rows.length === 0) {
-                    const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                    const err = new Error(
+                        `Payment approval request for instruction "${instructionId}" not found`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
                 const existingRecord = res.rows[0];
 
                 if (!existingRecord.compliance_held) {
-                    const err = new Error('Payment instruction is not currently on compliance hold');
+                    const err = new Error(
+                        'Payment instruction is not currently on compliance hold'
+                    );
                     err.statusCode = 400;
                     throw err;
                 }
@@ -995,7 +1126,9 @@ class MakerCheckerService {
         } else {
             const existingRecord = this.inMemoryApprovals.get(instructionId);
             if (!existingRecord) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
@@ -1021,7 +1154,9 @@ class MakerCheckerService {
             });
         }
 
-        logger.info(`[COMPLIANCE] ✅ Instruction ${instructionId} compliance hold released by officer ${officerOperatorId}`);
+        logger.info(
+            `[COMPLIANCE] ✅ Instruction ${instructionId} compliance hold released by officer ${officerOperatorId}`
+        );
         return record;
     }
 
@@ -1047,7 +1182,9 @@ class MakerCheckerService {
         }
 
         // Maker must possess 'payment:initiate'
-        await this.rbacService.assertPermission(makerOperatorId, PERMISSIONS.PAYMENT_INITIATE, { pool });
+        await this.rbacService.assertPermission(makerOperatorId, PERMISSIONS.PAYMENT_INITIATE, {
+            pool,
+        });
 
         const dbPool = this._getDbPool(pool);
         if (dbPool) {
@@ -1075,22 +1212,34 @@ class MakerCheckerService {
                 }
                 const instruction = instRes.rows[0];
 
-                if (instruction.maker_operator_id && instruction.maker_operator_id !== makerOperatorId) {
-                    const err = new Error('Only the initiating maker can amend a payment instruction');
+                if (
+                    instruction.maker_operator_id &&
+                    instruction.maker_operator_id !== makerOperatorId
+                ) {
+                    const err = new Error(
+                        'Only the initiating maker can amend a payment instruction'
+                    );
                     err.statusCode = 403;
                     err.code = 'MAKER_MISMATCH';
                     throw err;
                 }
 
-                if (instruction.state === 'APPROVED' || instruction.approval_status === 'APPROVED') {
-                    const err = new Error('Approved payment instructions are strictly immutable. Material terms cannot be altered. To void an approved instruction, use voidPaymentInstruction.');
+                if (
+                    instruction.state === 'APPROVED' ||
+                    instruction.approval_status === 'APPROVED'
+                ) {
+                    const err = new Error(
+                        'Approved payment instructions are strictly immutable. Material terms cannot be altered. To void an approved instruction, use voidPaymentInstruction.'
+                    );
                     err.statusCode = 409;
                     err.code = 'APPROVED_INSTRUCTION_IMMUTABLE';
                     throw err;
                 }
 
                 if (['EXECUTED', 'SETTLED', 'VOIDED'].includes(instruction.state)) {
-                    const err = new Error(`Cannot amend instruction in terminal state "${instruction.state}"`);
+                    const err = new Error(
+                        `Cannot amend instruction in terminal state "${instruction.state}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'TERMINAL_STATE';
                     throw err;
@@ -1109,11 +1258,22 @@ class MakerCheckerService {
                 );
 
                 // 3. Update instruction with incremented version and new values
-                const newAmount = amendments.amount !== undefined ? Number(amendments.amount) : instruction.amount;
-                const newCurrency = amendments.currency !== undefined ? amendments.currency : instruction.currency;
-                const newRecipient = amendments.recipient !== undefined ? amendments.recipient : instruction.recipient;
-                const newDestAccount = amendments.destination_account !== undefined ? amendments.destination_account : instruction.destination_account;
-                const newProvider = amendments.provider !== undefined ? amendments.provider : instruction.provider;
+                const newAmount =
+                    amendments.amount !== undefined
+                        ? Number(amendments.amount)
+                        : instruction.amount;
+                const newCurrency =
+                    amendments.currency !== undefined ? amendments.currency : instruction.currency;
+                const newRecipient =
+                    amendments.recipient !== undefined
+                        ? amendments.recipient
+                        : instruction.recipient;
+                const newDestAccount =
+                    amendments.destination_account !== undefined
+                        ? amendments.destination_account
+                        : instruction.destination_account;
+                const newProvider =
+                    amendments.provider !== undefined ? amendments.provider : instruction.provider;
 
                 const updateRes = await client.query(
                     `UPDATE instructions
@@ -1128,7 +1288,15 @@ class MakerCheckerService {
                          updated_at = NOW()
                      WHERE instruction_id = $7
                      RETURNING *`,
-                    [nextVersion, newAmount, newCurrency, newRecipient, newDestAccount, newProvider, instructionId]
+                    [
+                        nextVersion,
+                        newAmount,
+                        newCurrency,
+                        newRecipient,
+                        newDestAccount,
+                        newProvider,
+                        instructionId,
+                    ]
                 );
 
                 const updatedInstruction = updateRes.rows[0];
@@ -1159,20 +1327,26 @@ class MakerCheckerService {
             let approval = this.inMemoryApprovals.get(instructionId);
             if (approval) {
                 if (approval.status === APPROVAL_STATUS.APPROVED || approval.state === 'APPROVED') {
-                    const err = new Error('Approved payment instructions are strictly immutable. Material terms cannot be altered. To void an approved instruction, use voidPaymentInstruction.');
+                    const err = new Error(
+                        'Approved payment instructions are strictly immutable. Material terms cannot be altered. To void an approved instruction, use voidPaymentInstruction.'
+                    );
                     err.statusCode = 409;
                     err.code = 'APPROVED_INSTRUCTION_IMMUTABLE';
                     throw err;
                 }
                 if (['EXECUTED', 'SETTLED', 'VOIDED'].includes(approval.state)) {
-                    const err = new Error(`Cannot amend instruction in terminal state "${approval.state}"`);
+                    const err = new Error(
+                        `Cannot amend instruction in terminal state "${approval.state}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'TERMINAL_STATE';
                     throw err;
                 }
                 const makerId = approval.maker_operator_id || approval.makerOperatorId;
                 if (makerId !== makerOperatorId) {
-                    const err = new Error('Only the initiating maker can amend a payment instruction');
+                    const err = new Error(
+                        'Only the initiating maker can amend a payment instruction'
+                    );
                     err.statusCode = 403;
                     err.code = 'MAKER_MISMATCH';
                     throw err;
@@ -1184,14 +1358,19 @@ class MakerCheckerService {
                 const newVersion = oldVersion + 1;
                 approval.instruction_version = newVersion;
                 approval.instructionVersion = newVersion;
-                if (amendments.amount !== undefined) approval.amount = toCanonicalDecimal(amendments.amount, approval.currency);
+                if (amendments.amount !== undefined)
+                    approval.amount = toCanonicalDecimal(amendments.amount, approval.currency);
                 if (amendments.currency !== undefined) approval.currency = amendments.currency;
                 if (amendments.recipient !== undefined) approval.recipient = amendments.recipient;
-                if (amendments.beneficiary !== undefined) approval.beneficiary = amendments.beneficiary;
-                if (amendments.destination_account !== undefined) approval.destination_account = amendments.destination_account;
-                if (amendments.destinationAccount !== undefined) approval.destinationAccount = amendments.destinationAccount;
+                if (amendments.beneficiary !== undefined)
+                    approval.beneficiary = amendments.beneficiary;
+                if (amendments.destination_account !== undefined)
+                    approval.destination_account = amendments.destination_account;
+                if (amendments.destinationAccount !== undefined)
+                    approval.destinationAccount = amendments.destinationAccount;
                 if (amendments.provider !== undefined) approval.provider = amendments.provider;
-                if (amendments.environment !== undefined) approval.environment = amendments.environment;
+                if (amendments.environment !== undefined)
+                    approval.environment = amendments.environment;
             }
 
             await this.rbacService.logSecurityEvent({
@@ -1205,7 +1384,7 @@ class MakerCheckerService {
 
             return {
                 instructionId,
-                version: (approval?.instructionVersion || 2),
+                version: approval?.instructionVersion || 2,
                 state: 'INITIATED',
                 approval_status: 'CANCELLED',
                 ...amendments,
@@ -1220,20 +1399,21 @@ class MakerCheckerService {
      * 2. Instruction is in APPROVED (or PENDING_APPROVAL) and not in terminal states.
      * 3. Creates an explicit pending void request record.
      */
-    async requestPaymentVoid({
-        instructionId,
-        requesterOperatorId,
-        reason,
-        pool = null,
-    } = {}) {
+    async requestPaymentVoid({ instructionId, requesterOperatorId, reason, pool = null } = {}) {
         if (!instructionId || !requesterOperatorId || !reason) {
-            const err = new Error('instructionId, requesterOperatorId, and reason are required to request a void');
+            const err = new Error(
+                'instructionId, requesterOperatorId, and reason are required to request a void'
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // Dedicated permission check: payment:void_request
-        await this.rbacService.assertPermission(requesterOperatorId, PERMISSIONS.PAYMENT_VOID_REQUEST, { pool });
+        await this.rbacService.assertPermission(
+            requesterOperatorId,
+            PERMISSIONS.PAYMENT_VOID_REQUEST,
+            { pool }
+        );
 
         const trimmedReason = String(reason).trim();
         if (!trimmedReason) {
@@ -1268,7 +1448,9 @@ class MakerCheckerService {
                 const instruction = instRes.rows[0];
 
                 if (['EXECUTED', 'SETTLED'].includes(instruction.state)) {
-                    const err = new Error(`Cannot void instruction in executed/settled state "${instruction.state}"`);
+                    const err = new Error(
+                        `Cannot void instruction in executed/settled state "${instruction.state}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'TERMINAL_STATE';
                     throw err;
@@ -1287,7 +1469,9 @@ class MakerCheckerService {
                     [instructionId]
                 );
                 if (existingReqRes.rows.length > 0) {
-                    const err = new Error('A pending void request already exists for this instruction');
+                    const err = new Error(
+                        'A pending void request already exists for this instruction'
+                    );
                     err.statusCode = 409;
                     err.code = 'PENDING_VOID_EXISTS';
                     throw err;
@@ -1331,13 +1515,17 @@ class MakerCheckerService {
         } else {
             const approval = this.inMemoryApprovals.get(instructionId);
             if (!approval) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
 
             if (['EXECUTED', 'SETTLED'].includes(approval.state)) {
-                const err = new Error(`Cannot void instruction in executed/settled state "${approval.state}"`);
+                const err = new Error(
+                    `Cannot void instruction in executed/settled state "${approval.state}"`
+                );
                 err.statusCode = 409;
                 err.code = 'TERMINAL_STATE';
                 throw err;
@@ -1353,7 +1541,9 @@ class MakerCheckerService {
             // Check existing pending void request in memory
             for (const [, vr] of this.inMemoryVoidRequests) {
                 if (vr.instructionId === instructionId && vr.status === 'PENDING') {
-                    const err = new Error('A pending void request already exists for this instruction');
+                    const err = new Error(
+                        'A pending void request already exists for this instruction'
+                    );
                     err.statusCode = 409;
                     err.code = 'PENDING_VOID_EXISTS';
                     throw err;
@@ -1416,7 +1606,11 @@ class MakerCheckerService {
         }
 
         // Approver must have payment:void_approve
-        await this.rbacService.assertPermission(approverOperatorId, PERMISSIONS.PAYMENT_VOID_APPROVE, { pool });
+        await this.rbacService.assertPermission(
+            approverOperatorId,
+            PERMISSIONS.PAYMENT_VOID_APPROVE,
+            { pool }
+        );
 
         let voidRequest;
         let instruction;
@@ -1447,7 +1641,9 @@ class MakerCheckerService {
                 }
 
                 if (vrRes.rows.length === 0) {
-                    const err = new Error(`Pending void request for instruction "${instructionId}" not found`);
+                    const err = new Error(
+                        `Pending void request for instruction "${instructionId}" not found`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
@@ -1464,9 +1660,12 @@ class MakerCheckerService {
                 }
                 instruction = instRes.rows[0];
 
-                const requesterId = voidRequest.requester_operator_id || voidRequest.requesterOperatorId;
+                const requesterId =
+                    voidRequest.requester_operator_id || voidRequest.requesterOperatorId;
                 if (requesterId === approverOperatorId) {
-                    const err = new Error('Dual control violation: Requester cannot approve their own void request');
+                    const err = new Error(
+                        'Dual control violation: Requester cannot approve their own void request'
+                    );
                     err.statusCode = 403;
                     err.code = 'DUAL_CONTROL_VIOLATION';
                     throw err;
@@ -1480,7 +1679,8 @@ class MakerCheckerService {
                     amount: toCanonicalDecimal(instruction.amount, normCurrency),
                     currency: normCurrency,
                     beneficiary: instruction.recipient || instruction.beneficiary || '',
-                    destination_account: instruction.destination_account || instruction.destinationAccount || '',
+                    destination_account:
+                        instruction.destination_account || instruction.destinationAccount || '',
                     provider: instruction.provider || 'STRIPE_TEST',
                     environment: instruction.environment || 'sandbox',
                     action: 'VOID',
@@ -1499,7 +1699,11 @@ class MakerCheckerService {
                     `UPDATE identity.payment_void_requests
                      SET challenge_id = $1, context_digest = $2
                      WHERE void_request_id = $3`,
-                    [challengeData.challengeId, challengeData.contextDigest, voidRequest.void_request_id]
+                    [
+                        challengeData.challengeId,
+                        challengeData.contextDigest,
+                        voidRequest.void_request_id,
+                    ]
                 );
 
                 return {
@@ -1533,7 +1737,9 @@ class MakerCheckerService {
             }
 
             if (!voidRequest || voidRequest.status !== 'PENDING') {
-                const err = new Error(`Pending void request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Pending void request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
@@ -1549,7 +1755,9 @@ class MakerCheckerService {
         const requesterId = voidRequest.requester_operator_id || voidRequest.requesterOperatorId;
         // Dual control check: requester cannot approve their own void request
         if (requesterId === approverOperatorId) {
-            const err = new Error('Dual control violation: Requester cannot approve their own void request');
+            const err = new Error(
+                'Dual control violation: Requester cannot approve their own void request'
+            );
             err.statusCode = 403;
             err.code = 'DUAL_CONTROL_VIOLATION';
             throw err;
@@ -1563,7 +1771,8 @@ class MakerCheckerService {
             amount: toCanonicalDecimal(instruction.amount, normCurrency),
             currency: normCurrency,
             beneficiary: instruction.recipient || instruction.beneficiary || '',
-            destination_account: instruction.destination_account || instruction.destinationAccount || '',
+            destination_account:
+                instruction.destination_account || instruction.destinationAccount || '',
             provider: instruction.provider || 'STRIPE_TEST',
             environment: instruction.environment || 'sandbox',
             action: 'VOID',
@@ -1612,13 +1821,19 @@ class MakerCheckerService {
         pool = null,
     } = {}) {
         if (!instructionId || !approverOperatorId) {
-            const err = new Error('instructionId and approverOperatorId are required to approve a void');
+            const err = new Error(
+                'instructionId and approverOperatorId are required to approve a void'
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // Dedicated permission check: payment:void_approve
-        await this.rbacService.assertPermission(approverOperatorId, PERMISSIONS.PAYMENT_VOID_APPROVE, { pool });
+        await this.rbacService.assertPermission(
+            approverOperatorId,
+            PERMISSIONS.PAYMENT_VOID_APPROVE,
+            { pool }
+        );
 
         const dbPool = this._getDbPool(pool);
         if (dbPool) {
@@ -1648,7 +1863,9 @@ class MakerCheckerService {
                 const instruction = instRes.rows[0];
 
                 if (['EXECUTED', 'SETTLED'].includes(instruction.state)) {
-                    const err = new Error(`Cannot void instruction in executed/settled state "${instruction.state}"`);
+                    const err = new Error(
+                        `Cannot void instruction in executed/settled state "${instruction.state}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'TERMINAL_STATE';
                     throw err;
@@ -1676,7 +1893,9 @@ class MakerCheckerService {
                 }
 
                 if (vrRes.rows.length === 0) {
-                    const err = new Error(`No pending void request found for instruction "${instructionId}"`);
+                    const err = new Error(
+                        `No pending void request found for instruction "${instructionId}"`
+                    );
                     err.statusCode = 404;
                     throw err;
                 }
@@ -1684,7 +1903,9 @@ class MakerCheckerService {
 
                 // 3. Strict Dual Control Check
                 if (voidRequest.requester_operator_id === approverOperatorId) {
-                    const err = new Error('Dual control violation: Requester cannot approve their own void request');
+                    const err = new Error(
+                        'Dual control violation: Requester cannot approve their own void request'
+                    );
                     err.statusCode = 403;
                     err.code = 'DUAL_CONTROL_VIOLATION';
                     throw err;
@@ -1711,7 +1932,9 @@ class MakerCheckerService {
                 let verifiedChallengeId = voidRequest.challenge_id || null;
                 if (requireStepUp !== false) {
                     if (!webauthnAssertion || !credentialId) {
-                        const err = new Error('WebAuthn step-up authentication is required to approve this payment void');
+                        const err = new Error(
+                            'WebAuthn step-up authentication is required to approve this payment void'
+                        );
                         err.statusCode = 403;
                         err.code = 'STEP_UP_REQUIRED';
                         throw err;
@@ -1747,7 +1970,10 @@ class MakerCheckerService {
                             `SELECT credential_id FROM identity.webauthn_credentials WHERE operator_id = $1 ORDER BY created_at DESC LIMIT 1`,
                             [approverOperatorId]
                         );
-                        let credId = credRes.rows && credRes.rows.length > 0 ? credRes.rows[0].credential_id : null;
+                        let credId =
+                            credRes.rows && credRes.rows.length > 0
+                                ? credRes.rows[0].credential_id
+                                : null;
                         if (!credId) {
                             credId = 'cred_synthetic_void_' + approverOperatorId.slice(0, 8);
                             await client.query(
@@ -1763,14 +1989,31 @@ class MakerCheckerService {
                             `INSERT INTO identity.webauthn_challenges (challenge, operator_id, ceremony_type, expires_at, instruction_id, context_digest)
                              VALUES ($1, $2, 'authentication', NOW() + INTERVAL '10 minutes', $3, $4)
                              RETURNING challenge_id`,
-                            [crypto.randomBytes(32).toString('base64url'), approverOperatorId, instructionId, paymentContextDigest]
+                            [
+                                crypto.randomBytes(32).toString('base64url'),
+                                approverOperatorId,
+                                instructionId,
+                                paymentContextDigest,
+                            ]
                         );
-                        verifiedChallengeId = chRes.rows && chRes.rows.length > 0 ? chRes.rows[0].challenge_id : '00000000-0000-4000-8000-000000000099';
+                        verifiedChallengeId =
+                            chRes.rows && chRes.rows.length > 0
+                                ? chRes.rows[0].challenge_id
+                                : '00000000-0000-4000-8000-000000000099';
 
-                        const dummySig = crypto.createHash('sha256').update('test_step_up_bypass_' + verifiedChallengeId).digest('hex');
+                        const dummySig = crypto
+                            .createHash('sha256')
+                            .update('test_step_up_bypass_' + verifiedChallengeId)
+                            .digest('hex');
                         await client.query(
                             `SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5)`,
-                            [verifiedChallengeId, approverOperatorId, credId, dummySig, paymentContextDigest]
+                            [
+                                verifiedChallengeId,
+                                approverOperatorId,
+                                credId,
+                                dummySig,
+                                paymentContextDigest,
+                            ]
                         );
                     } else {
                         const chRes = await client.query(
@@ -1786,7 +2029,9 @@ class MakerCheckerService {
                 }
 
                 if (!verifiedChallengeId) {
-                    const err = new Error('Verified WebAuthn challenge reference is required to approve payment void');
+                    const err = new Error(
+                        'Verified WebAuthn challenge reference is required to approve payment void'
+                    );
                     err.statusCode = 403;
                     err.code = 'CHALLENGE_REQUIRED';
                     throw err;
@@ -1795,7 +2040,13 @@ class MakerCheckerService {
                 // 6. Execute atomic restricted stored procedure in PostgreSQL
                 await client.query(
                     `SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5) AS result`,
-                    [voidRequest.void_request_id, instructionId, approverOperatorId, verifiedChallengeId, paymentContextDigest]
+                    [
+                        voidRequest.void_request_id,
+                        instructionId,
+                        approverOperatorId,
+                        verifiedChallengeId,
+                        paymentContextDigest,
+                    ]
                 );
 
                 // 7. Audit event
@@ -1848,14 +2099,19 @@ class MakerCheckerService {
             }
 
             if (!voidRequest || voidRequest.status !== 'PENDING') {
-                const err = new Error(`No pending void request found for instruction "${instructionId}"`);
+                const err = new Error(
+                    `No pending void request found for instruction "${instructionId}"`
+                );
                 err.statusCode = 404;
                 throw err;
             }
 
-            const requesterId = voidRequest.requester_operator_id || voidRequest.requesterOperatorId;
+            const requesterId =
+                voidRequest.requester_operator_id || voidRequest.requesterOperatorId;
             if (requesterId === approverOperatorId) {
-                const err = new Error('Dual control violation: Requester cannot approve their own void request');
+                const err = new Error(
+                    'Dual control violation: Requester cannot approve their own void request'
+                );
                 err.statusCode = 403;
                 err.code = 'DUAL_CONTROL_VIOLATION';
                 throw err;
@@ -1863,13 +2119,17 @@ class MakerCheckerService {
 
             const approval = this.inMemoryApprovals.get(instructionId);
             if (!approval) {
-                const err = new Error(`Payment approval request for instruction "${instructionId}" not found`);
+                const err = new Error(
+                    `Payment approval request for instruction "${instructionId}" not found`
+                );
                 err.statusCode = 404;
                 throw err;
             }
 
             if (['EXECUTED', 'SETTLED'].includes(approval.state)) {
-                const err = new Error(`Cannot void instruction in executed/settled state "${approval.state}"`);
+                const err = new Error(
+                    `Cannot void instruction in executed/settled state "${approval.state}"`
+                );
                 err.statusCode = 409;
                 err.code = 'TERMINAL_STATE';
                 throw err;
@@ -1890,7 +2150,8 @@ class MakerCheckerService {
                 amount: toCanonicalDecimal(approval.amount, normCurrency),
                 currency: normCurrency,
                 beneficiary: approval.recipient || approval.beneficiary || '',
-                destination_account: approval.destination_account || approval.destinationAccount || '',
+                destination_account:
+                    approval.destination_account || approval.destinationAccount || '',
                 provider: approval.provider || 'STRIPE_TEST',
                 environment: approval.environment || 'sandbox',
                 action: 'VOID',
@@ -1900,7 +2161,9 @@ class MakerCheckerService {
 
             if (requireStepUp !== false) {
                 if (!webauthnAssertion || !credentialId) {
-                    const err = new Error('WebAuthn step-up authentication is required to approve this payment void');
+                    const err = new Error(
+                        'WebAuthn step-up authentication is required to approve this payment void'
+                    );
                     err.statusCode = 403;
                     err.code = 'STEP_UP_REQUIRED';
                     throw err;
@@ -1975,14 +2238,18 @@ class MakerCheckerService {
         const apprId = approverOperatorId || (requesterOperatorId ? null : operatorId);
 
         if (!instructionId || !reason) {
-            const err = new Error('instructionId and reason are required to void a payment instruction');
+            const err = new Error(
+                'instructionId and reason are required to void a payment instruction'
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // Strict dual control: requester and approver must be distinct
         if (!reqId || !apprId || reqId === apprId) {
-            const err = new Error('Dual control violation: Independent requester and approver identities are required to void an approved payment. Self-approval is strictly prohibited.');
+            const err = new Error(
+                'Dual control violation: Independent requester and approver identities are required to void an approved payment. Self-approval is strictly prohibited.'
+            );
             err.statusCode = 403;
             err.code = 'DUAL_CONTROL_VIOLATION';
             throw err;
@@ -2063,7 +2330,7 @@ class MakerCheckerService {
             ...record,
             isMaker,
             complianceHeld: isHeld,
-            canApprove: !isMaker && !isHeld && (record.status === APPROVAL_STATUS.PENDING_APPROVAL),
+            canApprove: !isMaker && !isHeld && record.status === APPROVAL_STATUS.PENDING_APPROVAL,
         };
     }
 
@@ -2071,7 +2338,10 @@ class MakerCheckerService {
      * Closes underlying service resources such as the verifier database pool.
      */
     async close() {
-        if (this.webauthnVerifierService && typeof this.webauthnVerifierService.close === 'function') {
+        if (
+            this.webauthnVerifierService &&
+            typeof this.webauthnVerifierService.close === 'function'
+        ) {
             await this.webauthnVerifierService.close();
         }
     }

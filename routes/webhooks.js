@@ -75,7 +75,9 @@ async function handleStripeWebhook(req, res) {
     const eventType = event.type;
     const obj = event.data?.object || {};
     // For refund and charge events, obj.payment_intent links to parent PaymentIntent
-    const intentId = obj.payment_intent || (obj.object === 'payment_intent' ? obj.id : (obj.id?.startsWith('pi_') ? obj.id : obj.id));
+    const intentId =
+        obj.payment_intent ||
+        (obj.object === 'payment_intent' ? obj.id : obj.id?.startsWith('pi_') ? obj.id : obj.id);
     const instructionId = obj.metadata?.instruction_id || obj.metadata?.instructionId;
     const failureReason = obj.last_payment_error?.message || 'Stripe payment failed';
 
@@ -149,10 +151,14 @@ async function handleRazorpayWebhook(req, res) {
     }
 
     const eventType = payload?.event || payload?.type || 'payout.unknown';
-    const payoutEntity = payload?.payload?.payout?.entity || payload?.payload?.payment?.entity || {};
+    const payoutEntity =
+        payload?.payload?.payout?.entity || payload?.payload?.payment?.entity || {};
     const intentId = payoutEntity.id || payload?.intent_id;
     const instructionId = payoutEntity.notes?.instruction_id || payoutEntity.reference_id;
-    const failureReason = payoutEntity.status_details?.description || payoutEntity.error?.description || 'RazorpayX payout failed';
+    const failureReason =
+        payoutEntity.status_details?.description ||
+        payoutEntity.error?.description ||
+        'RazorpayX payout failed';
 
     const result = await processWebhookEvent({
         pool,
@@ -175,11 +181,14 @@ async function handleRazorpayWebhook(req, res) {
  * Maintained non-mutating for security until compatibility requirements are reviewed.
  */
 async function handleLegacyGatewayWebhook(req, res) {
-    logger.warn('[LEGACY WEBHOOK] ⚠️ Request received on deprecated non-mutating endpoint /api/webhooks/gateway. No state changes applied.');
+    logger.warn(
+        '[LEGACY WEBHOOK] ⚠️ Request received on deprecated non-mutating endpoint /api/webhooks/gateway. No state changes applied.'
+    );
     return res.status(200).json({
         received: true,
         mutated: false,
-        warning: 'Legacy gateway endpoint is non-mutating for security. Use signed provider endpoints /api/webhooks/stripe or /api/webhooks/razorpay.',
+        warning:
+            'Legacy gateway endpoint is non-mutating for security. Use signed provider endpoints /api/webhooks/stripe or /api/webhooks/razorpay.',
     });
 }
 
@@ -196,4 +205,3 @@ module.exports = {
     getRawBody,
     getPool,
 };
-

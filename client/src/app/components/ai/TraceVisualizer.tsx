@@ -2,8 +2,18 @@
 
 import React, { useState } from 'react';
 import {
-    Activity, Clock, Cpu, Database, Eye, Layers, ShieldCheck,
-    Wrench, CheckCircle2, ChevronRight, ChevronDown, Info
+    Activity,
+    Clock,
+    Cpu,
+    Database,
+    Eye,
+    Layers,
+    ShieldCheck,
+    Wrench,
+    CheckCircle2,
+    ChevronRight,
+    ChevronDown,
+    Info,
 } from 'lucide-react';
 
 export interface SpanData {
@@ -56,9 +66,12 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
         return (
             <div className="bg-[#0A0D14] border border-gray-800/80 rounded-xl p-8 text-center font-mono space-y-2">
                 <Layers className="w-8 h-8 text-gray-600 mx-auto" />
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">No Trace Telemetry Available</h4>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                    No Trace Telemetry Available
+                </h4>
                 <p className="text-[11px] text-gray-500 max-w-md mx-auto">
-                    Execute an investigation to capture distributed tracing spans with latency breakdowns, tool calls, and LLM inference markers.
+                    Execute an investigation to capture distributed tracing spans with latency
+                    breakdowns, tool calls, and LLM inference markers.
                 </p>
             </div>
         );
@@ -67,7 +80,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
     const totalDuration = Math.max(trace.total_duration_ms || 1, 0.01);
 
     // Compute Model Inference vs Deterministic Tool & Overhead Duration
-    const modelSpans = trace.spans.filter(s => s.name === 'ai.llm.inference');
+    const modelSpans = trace.spans.filter((s) => s.name === 'ai.llm.inference');
     const modelDuration = modelSpans.reduce((sum, s) => sum + (s.duration_ms || 0), 0);
     const modelPercentage = Math.min(100, Math.round((modelDuration / totalDuration) * 100));
 
@@ -79,7 +92,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 text: 'text-amber-300',
                 bar: 'bg-amber-500',
                 badge: 'LLM Inference',
-                icon: Cpu
+                icon: Cpu,
             };
         }
         if (name.includes('rag') || name.includes('embedding') || name.includes('search')) {
@@ -89,7 +102,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 text: 'text-purple-300',
                 bar: 'bg-purple-500',
                 badge: 'RAG Knowledge',
-                icon: Database
+                icon: Database,
             };
         }
         if (name.includes('tool')) {
@@ -99,7 +112,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 text: 'text-cyan-300',
                 bar: 'bg-cyan-500',
                 badge: 'Tool Call',
-                icon: Wrench
+                icon: Wrench,
             };
         }
         if (name.includes('validation')) {
@@ -109,7 +122,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 text: 'text-emerald-300',
                 bar: 'bg-emerald-500',
                 badge: 'Validation',
-                icon: CheckCircle2
+                icon: CheckCircle2,
             };
         }
         if (name.includes('dlp')) {
@@ -119,7 +132,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 text: 'text-blue-300',
                 bar: 'bg-blue-500',
                 badge: 'DLP Redact',
-                icon: ShieldCheck
+                icon: ShieldCheck,
             };
         }
         return {
@@ -128,7 +141,7 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
             text: 'text-blue-300',
             bar: 'bg-blue-600',
             badge: 'Orchestration',
-            icon: Layers
+            icon: Layers,
         };
     };
 
@@ -155,7 +168,9 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-gray-800">
                         <Clock className="w-3.5 h-3.5 text-gray-400" />
                         <span className="text-gray-400 text-[10px]">Total Latency:</span>
-                        <span className="text-white font-bold text-xs">{trace.total_duration_ms}ms</span>
+                        <span className="text-white font-bold text-xs">
+                            {trace.total_duration_ms}ms
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/40 border border-gray-800">
@@ -177,7 +192,12 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 <div className="flex items-center justify-between text-[11px] text-gray-400">
                     <span>Latency Distribution:</span>
                     <span>
-                        LLM: <strong className="text-amber-300">{modelDuration.toFixed(1)}ms</strong> / Overhead &amp; Tools: <strong className="text-cyan-300">{(totalDuration - modelDuration).toFixed(1)}ms</strong>
+                        LLM:{' '}
+                        <strong className="text-amber-300">{modelDuration.toFixed(1)}ms</strong> /
+                        Overhead &amp; Tools:{' '}
+                        <strong className="text-cyan-300">
+                            {(totalDuration - modelDuration).toFixed(1)}ms
+                        </strong>
                     </span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-800 overflow-hidden flex">
@@ -230,7 +250,10 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                 {trace.spans.map((span, idx) => {
                     const style = getSpanCategoryStyle(span.name);
                     const IconComponent = style.icon;
-                    const durationWidthPct = Math.max(3, Math.min(100, ((span.duration_ms || 0.1) / totalDuration) * 100));
+                    const durationWidthPct = Math.max(
+                        3,
+                        Math.min(100, ((span.duration_ms || 0.1) / totalDuration) * 100)
+                    );
                     const isSelected = selectedSpan?.span_id === span.span_id;
 
                     return (
@@ -245,22 +268,32 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                         >
                             <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="text-[10px] text-gray-500 w-5 text-right shrink-0">#{idx + 1}</span>
-                                    <span className={`p-1 rounded ${style.bg} ${style.text} border ${style.border} shrink-0`}>
+                                    <span className="text-[10px] text-gray-500 w-5 text-right shrink-0">
+                                        #{idx + 1}
+                                    </span>
+                                    <span
+                                        className={`p-1 rounded ${style.bg} ${style.text} border ${style.border} shrink-0`}
+                                    >
                                         <IconComponent className="w-3 h-3" />
                                     </span>
                                     <div className="min-w-0">
                                         <div className="font-bold text-gray-200 truncate flex items-center gap-1.5 text-xs">
                                             <span>{span.name}</span>
-                                            <span className={`px-1.5 py-0.2 rounded text-[9px] uppercase tracking-wider font-extrabold ${style.text} ${style.bg} border ${style.border}`}>
+                                            <span
+                                                className={`px-1.5 py-0.2 rounded text-[9px] uppercase tracking-wider font-extrabold ${style.text} ${style.bg} border ${style.border}`}
+                                            >
                                                 {style.badge}
                                             </span>
                                         </div>
                                         {viewMode === 'hierarchy' && span.parent_name && (
                                             <div className="text-[10px] text-gray-500 truncate flex items-center gap-1">
                                                 <span>parent:</span>
-                                                <span className="text-gray-400">{span.parent_name}</span>
-                                                <span className="text-gray-600">({span.parent_span_id?.substring(0, 8)})</span>
+                                                <span className="text-gray-400">
+                                                    {span.parent_name}
+                                                </span>
+                                                <span className="text-gray-600">
+                                                    ({span.parent_span_id?.substring(0, 8)})
+                                                </span>
                                             </div>
                                         )}
                                     </div>
@@ -268,7 +301,9 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
 
                                 <div className="text-right shrink-0">
                                     <div className="font-bold text-gray-200 text-xs">
-                                        {span.duration_ms !== undefined ? `${span.duration_ms}ms` : '0ms'}
+                                        {span.duration_ms !== undefined
+                                            ? `${span.duration_ms}ms`
+                                            : '0ms'}
                                     </div>
                                     <div className="text-[10px] text-gray-500">
                                         ID: {span.span_id.substring(0, 8)}
@@ -318,15 +353,21 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                         </div>
                         <div>
                             <span className="text-gray-500 block">Parent ID</span>
-                            <span className="text-gray-300 font-bold">{selectedSpan.parent_span_id || 'root'}</span>
+                            <span className="text-gray-300 font-bold">
+                                {selectedSpan.parent_span_id || 'root'}
+                            </span>
                         </div>
                         <div>
                             <span className="text-gray-500 block">Status</span>
-                            <span className="text-emerald-400 font-bold">{selectedSpan.status || 'OK'}</span>
+                            <span className="text-emerald-400 font-bold">
+                                {selectedSpan.status || 'OK'}
+                            </span>
                         </div>
                         <div>
                             <span className="text-gray-500 block">Duration</span>
-                            <span className="text-white font-bold">{selectedSpan.duration_ms}ms</span>
+                            <span className="text-white font-bold">
+                                {selectedSpan.duration_ms}ms
+                            </span>
                         </div>
                     </div>
 
@@ -338,10 +379,15 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
                             </span>
                             <div className="bg-[#0B0E14] p-2.5 rounded-lg border border-gray-800 space-y-1 text-[11px]">
                                 {Object.entries(selectedSpan.attributes).map(([key, val]) => (
-                                    <div key={key} className="flex items-start justify-between gap-2">
+                                    <div
+                                        key={key}
+                                        className="flex items-start justify-between gap-2"
+                                    >
                                         <span className="text-blue-400 font-semibold">{key}:</span>
                                         <span className="text-gray-300 text-right truncate max-w-xs font-mono">
-                                            {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                                            {typeof val === 'object'
+                                                ? JSON.stringify(val)
+                                                : String(val)}
                                         </span>
                                     </div>
                                 ))}
@@ -353,4 +399,3 @@ export default function TraceVisualizer({ trace, isLoading, error }: TraceVisual
         </div>
     );
 }
-

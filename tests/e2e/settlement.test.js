@@ -71,13 +71,15 @@ describe('💰 End-to-End Settlement Flow', () => {
     test('1. Initiate Instruction', async () => {
         const res = await api.post(
             '/api/instruction/initiate',
-            [{
-                amount: 100.0,
-                currency: 'USD',
-                sender: testUser,
-                recipient: testRecipient,
-                purpose: 'PAYMENT',
-            }],
+            [
+                {
+                    amount: 100.0,
+                    currency: 'USD',
+                    sender: testUser,
+                    recipient: testRecipient,
+                    purpose: 'PAYMENT',
+                },
+            ],
             {
                 headers: { 'x-idempotency-key': `e2e_init_${Date.now()}` },
             }

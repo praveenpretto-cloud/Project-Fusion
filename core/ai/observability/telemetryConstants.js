@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * OPEN TELEMETRY & OBSERVABILITY CONSTANTS — PHASE AI-3.4
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Strict privacy boundaries, semantic attribute keys, and low-cardinality metric names.
  */
 
@@ -36,13 +36,13 @@ const FUSION_AI_ATTRIBUTES = {
     STATUS: 'fusion.ai.status',
     OUTCOME: 'fusion.ai.outcome',
     ERROR_TYPE: 'fusion.ai.error_type',
-    
+
     // Agent
     AGENT_ROUND: 'fusion.ai.agent.round',
     AGENT_ROUNDS_TOTAL: 'fusion.ai.agent.rounds_total',
     AGENT_TERMINATION_REASON: 'fusion.ai.agent.termination_reason',
     AGENT_TOOL_CALL_COUNT: 'fusion.ai.agent.tool_call_count',
-    
+
     // Tool
     TOOL_NAME: 'fusion.ai.tool.name',
     TOOL_STATUS: 'fusion.ai.tool.status',
@@ -138,7 +138,7 @@ const ALLOWED_MODEL_LABELS = new Set([
     'mock-model',
     'nomic-embed-text:latest',
     'mock-embed-384',
-    'unknown'
+    'unknown',
 ]);
 
 // Allowed Tool Names for Low-Cardinality Metric Labels
@@ -152,7 +152,7 @@ const ALLOWED_TOOL_LABELS = new Set([
     'get_webhook_delivery_evidence',
     'get_settlement_and_webhook_evidence',
     'search_payment_knowledge',
-    'unknown'
+    'unknown',
 ]);
 
 // Standard Exception Classifications (replaces raw stack traces & sensitive error messages)
@@ -176,8 +176,8 @@ const ERROR_CLASSIFICATIONS = {
 /**
  * Classifies an error into a bounded, safe, low-cardinality error type.
  * Ensures sensitive messages are excluded from spans and metrics.
- * 
- * @param {Error|object|string} err 
+ *
+ * @param {Error|object|string} err
  * @returns {string} Error classification
  */
 function classifyError(err) {
@@ -185,10 +185,20 @@ function classifyError(err) {
     const msg = (typeof err === 'string' ? err : err.message || err.error || '').toLowerCase();
     const code = (err.code || err.status || '').toString().toLowerCase();
 
-    if (msg.includes('timeout') || msg.includes('deadline') || msg.includes('abort') || code.includes('timeout')) {
+    if (
+        msg.includes('timeout') ||
+        msg.includes('deadline') ||
+        msg.includes('abort') ||
+        code.includes('timeout')
+    ) {
         return ERROR_CLASSIFICATIONS.MODEL_TIMEOUT;
     }
-    if (msg.includes('econnrefused') || msg.includes('unavailable') || msg.includes('not found') || msg.includes('missing prerequisite')) {
+    if (
+        msg.includes('econnrefused') ||
+        msg.includes('unavailable') ||
+        msg.includes('not found') ||
+        msg.includes('missing prerequisite')
+    ) {
         return ERROR_CLASSIFICATIONS.MODEL_UNAVAILABLE;
     }
     if (msg.includes('not valid json') || msg.includes('json') || msg.includes('parse')) {
@@ -229,4 +239,3 @@ module.exports = {
     ERROR_CLASSIFICATIONS,
     classifyError,
 };
-

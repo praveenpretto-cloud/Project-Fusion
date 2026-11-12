@@ -38,53 +38,130 @@ const logger = require('../../logger');
  * Priority: ISO > DD/MM/YYYY > DD-MM-YYYY > "15 January 2025"
  */
 const DATE_PATTERNS = [
-    /(\d{4}-\d{2}-\d{2})/,                                                       // ISO: 2025-01-15
-    /(\d{2})[/.-](\d{2})[/.-](\d{4})/,                                    // DD/MM/YYYY or DD-MM-YYYY
+    /(\d{4}-\d{2}-\d{2})/, // ISO: 2025-01-15
+    /(\d{2})[/.-](\d{2})[/.-](\d{4})/, // DD/MM/YYYY or DD-MM-YYYY
     /(\d{1,2})\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{4})/i, // "15 Jan 2025"
 ];
 
 const MONTH_MAP = {
-    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
-    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
-    january: '01', february: '02', march: '03', april: '04', june: '06',
-    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
+    jan: '01',
+    feb: '02',
+    mar: '03',
+    apr: '04',
+    may: '05',
+    jun: '06',
+    jul: '07',
+    aug: '08',
+    sep: '09',
+    oct: '10',
+    nov: '11',
+    dec: '12',
+    january: '01',
+    february: '02',
+    march: '03',
+    april: '04',
+    june: '06',
+    july: '07',
+    august: '08',
+    september: '09',
+    october: '10',
+    november: '11',
+    december: '12',
 };
 
 // GSTIN: 15-character GST identification number
 const GSTIN_REGEX = /\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})\b/g;
 
 // Invoice number patterns
-const INVOICE_NO_REGEX = /(?:invoice\s*(?:no|number|#|num)[\s:.]*|inv[\s#:.]*|bill\s*no[\s:.]*)([\w/-]+)/i;
+const INVOICE_NO_REGEX =
+    /(?:invoice\s*(?:no|number|#|num)[\s:.]*|inv[\s#:.]*|bill\s*no[\s:.]*)([\w/-]+)/i;
 
 // Amount patterns (Indian format: 1,00,000 or 100,000 or 1000.00)
 const AMOUNT_REGEX = /(?:total[^:]*[:$₹]?\s*)([\d,]+(?:\.\d{1,2})?)/i;
-const GRAND_TOTAL_REGEX = /(?:grand\s+total|total\s+amount|net\s+payable|amount\s+due|total\s+due)[^\d]*([\d,]+(?:\.\d{1,2})?)/i;
+const GRAND_TOTAL_REGEX =
+    /(?:grand\s+total|total\s+amount|net\s+payable|amount\s+due|total\s+due)[^\d]*([\d,]+(?:\.\d{1,2})?)/i;
 
 // Currency detection
 const CURRENCY_REGEX = /\b(USD|EUR|GBP|INR|SGD|AED|JPY|CAD|CHF|AUD)\b/i;
 const RUPEE_SYMBOL_REGEX = /[₹]/;
 
 // Payment terms
-const PAYMENT_TERMS_REGEX = /(?:payment\s+terms?|due\s+date?|terms?\s+of\s+payment)[^:]*:?\s*([^\n]{3,60})/i;
+const PAYMENT_TERMS_REGEX =
+    /(?:payment\s+terms?|due\s+date?|terms?\s+of\s+payment)[^:]*:?\s*([^\n]{3,60})/i;
 
 // Indian state names for address parsing
 const INDIAN_STATES = [
-    'Tamil Nadu', 'Maharashtra', 'Karnataka', 'Gujarat', 'Delhi',
-    'Telangana', 'West Bengal', 'Rajasthan', 'Uttar Pradesh', 'Kerala',
-    'Andhra Pradesh', 'Punjab', 'Haryana', 'Bihar', 'Madhya Pradesh',
-    'Odisha', 'Jharkhand', 'Assam', 'Himachal Pradesh', 'Uttarakhand',
-    'Goa', 'Chhattisgarh', 'Jammu', 'Kashmir', 'Sikkim', 'Tripura',
-    'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Arunachal Pradesh',
+    'Tamil Nadu',
+    'Maharashtra',
+    'Karnataka',
+    'Gujarat',
+    'Delhi',
+    'Telangana',
+    'West Bengal',
+    'Rajasthan',
+    'Uttar Pradesh',
+    'Kerala',
+    'Andhra Pradesh',
+    'Punjab',
+    'Haryana',
+    'Bihar',
+    'Madhya Pradesh',
+    'Odisha',
+    'Jharkhand',
+    'Assam',
+    'Himachal Pradesh',
+    'Uttarakhand',
+    'Goa',
+    'Chhattisgarh',
+    'Jammu',
+    'Kashmir',
+    'Sikkim',
+    'Tripura',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Arunachal Pradesh',
 ];
 
 // City patterns common in Indian B2B invoices
 const COMMON_INDIAN_CITIES = [
-    'Chennai', 'Mumbai', 'Bangalore', 'Bengaluru', 'Delhi', 'Hyderabad',
-    'Kolkata', 'Pune', 'Ahmedabad', 'Surat', 'Jaipur', 'Lucknow',
-    'Kanpur', 'Nagpur', 'Visakhapatnam', 'Indore', 'Thane', 'Bhopal',
-    'Pimpri', 'Patna', 'Vadodara', 'Ghaziabad', 'Ludhiana', 'Agra',
-    'Nashik', 'Faridabad', 'Meerut', 'Rajkot', 'Varanasi', 'Coimbatore',
-    'Madurai', 'Tiruchirappalli', 'Tirunelveli', 'Salem', 'Erode', 'Tirupur',
+    'Chennai',
+    'Mumbai',
+    'Bangalore',
+    'Bengaluru',
+    'Delhi',
+    'Hyderabad',
+    'Kolkata',
+    'Pune',
+    'Ahmedabad',
+    'Surat',
+    'Jaipur',
+    'Lucknow',
+    'Kanpur',
+    'Nagpur',
+    'Visakhapatnam',
+    'Indore',
+    'Thane',
+    'Bhopal',
+    'Pimpri',
+    'Patna',
+    'Vadodara',
+    'Ghaziabad',
+    'Ludhiana',
+    'Agra',
+    'Nashik',
+    'Faridabad',
+    'Meerut',
+    'Rajkot',
+    'Varanasi',
+    'Coimbatore',
+    'Madurai',
+    'Tiruchirappalli',
+    'Tirunelveli',
+    'Salem',
+    'Erode',
+    'Tirupur',
 ];
 
 // ─── DATE NORMALISATION ────────────────────────────────────────────────────────
@@ -240,13 +317,18 @@ function extractAddressBlock(textBlock, country = 'IN') {
     }
 
     // Extract street from first line-ish content (best effort)
-    const lines = textBlock.split(/\n/).map(l => l.trim()).filter(l => l.length > 3);
+    const lines = textBlock
+        .split(/\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 3);
     if (lines.length > 0) {
         // Probable street: first line that isn't a company name (doesn't start with caps only)
-        const streetLine = lines.find(l => /\d/.test(l) && l.length > 5) || lines[0];
+        const streetLine = lines.find((l) => /\d/.test(l) && l.length > 5) || lines[0];
         if (streetLine) {
             // Try to split building number from street name
-            const buildingMatch = streetLine.match(/^((?:No\.?\s*)?[\d/-]+[A-Z]?)\s*[,:]?\s*(.+)$/i);
+            const buildingMatch = streetLine.match(
+                /^((?:No\.?\s*)?[\d/-]+[A-Z]?)\s*[,:]?\s*(.+)$/i
+            );
             if (buildingMatch) {
                 address.buildingNumber = buildingMatch[1].replace(/^No\.?\s*/i, '').trim();
                 address.streetName = buildingMatch[2].trim();
@@ -271,7 +353,8 @@ function extractLineItems(text) {
 
     // Line item pattern: text followed by numbers (qty, price, total)
     // e.g. "Product Name   5   1000.00   5000.00"
-    const lineItemRegex = /^(.{5,50}?)\s+(\d+(?:\.\d+)?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)$/gm;
+    const lineItemRegex =
+        /^(.{5,50}?)\s+(\d+(?:\.\d+)?)\s+([\d,]+(?:\.\d{1,2})?)\s+([\d,]+(?:\.\d{1,2})?)$/gm;
     const matches = [...text.matchAll(lineItemRegex)];
 
     for (const match of matches) {
@@ -279,7 +362,8 @@ function extractLineItems(text) {
         const desc = description.trim();
 
         // Filter out header rows and noise
-        if (/^(description|item|product|particulars|service|qty|quantity|hsn|gst)/i.test(desc)) continue;
+        if (/^(description|item|product|particulars|service|qty|quantity|hsn|gst)/i.test(desc))
+            continue;
         if (desc.length < 3) continue;
 
         lineItems.push({
@@ -300,7 +384,7 @@ function extractLineItems(text) {
  * @returns {{ sellerGstin: string|null, buyerGstin: string|null }}
  */
 function extractGstins(text) {
-    const matches = [...text.matchAll(GSTIN_REGEX)].map(m => m[1]);
+    const matches = [...text.matchAll(GSTIN_REGEX)].map((m) => m[1]);
     return {
         sellerGstin: matches[0] || null,
         buyerGstin: matches[1] || null,
@@ -330,7 +414,9 @@ async function parsePdfInvoice(pdfBuffer) {
         pdfParser.on('pdfParser_dataReady', (pdfData) => {
             try {
                 const rawText = extractTextFromPdfData(pdfData);
-                logger.info(`[PDF_PARSER] Extracted ${rawText.length} characters from ${pdfData.Pages?.length || 0} page(s)`);
+                logger.info(
+                    `[PDF_PARSER] Extracted ${rawText.length} characters from ${pdfData.Pages?.length || 0} page(s)`
+                );
 
                 // ── INVOICE ID ──────────────────────────────────────────────
                 const invoiceNoMatch = rawText.match(INVOICE_NO_REGEX);
@@ -355,7 +441,7 @@ async function parsePdfInvoice(pdfBuffer) {
                 // Due date: look for "due date" label, else invoice date + 90 days
                 let dueDate = allDates[1] || null;
                 if (!dueDate) {
-                    const dueMs = new Date(invoiceDate).getTime() + (90 * 24 * 60 * 60 * 1000);
+                    const dueMs = new Date(invoiceDate).getTime() + 90 * 24 * 60 * 60 * 1000;
                     dueDate = new Date(dueMs).toISOString().split('T')[0];
                 }
 
@@ -378,7 +464,7 @@ async function parsePdfInvoice(pdfBuffer) {
                 // ── GSTIN / PAN ─────────────────────────────────────────────
                 const { sellerGstin, buyerGstin } = extractGstins(rawText);
                 const gstPan = sellerGstin
-                    ? sellerGstin.substring(2, 12)  // PAN is chars 3-12 of GSTIN
+                    ? sellerGstin.substring(2, 12) // PAN is chars 3-12 of GSTIN
                     : null;
 
                 // ── PAYMENT TERMS ────────────────────────────────────────────
@@ -397,20 +483,29 @@ async function parsePdfInvoice(pdfBuffer) {
 
                 // ── COMPANY NAMES ────────────────────────────────────────────
                 // Heuristic: First capitalised block before GSTIN = seller name
-                const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+                const lines = rawText
+                    .split('\n')
+                    .map((l) => l.trim())
+                    .filter(Boolean);
                 let sellerName = null;
                 let buyerName = null;
 
                 // First non-trivial line is often the company name
                 for (const line of lines.slice(0, 10)) {
-                    if (line.length > 5 && /^[A-Z]/.test(line) && !/invoice|tax|gst|bill/i.test(line)) {
+                    if (
+                        line.length > 5 &&
+                        /^[A-Z]/.test(line) &&
+                        !/invoice|tax|gst|bill/i.test(line)
+                    ) {
                         sellerName = line;
                         break;
                     }
                 }
 
                 // Buyer name: look for "Bill To", "Ship To", "Buyer" label
-                const buyerMatch = rawText.match(/(?:bill\s+to|ship\s+to|buyer|sold\s+to)[:\s]+([^\n]{5,60})/i);
+                const buyerMatch = rawText.match(
+                    /(?:bill\s+to|ship\s+to|buyer|sold\s+to)[:\s]+([^\n]{5,60})/i
+                );
                 if (buyerMatch) buyerName = buyerMatch[1].trim();
 
                 // ── ADDRESSES ────────────────────────────────────────────────
@@ -462,15 +557,16 @@ async function parsePdfInvoice(pdfBuffer) {
                             hasInvoiceId: !!invoiceNoMatch,
                             hasAmount: totalAmount > 0,
                             hasGstin: !!sellerGstin,
-                            hasAddress: !!(sellerAddress.townName),
+                            hasAddress: !!sellerAddress.townName,
                             hasLineItems: lineItems.length > 0,
                         }),
                     },
                 };
 
-                logger.info(`[PDF_PARSER] ✅ Extracted invoice ${invoiceId} | ${currency} ${totalAmount} | Confidence: ${invoiceObj._pdfMeta.extractionConfidence}`);
+                logger.info(
+                    `[PDF_PARSER] ✅ Extracted invoice ${invoiceId} | ${currency} ${totalAmount} | Confidence: ${invoiceObj._pdfMeta.extractionConfidence}`
+                );
                 resolve(invoiceObj);
-
             } catch (parseErr) {
                 logger.error(`[PDF_PARSER] ❌ Post-extraction failure: ${parseErr.message}`);
                 reject(parseErr);
@@ -499,7 +595,8 @@ function splitSellerBuyerBlocks(text) {
 
     for (const pattern of splitPatterns) {
         const idx = text.search(pattern);
-        if (idx > 50) { // Must have some seller content before the split
+        if (idx > 50) {
+            // Must have some seller content before the split
             return [text.substring(0, idx), text.substring(idx)];
         }
     }

@@ -3,7 +3,10 @@
 const path = require('path');
 const { DocumentLoader } = require('./documentLoader');
 const { TextChunker } = require('./textChunker');
-const { MockEmbeddingProvider, OllamaEmbeddingProvider } = require('../retrieval/embeddingProvider');
+const {
+    MockEmbeddingProvider,
+    OllamaEmbeddingProvider,
+} = require('../retrieval/embeddingProvider');
 const { BM25Retriever } = require('../retrieval/bm25Retriever');
 const { DenseRetriever } = require('../retrieval/denseRetriever');
 const { HybridRanker } = require('../retrieval/hybridRanker');
@@ -31,12 +34,13 @@ class KnowledgeIndexer {
 
     /**
      * Updates embedding provider, invalidating stored vectors if model or dimension changed.
-     * @param {BaseEmbeddingProvider} newProvider 
+     * @param {BaseEmbeddingProvider} newProvider
      */
     setEmbeddingProvider(newProvider) {
         if (!newProvider) throw new Error('setEmbeddingProvider: provider is required');
-        const changed = !this.embeddingProvider || 
-            this.embeddingProvider.modelName !== newProvider.modelName || 
+        const changed =
+            !this.embeddingProvider ||
+            this.embeddingProvider.modelName !== newProvider.modelName ||
             this.embeddingProvider.dimension !== newProvider.dimension ||
             this.embeddingProvider.providerName !== newProvider.providerName;
 
@@ -58,7 +62,9 @@ class KnowledgeIndexer {
         if (typeof this.embeddingProvider.ping === 'function') {
             const health = await this.embeddingProvider.ping();
             if (!health.available) {
-                throw new Error(`Embedding provider '${this.embeddingProvider.providerName}' (${this.embeddingProvider.modelName}) is unavailable: ${health.error || 'Model not installed on host'}`);
+                throw new Error(
+                    `Embedding provider '${this.embeddingProvider.providerName}' (${this.embeddingProvider.modelName}) is unavailable: ${health.error || 'Model not installed on host'}`
+                );
             }
         }
 
@@ -82,8 +88,10 @@ class KnowledgeIndexer {
 
         // 3. Generate embeddings for all chunks (utilizing batch API if supported)
         this.vectorTable = new Map();
-        const embeddingTexts = this.chunks.map(chunk => `${chunk.title} - ${chunk.section}: ${chunk.content}`);
-        
+        const embeddingTexts = this.chunks.map(
+            (chunk) => `${chunk.title} - ${chunk.section}: ${chunk.content}`
+        );
+
         let vectors;
         if (typeof this.embeddingProvider.getEmbeddings === 'function') {
             vectors = await this.embeddingProvider.getEmbeddings(embeddingTexts);
@@ -103,13 +111,13 @@ class KnowledgeIndexer {
         this.denseRetriever = new DenseRetriever({
             chunks: this.chunks,
             vectorTable: this.vectorTable,
-            embeddingProvider: this.embeddingProvider
+            embeddingProvider: this.embeddingProvider,
         });
 
         // 5. Construct Hybrid Ranker
         this.hybridRanker = new HybridRanker({
             bm25Retriever: this.bm25Retriever,
-            denseRetriever: this.denseRetriever
+            denseRetriever: this.denseRetriever,
         });
 
         this.indexMetadata = {
@@ -120,7 +128,7 @@ class KnowledgeIndexer {
             embeddingModel: this.embeddingProvider.modelName,
             providerType: this.embeddingProvider.providerName,
             isMock: this.embeddingProvider.isMock || false,
-            version: '3.2.1'
+            version: '3.2.1',
         };
 
         this.isIndexed = true;
@@ -145,7 +153,10 @@ async function getOrCreateIndexer(options = {}) {
     if (!defaultIndexerInstance || options.forceReindex) {
         defaultIndexerInstance = new KnowledgeIndexer(options);
         await defaultIndexerInstance.buildIndex();
-    } else if (options.embeddingProvider && defaultIndexerInstance.embeddingProvider !== options.embeddingProvider) {
+    } else if (
+        options.embeddingProvider &&
+        defaultIndexerInstance.embeddingProvider !== options.embeddingProvider
+    ) {
         defaultIndexerInstance.setEmbeddingProvider(options.embeddingProvider);
         await defaultIndexerInstance.buildIndex();
     }
@@ -159,6 +170,5 @@ function resetDefaultIndexer() {
 module.exports = {
     KnowledgeIndexer,
     getOrCreateIndexer,
-    resetDefaultIndexer
+    resetDefaultIndexer,
 };
-

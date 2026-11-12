@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * CASHIQ INTELLIGENCE AI ROUTER (CHAT & CASHFLOW ADVISOR)
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * STRICT DEMO & READ-ONLY GOVERNANCE MANDATES:
  * 1. STRICT READ-ONLY ADVISORY: ZERO financial mutation capabilities. No payment
  *    initiation, refund, settlement, or signing.
@@ -74,4 +74,3 @@ router.post('/chat', handleChat);
 router.post('/cashflow-advisor', handleCashflowAdvisor);
 
 module.exports = router;
-

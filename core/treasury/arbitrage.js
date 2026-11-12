@@ -4,10 +4,10 @@
  * ════════════════════════════════════════════════════════════════════════════
  * TREASURY ARBITRAGE & SIMULATION ENGINE (RELIABILITY R2C.1)
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Provides deterministic financial calculations for cross-rail treasury
  * analysis, fee comparison, and multi-venue price simulation.
- * 
+ *
  * GOVERNANCE & SAFETY BOUNDARIES:
  * - All calculations are strictly deterministic fixed-point decimal arithmetic.
  * - Zero IEEE 754 floating-point operations in financial calculation paths.
@@ -30,10 +30,11 @@ const {
     decimalDivide,
     decimalRound,
     trimTrailingZeros,
-    decimalCompare
+    decimalCompare,
 } = require('../orchestrator/financialDecimal');
 
-const DISCLAIMER_TEXT = 'SIMULATED — NOT AN EXECUTABLE QUOTE. Actual execution outcomes can differ due to liquidity, market movements, fees, and slippage.';
+const DISCLAIMER_TEXT =
+    'SIMULATED — NOT AN EXECUTABLE QUOTE. Actual execution outcomes can differ due to liquidity, market movements, fees, and slippage.';
 const DATA_PROVENANCE = 'SYNTHETIC_SIMULATION';
 
 // Staged Precision Policy:
@@ -51,7 +52,7 @@ const MAX_INPUT_DECIMALS = 18;
  * Institutional baseline fee registry for comparative simulation.
  * All percentage fees are denominated in basis points (1 bps = 0.01% = 0.0001).
  * All fixed fees are denominated in the stated rail currency.
- * 
+ *
  * GOVERNANCE: All registry entries are explicitly marked as SIMULATED_ASSUMPTION
  * to distinguish illustrative scenario baselines from verified provider contracts.
  */
@@ -63,7 +64,8 @@ const FEE_REGISTRY = {
         currency: 'USD',
         category: 'SIMULATED_ASSUMPTION',
         isSimulatedAssumption: true,
-        disclaimer: 'Illustrative scenario assumption for portfolio demonstration; not verified universal provider pricing.'
+        disclaimer:
+            'Illustrative scenario assumption for portfolio demonstration; not verified universal provider pricing.',
     },
     STANDARD_FIAT_INR: {
         railName: 'Standard Domestic Payout (INR)',
@@ -72,7 +74,8 @@ const FEE_REGISTRY = {
         currency: 'INR',
         category: 'SIMULATED_ASSUMPTION',
         isSimulatedAssumption: true,
-        disclaimer: 'Illustrative scenario assumption for portfolio demonstration; not verified universal provider pricing.'
+        disclaimer:
+            'Illustrative scenario assumption for portfolio demonstration; not verified universal provider pricing.',
     },
     DIGITAL_RAIL_SIMULATED: {
         railName: 'Digital Settlement Rail (Simulated)',
@@ -81,15 +84,16 @@ const FEE_REGISTRY = {
         currency: 'USD',
         category: 'SIMULATED_ASSUMPTION',
         isSimulatedAssumption: true,
-        disclaimer: 'Synthetic simulation benchmark rail; not an executable market quote or verified settlement fee schedule.'
-    }
+        disclaimer:
+            'Synthetic simulation benchmark rail; not an executable market quote or verified settlement fee schedule.',
+    },
 };
 
 /**
  * Validates and extracts required arbitrage input parameters.
  * Rejects missing data, non-numeric values, negative prices/fees, unsafe numbers,
  * currency mismatches, and out-of-range slippage.
- * 
+ *
  * @param {Object} params
  * @returns {{ valid: boolean, error?: string, status?: string, data?: Object }}
  */
@@ -98,7 +102,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INCOMPLETE_DATA',
-            error: 'Input parameters object is required.'
+            error: 'Input parameters object is required.',
         };
     }
 
@@ -107,14 +111,14 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INCOMPLETE_DATA',
-            error: 'Asset symbol is required (e.g. XLM, USDC, BTC).'
+            error: 'Asset symbol is required (e.g. XLM, USDC, BTC).',
         };
     }
     if (!quoteCurrency || typeof quoteCurrency !== 'string' || !quoteCurrency.trim()) {
         return {
             valid: false,
             status: 'INCOMPLETE_DATA',
-            error: 'Quote currency is required (e.g. USD, INR, EUR).'
+            error: 'Quote currency is required (e.g. USD, INR, EUR).',
         };
     }
 
@@ -127,22 +131,26 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INCOMPLETE_DATA',
-                error: `${fieldName} is required.`
+                error: `${fieldName} is required.`,
             };
         }
 
         if (typeof val === 'number') {
-            if (!Number.isFinite(val) || val > Number.MAX_SAFE_INTEGER || val < Number.MIN_SAFE_INTEGER) {
+            if (
+                !Number.isFinite(val) ||
+                val > Number.MAX_SAFE_INTEGER ||
+                val < Number.MIN_SAFE_INTEGER
+            ) {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER. Pass large financial values as decimal strings to prevent silent precision loss.`
+                    error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER. Pass large financial values as decimal strings to prevent silent precision loss.`,
                 };
             }
             return {
                 valid: false,
                 status: 'INVALID_INPUT_TYPE',
-                error: `Field '${fieldName}' must be provided as a decimal string. JavaScript Numbers are rejected to prevent IEEE 754 precision loss.`
+                error: `Field '${fieldName}' must be provided as a decimal string. JavaScript Numbers are rejected to prevent IEEE 754 precision loss.`,
             };
         }
 
@@ -150,7 +158,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INVALID_INPUT_TYPE',
-                error: `Field '${fieldName}' must be provided as a decimal string.`
+                error: `Field '${fieldName}' must be provided as a decimal string.`,
             };
         }
 
@@ -159,7 +167,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INCOMPLETE_DATA',
-                error: `${fieldName} cannot be empty.`
+                error: `${fieldName} cannot be empty.`,
             };
         }
 
@@ -167,7 +175,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'EXCESSIVE_PRECISION',
-                error: `Field '${fieldName}' exceeds maximum allowed input length of ${MAX_INPUT_LENGTH} characters.`
+                error: `Field '${fieldName}' exceeds maximum allowed input length of ${MAX_INPUT_LENGTH} characters.`,
             };
         }
 
@@ -178,7 +186,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INVALID_NUMERIC_VALUE',
-                error: `Invalid numeric value for '${fieldName}': '${trimmed}'`
+                error: `Invalid numeric value for '${fieldName}': '${trimmed}'`,
             };
         }
 
@@ -186,7 +194,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'EXCESSIVE_PRECISION',
-                error: `Field '${fieldName}' exceeds maximum supported precision of ${MAX_INPUT_DECIMALS} decimal places.`
+                error: `Field '${fieldName}' exceeds maximum supported precision of ${MAX_INPUT_DECIMALS} decimal places.`,
             };
         }
 
@@ -200,7 +208,7 @@ function validateArbitrageInput(params) {
                 return {
                     valid: false,
                     status: 'INCOMPLETE_DATA',
-                    error: `Missing required fee parameter: '${fieldName}'. All fee fields must be explicitly supplied (use 0 for fee-free operations).`
+                    error: `Missing required fee parameter: '${fieldName}'. All fee fields must be explicitly supplied (use 0 for fee-free operations).`,
                 };
             }
             return { valid: true, num: 0, str: '0' };
@@ -211,21 +219,21 @@ function validateArbitrageInput(params) {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `Field '${fieldName}' must be an integer.`
+                    error: `Field '${fieldName}' must be an integer.`,
                 };
             }
             if (val < 0) {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `${fieldName} cannot be negative.`
+                    error: `${fieldName} cannot be negative.`,
                 };
             }
             if (val > Number.MAX_SAFE_INTEGER) {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER.`
+                    error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER.`,
                 };
             }
             return { valid: true, num: val, str: String(val) };
@@ -237,14 +245,14 @@ function validateArbitrageInput(params) {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `Field '${fieldName}' must be a non-negative integer.`
+                    error: `Field '${fieldName}' must be a non-negative integer.`,
                 };
             }
             if (trimmed.length > MAX_INPUT_LENGTH) {
                 return {
                     valid: false,
                     status: 'EXCESSIVE_PRECISION',
-                    error: `Field '${fieldName}' exceeds maximum allowed input length.`
+                    error: `Field '${fieldName}' exceeds maximum allowed input length.`,
                 };
             }
             try {
@@ -253,14 +261,14 @@ function validateArbitrageInput(params) {
                     return {
                         valid: false,
                         status: 'INVALID_NUMERIC_VALUE',
-                        error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER.`
+                        error: `${fieldName} exceeds JavaScript MAX_SAFE_INTEGER.`,
                     };
                 }
             } catch {
                 return {
                     valid: false,
                     status: 'INVALID_NUMERIC_VALUE',
-                    error: `Invalid numeric value for ${fieldName}: '${trimmed}'`
+                    error: `Invalid numeric value for ${fieldName}: '${trimmed}'`,
                 };
             }
             return { valid: true, num: Number(trimmed), str: trimmed };
@@ -269,7 +277,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INVALID_INPUT_TYPE',
-            error: `Field '${fieldName}' must be an integer or integer string.`
+            error: `Field '${fieldName}' must be an integer or integer string.`,
         };
     }
 
@@ -282,7 +290,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INVALID_QUANTITY',
-            error: 'Quantity must be a positive finite number greater than zero.'
+            error: 'Quantity must be a positive finite number greater than zero.',
         };
     }
 
@@ -295,7 +303,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INVALID_NUMERIC_VALUE',
-            error: 'Buy price must be a positive finite number greater than zero.'
+            error: 'Buy price must be a positive finite number greater than zero.',
         };
     }
 
@@ -307,7 +315,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INVALID_NUMERIC_VALUE',
-            error: 'Sell price must be a positive finite number greater than zero.'
+            error: 'Sell price must be a positive finite number greater than zero.',
         };
     }
 
@@ -323,12 +331,15 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INVALID_SLIPPAGE_BPS',
-            error: `Sell slippage (${sellSlipCheck.num} bps) cannot equal or exceed 10,000 basis points (100%), as this produces a non-positive adjusted sell price.`
+            error: `Sell slippage (${sellSlipCheck.num} bps) cannot equal or exceed 10,000 basis points (100%), as this produces a non-positive adjusted sell price.`,
         };
     }
 
     // 4. Fee parameter verification
-    const fees = (params.fees && typeof params.fees === 'object' && !Array.isArray(params.fees)) ? params.fees : params;
+    const fees =
+        params.fees && typeof params.fees === 'object' && !Array.isArray(params.fees)
+            ? params.fees
+            : params;
 
     // Currency verification across fee definitions
     const topFeeCurrency = fees.currency || fees.feeCurrency || params.feeCurrency;
@@ -336,7 +347,7 @@ function validateArbitrageInput(params) {
         return {
             valid: false,
             status: 'INCOMPATIBLE_CURRENCY',
-            error: `Fee currency '${topFeeCurrency}' does not match quote currency '${cleanQuote}'. Incompatible currencies cannot be combined.`
+            error: `Fee currency '${topFeeCurrency}' does not match quote currency '${cleanQuote}'. Incompatible currencies cannot be combined.`,
         };
     }
 
@@ -353,12 +364,12 @@ function validateArbitrageInput(params) {
         'sellFeeFixed',
         'networkFee',
         'transferFee',
-        'settlementFee'
+        'settlementFee',
     ];
 
     const parsedFees = {
         buyFeeBps: buyFeeBpsCheck.str,
-        sellFeeBps: sellFeeBpsCheck.str
+        sellFeeBps: sellFeeBpsCheck.str,
     };
 
     for (const field of fixedFeeFields) {
@@ -368,7 +379,7 @@ function validateArbitrageInput(params) {
                 return {
                     valid: false,
                     status: 'INCOMPATIBLE_CURRENCY',
-                    error: `Fee currency '${rawVal.currency}' for '${field}' does not match quote currency '${cleanQuote}'.`
+                    error: `Fee currency '${rawVal.currency}' for '${field}' does not match quote currency '${cleanQuote}'.`,
                 };
             }
             rawVal = rawVal.amount;
@@ -378,7 +389,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INCOMPLETE_DATA',
-                error: `Missing required fee parameter: '${field}'. All fee fields must be explicitly supplied (use 0 for fee-free operations).`
+                error: `Missing required fee parameter: '${field}'. All fee fields must be explicitly supplied (use 0 for fee-free operations).`,
             };
         }
 
@@ -389,7 +400,7 @@ function validateArbitrageInput(params) {
             return {
                 valid: false,
                 status: 'INVALID_NUMERIC_VALUE',
-                error: `Fee parameter '${field}' cannot be negative.`
+                error: `Fee parameter '${field}' cannot be negative.`,
             };
         }
 
@@ -406,15 +417,15 @@ function validateArbitrageInput(params) {
             sellPrice: sellCheck.str,
             buySlippageBps: buySlipCheck.str,
             sellSlippageBps: sellSlipCheck.str,
-            fees: parsedFees
-        }
+            fees: parsedFees,
+        },
     };
 }
 
 /**
  * Calculates deterministic arbitrage P&L and ROI from explicit inputs.
  * Strictly adheres to the canonical 8-step calculation specification:
- * 
+ *
  * 1. Adjusted buy price = buy price * (1 + buy slippage bps / 10,000)
  * 2. Adjusted sell price = sell price * (1 - sell slippage bps / 10,000)
  * 3. Buy notional = quantity * adjusted buy price
@@ -423,12 +434,12 @@ function validateArbitrageInput(params) {
  * 6. Net sale proceeds = sell notional - sell fees
  * 7. Estimated net P&L = net sale proceeds - total acquisition cost
  * 8. Estimated ROI = (estimated net P&L / total acquisition cost) * 100
- * 
+ *
  * NUMERICAL INTEGRITY POLICY (R2C.1):
  * - Adjusted prices retain exact fractional precision (no premature rounding to 4 decimals).
  * - Notional, fee, and net P&L intermediate calculations retain 8 decimal places.
  * - Final display amounts are rounded half-up according to quote-currency scale.
- * 
+ *
  * @param {Object} params
  * @returns {Object} Deterministic simulation report or error status
  */
@@ -441,7 +452,7 @@ function calculateArbitragePnl(params) {
             isSimulated: true,
             isExecutable: false,
             disclaimer: DISCLAIMER_TEXT,
-            dataProvenance: DATA_PROVENANCE
+            dataProvenance: DATA_PROVENANCE,
         };
     }
 
@@ -453,7 +464,7 @@ function calculateArbitragePnl(params) {
         sellPrice,
         buySlippageBps,
         sellSlippageBps,
-        fees
+        fees,
     } = validation.data;
 
     const quoteScale = getAssetScale(quoteCurrency);
@@ -477,8 +488,15 @@ function calculateArbitragePnl(params) {
     // 2. Adjusted sell price = sell price * (1 - sell slippage bps / 10,000)
     const sellSlippageFraction = decimalDivide(sellSlippageBps, '10000', intermediatePriceScale);
     const sellMultiplier = decimalSubtract('1', sellSlippageFraction, intermediatePriceScale);
-    const adjustedSellPriceFull = decimalMultiply(sellPrice, sellMultiplier, intermediatePriceScale);
-    const adjustedSellPrice = trimTrailingZeros(adjustedSellPriceFull, Math.min(inputPriceScale, 4));
+    const adjustedSellPriceFull = decimalMultiply(
+        sellPrice,
+        sellMultiplier,
+        intermediatePriceScale
+    );
+    const adjustedSellPrice = trimTrailingZeros(
+        adjustedSellPriceFull,
+        Math.min(inputPriceScale, 4)
+    );
 
     // 3. Buy notional = quantity * adjusted buy price
     // Intermediate notional retains dynamic intermediate precision (at least 8 decimal places)
@@ -486,13 +504,21 @@ function calculateArbitragePnl(params) {
     const buyNotional = trimTrailingZeros(buyNotionalFull, quoteScale);
 
     // 4. Sell notional = quantity * adjusted sell price
-    const sellNotionalFull = decimalMultiply(quantity, adjustedSellPriceFull, intermediateCalcScale);
+    const sellNotionalFull = decimalMultiply(
+        quantity,
+        adjustedSellPriceFull,
+        intermediateCalcScale
+    );
     const sellNotional = trimTrailingZeros(sellNotionalFull, quoteScale);
 
     // Gross price spread (before slippage and fees)
     const grossPriceSpreadFull = decimalSubtract(sellPrice, buyPrice, inputPriceScale);
     const grossPriceSpread = trimTrailingZeros(grossPriceSpreadFull, Math.min(inputPriceScale, 4));
-    const grossSpreadNotionalFull = decimalMultiply(quantity, grossPriceSpreadFull, intermediateCalcScale);
+    const grossSpreadNotionalFull = decimalMultiply(
+        quantity,
+        grossPriceSpreadFull,
+        intermediateCalcScale
+    );
     const grossSpreadNotional = trimTrailingZeros(grossSpreadNotionalFull, quoteScale);
 
     // Fees calculation:
@@ -512,7 +538,11 @@ function calculateArbitragePnl(params) {
 
     // Operational fees: transfer/network/settlement
     const opFeesPart1 = decimalAdd(fees.networkFee, fees.transferFee, intermediateCalcScale);
-    const totalOperationalFeesFull = decimalAdd(opFeesPart1, fees.settlementFee, intermediateCalcScale);
+    const totalOperationalFeesFull = decimalAdd(
+        opFeesPart1,
+        fees.settlementFee,
+        intermediateCalcScale
+    );
     const totalOperationalFees = trimTrailingZeros(totalOperationalFeesFull, quoteScale);
 
     // Total estimated costs (counted exactly once across all fee categories)
@@ -532,25 +562,41 @@ function calculateArbitragePnl(params) {
     const totalAcquisitionCost = trimTrailingZeros(totalAcquisitionCostFull, 4);
 
     // 6. Net sale proceeds = sell notional - sell fees
-    const netSaleProceedsFull = decimalSubtract(sellNotionalFull, totalSellFeeFull, intermediateCalcScale);
+    const netSaleProceedsFull = decimalSubtract(
+        sellNotionalFull,
+        totalSellFeeFull,
+        intermediateCalcScale
+    );
     const netSaleProceeds = trimTrailingZeros(netSaleProceedsFull, 4);
 
     // 7. Estimated net P&L = net sale proceeds - total acquisition cost
-    const estimatedNetPnLFull = decimalSubtract(netSaleProceedsFull, totalAcquisitionCostFull, intermediateCalcScale);
+    const estimatedNetPnLFull = decimalSubtract(
+        netSaleProceedsFull,
+        totalAcquisitionCostFull,
+        intermediateCalcScale
+    );
     const estimatedNetPnL = trimTrailingZeros(estimatedNetPnLFull, 4);
 
     // 8. Estimated ROI = (estimated net P&L / total acquisition cost) * 100
     let rawRoiPercent = '0.00%';
     let estimatedRoiPercent = '0.00%';
     if (decimalCompare(totalAcquisitionCostFull, '0', intermediateCalcScale) > 0) {
-        const roiQuotient = decimalDivide(estimatedNetPnLFull, totalAcquisitionCostFull, intermediateCalcScale);
+        const roiQuotient = decimalDivide(
+            estimatedNetPnLFull,
+            totalAcquisitionCostFull,
+            intermediateCalcScale
+        );
         rawRoiPercent = decimalMultiply(roiQuotient, '100', 6) + '%';
         estimatedRoiPercent = decimalMultiply(roiQuotient, '100', 2) + '%';
     }
 
     const isProfitable = decimalCompare(estimatedNetPnLFull, '0', intermediateCalcScale) > 0;
 
-    const grossTotalOutlaysFull = decimalAdd(buyNotionalFull, totalEstimatedCostsFull, intermediateCalcScale);
+    const grossTotalOutlaysFull = decimalAdd(
+        buyNotionalFull,
+        totalEstimatedCostsFull,
+        intermediateCalcScale
+    );
     const grossTotalOutlays = trimTrailingZeros(grossTotalOutlaysFull, 4);
 
     // Display rounded amounts according to quote currency scale (standard institutional cents)
@@ -566,7 +612,7 @@ function calculateArbitragePnl(params) {
         netProceeds: decimalRound(netSaleProceedsFull, quoteScale),
         estimatedNetPnL: decimalRound(estimatedNetPnLFull, quoteScale),
         netProfit: decimalRound(estimatedNetPnLFull, quoteScale),
-        estimatedRoiPercent
+        estimatedRoiPercent,
     };
 
     return {
@@ -577,7 +623,10 @@ function calculateArbitragePnl(params) {
         dataProvenance: DATA_PROVENANCE,
         asset,
         quoteCurrency,
-        quantity: trimTrailingZeros(toCanonicalDecimal(quantity, Math.max(assetScale, pQty.scale)), assetScale),
+        quantity: trimTrailingZeros(
+            toCanonicalDecimal(quantity, Math.max(assetScale, pQty.scale)),
+            assetScale
+        ),
         buyPrice: trimTrailingZeros(toCanonicalDecimal(buyPrice, inputPriceScale), 4),
         sellPrice: trimTrailingZeros(toCanonicalDecimal(sellPrice, inputPriceScale), 4),
         adjustedBuyPrice,
@@ -600,7 +649,7 @@ function calculateArbitragePnl(params) {
             transferFee: trimTrailingZeros(fees.transferFee, quoteScale),
             settlementFee: trimTrailingZeros(fees.settlementFee, quoteScale),
             totalOperationalFees,
-            totalEstimatedCosts
+            totalEstimatedCosts,
         },
         totalEstimatedCosts,
         totalAcquisitionCost,
@@ -612,14 +661,14 @@ function calculateArbitragePnl(params) {
         rawRoiPercent,
         estimatedRoiPercent,
         isProfitable,
-        display
+        display,
     };
 }
 
 /**
  * Calculates estimated fee for a registered rail.
  * Replaces hardcoded values with deterministic scale-aware calculation.
- * 
+ *
  * @param {number|string} amount
  * @param {string} rail
  * @returns {string} Fee canonical string
@@ -641,21 +690,23 @@ function calculateEstimatedFee(amount, rail) {
 /**
  * Generates transparent comparative treasury intelligence for a given batch volume.
  * Eliminates all invented performance percentages and hardcoded savings figures.
- * 
+ *
  * CURRENCY COMPARABILITY GOVERNANCE (R2C.1):
  * When rail currencies differ without an explicit FX conversion:
  * - comparison_status is explicitly 'NOT_COMPARABLE'
  * - potential_savings is explicitly null (never 0.00)
  * - recommendation is 'NOT_COMPARABLE'
  * - explains that an FX conversion and its costs are required
- * 
+ *
  * @param {number|string} amount - Total batch volume
  * @param {string} currency - Batch currency
  * @param {Object} [options] - Additional simulation overrides
  * @returns {Object} Transparent simulation summary
  */
 function getArbitrageReport(amount, currency = 'USD', options = {}) {
-    const cleanCurrency = String(currency || 'USD').trim().toUpperCase();
+    const cleanCurrency = String(currency || 'USD')
+        .trim()
+        .toUpperCase();
     const scale = getAssetScale(cleanCurrency);
 
     let amountStr;
@@ -700,11 +751,15 @@ function getArbitrageReport(amount, currency = 'USD', options = {}) {
         dataProvenance: DATA_PROVENANCE,
         options: {
             fiat: { rail: fiatRail, estimated_fee: fiatFee, currency: fiatConfig.currency },
-            digital: { rail: 'DIGITAL_RAIL_SIMULATED', estimated_fee: digitalFee, currency: digitalConfig.currency }
+            digital: {
+                rail: 'DIGITAL_RAIL_SIMULATED',
+                estimated_fee: digitalFee,
+                currency: digitalConfig.currency,
+            },
         },
         potential_savings: potentialDiff,
         recommendation,
-        intelligence_note: intelligenceNote
+        intelligence_note: intelligenceNote,
     };
 }
 
@@ -717,5 +772,5 @@ module.exports = {
     validateArbitrageInput,
     calculateArbitragePnl,
     calculateEstimatedFee,
-    getArbitrageReport
+    getArbitrageReport,
 };

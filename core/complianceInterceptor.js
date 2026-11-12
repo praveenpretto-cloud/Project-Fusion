@@ -20,9 +20,11 @@ async function checkAML(pool, sender, recipient) {
     // 2. Dynamic Database Check (The Guardian) - Uses shared pool
     const { checkSanctions } = require('../services/complianceService');
     const result = await checkSanctions(pool, recipient);
-    
+
     if (result.blocked) {
-        logger.error(`[COMPLIANCE] GUARDIAN BLOCK: ${result.entity} is on the sanctions list. Reason: ${result.reason}`);
+        logger.error(
+            `[COMPLIANCE] GUARDIAN BLOCK: ${result.entity} is on the sanctions list. Reason: ${result.reason}`
+        );
         const err = new Error('REJECTED_COMPLIANCE');
         err.details = result;
         throw err;
@@ -42,13 +44,13 @@ async function checkAML(pool, sender, recipient) {
  * Default: 1% (194C individual rate — safest fallback for unclassified vendor payments)
  */
 const TDS_RATE_TABLE = {
-    '194C_INDIVIDUAL': 0.01,  // Contractor, individual/HUF
-    '194C_COMPANY':    0.02,  // Contractor, company
-    '194J':            0.10,  // Professional / technical fees
-    '194I':            0.10,  // Rent
-    '194A':            0.10,  // Interest
-    '194B':            0.30,  // Lottery / prize
-    'EXEMPT':          0.00,  // Salary handled via employer; exports exempt
+    '194C_INDIVIDUAL': 0.01, // Contractor, individual/HUF
+    '194C_COMPANY': 0.02, // Contractor, company
+    '194J': 0.1, // Professional / technical fees
+    '194I': 0.1, // Rent
+    '194A': 0.1, // Interest
+    '194B': 0.3, // Lottery / prize
+    EXEMPT: 0.0, // Salary handled via employer; exports exempt
 };
 
 /**
@@ -130,13 +132,13 @@ async function runComplianceChecks(pool, txn) {
     const taxInfo = calculateTDS(txn.amount, txn.currency, txn.purpose, txn.recipient_type);
     logger.info(
         `[COMPLIANCE] TDS Sec ${taxInfo.tds_section} @ ${(taxInfo.tds_rate * 100).toFixed(0)}%. ` +
-        `Gross: ₹${taxInfo.gross_amount}, Withheld: ₹${taxInfo.tax_withheld}, Net: ₹${taxInfo.net_payout}`
+            `Gross: ₹${taxInfo.gross_amount}, Withheld: ₹${taxInfo.tax_withheld}, Net: ₹${taxInfo.net_payout}`
     );
 
     // Step 3: Mutate the txn payload so the target adapter only processes the Post-Tax Net Amount
     txn.gross_amount = taxInfo.gross_amount;
     txn.tax_withheld = taxInfo.tax_withheld;
-    txn.tds_section  = taxInfo.tds_section;
+    txn.tds_section = taxInfo.tds_section;
     txn.amount = taxInfo.net_payout.toString(); // OVERRIDE the target amount
 
     return taxInfo;
@@ -147,13 +149,13 @@ async function runComplianceChecks(pool, txn) {
  * Processes a batch of Exporter Inflows (FCSS / USD / EUR) through
  * Indian FEMA regulations, TDS withholding, and AML screening.
  * Ensures zero-custody by only verifying off-chain metadata.
- * 
+ *
  * @param {Array} batch - Array of instructions
  * @returns {Object} Compliance report with cryptographic ledger hash
  */
 async function processExporterFxCompliance(pool, batch) {
     logger.info(`[EXPORTER_COMPLIANCE] Processing batch of ${batch.length} exporter transactions`);
-    
+
     const report = {
         timestamp: new Date().toISOString(),
         total_processed: batch.length,
@@ -169,27 +171,33 @@ async function processExporterFxCompliance(pool, batch) {
             // 2. FEMA S8 & S10 Checks
             const grossAmount = parseFloat(txn.amount);
             const currency = (txn.currency || '').toUpperCase();
-            
+
             const requiresIBUReport = grossAmount > 25000 && ['USD', 'EUR'].includes(currency);
             if (requiresIBUReport) {
-                logger.info(`[EXPORTER_COMPLIANCE] FEMA Sec 10 IBU Reporting required for ${txn.instruction_id}`);
+                logger.info(
+                    `[EXPORTER_COMPLIANCE] FEMA Sec 10 IBU Reporting required for ${txn.instruction_id}`
+                );
             }
 
             // 3. Auto TDS Withholding for INR disbursements
             let taxInfo = calculateTDS(txn.amount, txn.currency);
-            
+
             // Re-apply specific FEMA export rules if needed
-            // e.g. Export receipts might be exempt unless converted to INR, 
+            // e.g. Export receipts might be exempt unless converted to INR,
             // but calculateTDS handles 1% on INR.
             if (currency === 'INR') {
-                logger.info(`[EXPORTER_COMPLIANCE] Applied ${taxInfo.tds_rate * 100}% TDS on INR leg for ${txn.instruction_id}`);
+                logger.info(
+                    `[EXPORTER_COMPLIANCE] Applied ${taxInfo.tds_rate * 100}% TDS on INR leg for ${txn.instruction_id}`
+                );
             }
 
             // 4. FCSS Settlement Hook (5-6 seconds)
             // If the transaction is destined for the FCSS rail, simulate the RTGS settling window.
             if (txn.fcss_eligible || txn.rail === 'FCSS') {
-                logger.info(`[EXPORTER_COMPLIANCE] 🏦 FCSS Rail Detected. Hooking into 5.5s settlement confirmation...`);
-                await new Promise(r => setTimeout(r, 5500));
+                logger.info(
+                    `[EXPORTER_COMPLIANCE] 🏦 FCSS Rail Detected. Hooking into 5.5s settlement confirmation...`
+                );
+                await new Promise((r) => setTimeout(r, 5500));
                 logger.info(`[EXPORTER_COMPLIANCE] ✅ FCSS Settlement Confirmed (zero FX float)`);
             }
 
@@ -198,14 +206,13 @@ async function processExporterFxCompliance(pool, batch) {
                 net_payout: taxInfo.net_payout,
                 tax_withheld: taxInfo.tax_withheld,
                 fema_s10_reported: requiresIBUReport,
-                fcss_confirmed: !!(txn.fcss_eligible || txn.rail === 'FCSS')
+                fcss_confirmed: !!(txn.fcss_eligible || txn.rail === 'FCSS'),
             });
-
         } catch (err) {
             logger.error(`[EXPORTER_COMPLIANCE] ❌ Rejected ${txn.instruction_id}: ${err.message}`);
             report.rejected.push({
                 instruction_id: txn.instruction_id,
-                reason: err.message
+                reason: err.message,
             });
         }
     }
@@ -214,9 +221,11 @@ async function processExporterFxCompliance(pool, batch) {
     const reportString = JSON.stringify(report);
     const ledgerHash = crypto.createHash('sha256').update(reportString).digest('hex');
     report.ledger_hash = ledgerHash;
-    
-    logger.info(`[EXPORTER_COMPLIANCE] Batch Compliance Complete. Ledger Hash: ${ledgerHash.slice(0, 16)}...`);
-    
+
+    logger.info(
+        `[EXPORTER_COMPLIANCE] Batch Compliance Complete. Ledger Hash: ${ledgerHash.slice(0, 16)}...`
+    );
+
     return report;
 }
 

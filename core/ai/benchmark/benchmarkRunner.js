@@ -2,7 +2,7 @@
 
 /**
  * Fusion Operations Intelligence — Performance Benchmark Runner
- * 
+ *
  * Evaluates latency, token throughput, timeout rates, and grounding fidelity
  * across synthetic operational test cases without touching production data or external networks.
  */
@@ -30,7 +30,7 @@ function calculatePercentile(arr, p) {
 
 /**
  * Runs the benchmark suite across synthetic cases.
- * 
+ *
  * @param {object} [options]
  * @param {string} [options.providerType='mock'] - 'mock' or 'ollama'
  * @param {string} [options.model] - Model name override
@@ -43,27 +43,31 @@ function calculatePercentile(arr, p) {
 async function runBenchmark(options = {}) {
     const providerType = options.providerType || 'mock';
     const runsPerCase = Math.max(1, parseInt(options.runs, 10) || 1);
-    const model = options.model || process.env.OLLAMA_MODEL || (providerType === 'ollama' ? 'llama3.1:latest' : 'mock-model-v1');
+    const model =
+        options.model ||
+        process.env.OLLAMA_MODEL ||
+        (providerType === 'ollama' ? 'llama3.1:latest' : 'mock-model-v1');
     const host = options.host || 'http://127.0.0.1:11434';
     const timeoutMs = options.timeoutMs || 30000;
 
     const provider = createModelProvider(providerType, {
         host,
         defaultModel: model,
-        timeoutMs
+        timeoutMs,
     });
 
     const orchestrator = new InvestigationOrchestrator({
         modelProvider: provider,
-        timeoutMs
+        timeoutMs,
     });
 
     // Check provider availability
     const isAvailable = await provider.isAvailable();
 
-    const casesToRun = options.caseIds && options.caseIds.length > 0
-        ? SYNTHETIC_CASES.filter(c => options.caseIds.includes(c.id))
-        : SYNTHETIC_CASES;
+    const casesToRun =
+        options.caseIds && options.caseIds.length > 0
+            ? SYNTHETIC_CASES.filter((c) => options.caseIds.includes(c.id))
+            : SYNTHETIC_CASES;
 
     const results = [];
     const allLatencies = [];
@@ -95,14 +99,14 @@ async function runBenchmark(options = {}) {
                     {
                         claim: testCase.groundedFinding,
                         evidence_references: [primaryTool],
-                        source_field: `${primaryTool}.status`
-                    }
+                        source_field: `${primaryTool}.status`,
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['VERIFY_PROVIDER_STATUS'],
                 evidence_references: toolNames.length > 0 ? toolNames : ['getTransactionTimeline'],
-                limitations: ['Advisory decision support only. Human review required.']
+                limitations: ['Advisory decision support only. Human review required.'],
             });
         }
 
@@ -113,7 +117,7 @@ async function runBenchmark(options = {}) {
                     transactionId: testCase.transactionId,
                     question: testCase.question,
                     explicitIntent: testCase.intent,
-                    evidenceOverride: testCase.evidence || {}
+                    evidenceOverride: testCase.evidence || {},
                 });
 
                 const runLatency = Date.now() - runStart;
@@ -157,15 +161,16 @@ async function runBenchmark(options = {}) {
             runs: runsPerCase,
             successCount: caseSuccesses,
             avgLatencyMs: Math.round(avgCaseLatency),
-            statusMatched: lastReport ? (lastReport.status === testCase.expectedStatus) : false
+            statusMatched: lastReport ? lastReport.status === testCase.expectedStatus : false,
         });
     }
 
     const totalDurationMs = Date.now() - startTime;
     const warmLatencies = allLatencies.slice(1);
-    const avgWarmLatency = warmLatencies.length > 0
-        ? warmLatencies.reduce((a, b) => a + b, 0) / warmLatencies.length
-        : (coldStartLatency || 0);
+    const avgWarmLatency =
+        warmLatencies.length > 0
+            ? warmLatencies.reduce((a, b) => a + b, 0) / warmLatencies.length
+            : coldStartLatency || 0;
 
     const summary = {
         benchmarkTimestamp: new Date().toISOString(),
@@ -176,24 +181,28 @@ async function runBenchmark(options = {}) {
             runsPerCase,
             totalTestCases: casesToRun.length,
             totalInferences: casesToRun.length * runsPerCase,
-            timeoutMs
+            timeoutMs,
         },
         providerAvailable: isAvailable,
         latencyMetrics: {
             coldStartLatencyMs: coldStartLatency || 0,
             avgWarmLatencyMs: Math.round(avgWarmLatency),
-            overallAvgLatencyMs: Math.round(allLatencies.reduce((a, b) => a + b, 0) / (allLatencies.length || 1)),
+            overallAvgLatencyMs: Math.round(
+                allLatencies.reduce((a, b) => a + b, 0) / (allLatencies.length || 1)
+            ),
             minLatencyMs: allLatencies.length > 0 ? Math.min(...allLatencies) : 0,
             maxLatencyMs: allLatencies.length > 0 ? Math.max(...allLatencies) : 0,
             p50Ms: Math.round(calculatePercentile(allLatencies, 50)),
             p90Ms: Math.round(calculatePercentile(allLatencies, 90)),
-            p95Ms: Math.round(calculatePercentile(allLatencies, 95))
+            p95Ms: Math.round(calculatePercentile(allLatencies, 95)),
         },
         tokenMetrics: {
             totalPromptTokens,
             totalCompletionTokens,
             totalTokens: totalPromptTokens + totalCompletionTokens,
-            avgTokensPerRun: Math.round((totalPromptTokens + totalCompletionTokens) / (allLatencies.length || 1))
+            avgTokensPerRun: Math.round(
+                (totalPromptTokens + totalCompletionTokens) / (allLatencies.length || 1)
+            ),
         },
         reliabilityMetrics: {
             totalRuns: allLatencies.length,
@@ -202,9 +211,9 @@ async function runBenchmark(options = {}) {
             errors: errorsCount,
             successRate: Number(((successesCount / (allLatencies.length || 1)) * 100).toFixed(2)),
             timeoutRate: Number(((timeoutsCount / (allLatencies.length || 1)) * 100).toFixed(2)),
-            totalDurationMs
+            totalDurationMs,
         },
-        caseResults: results
+        caseResults: results,
     };
 
     return summary;
@@ -217,7 +226,7 @@ async function main() {
     const args = process.argv.slice(2);
     const options = {
         providerType: 'mock',
-        runs: 1
+        runs: 1,
     };
 
     for (const arg of args) {
@@ -252,27 +261,33 @@ async function main() {
     console.log(`P50 Latency: ${summary.latencyMetrics.p50Ms} ms`);
     console.log(`P90 Latency: ${summary.latencyMetrics.p90Ms} ms`);
     console.log(`P95 Latency: ${summary.latencyMetrics.p95Ms} ms`);
-    console.log(`Min / Max: ${summary.latencyMetrics.minLatencyMs} ms / ${summary.latencyMetrics.maxLatencyMs} ms\n`);
+    console.log(
+        `Min / Max: ${summary.latencyMetrics.minLatencyMs} ms / ${summary.latencyMetrics.maxLatencyMs} ms\n`
+    );
 
     console.log(`--- Token & Reliability ---`);
-    console.log(`Total Tokens: ${summary.tokenMetrics.totalTokens} (Prompt: ${summary.tokenMetrics.totalPromptTokens}, Completion: ${summary.tokenMetrics.totalCompletionTokens})`);
+    console.log(
+        `Total Tokens: ${summary.tokenMetrics.totalTokens} (Prompt: ${summary.tokenMetrics.totalPromptTokens}, Completion: ${summary.tokenMetrics.totalCompletionTokens})`
+    );
     console.log(`Success Rate: ${summary.reliabilityMetrics.successRate}%`);
     console.log(`Timeout Rate: ${summary.reliabilityMetrics.timeoutRate}%\n`);
 
     console.log(`--- Per-Case Breakdown ---`);
-    console.table(summary.caseResults.map(r => ({
-        Case: r.caseId,
-        Title: r.title,
-        Intent: r.intent,
-        AvgMs: r.avgLatencyMs,
-        StatusMatched: r.statusMatched ? 'PASS' : 'FAIL'
-    })));
+    console.table(
+        summary.caseResults.map((r) => ({
+            Case: r.caseId,
+            Title: r.title,
+            Intent: r.intent,
+            AvgMs: r.avgLatencyMs,
+            StatusMatched: r.statusMatched ? 'PASS' : 'FAIL',
+        }))
+    );
 
     return summary;
 }
 
 if (require.main === module) {
-    main().catch(err => {
+    main().catch((err) => {
         console.error('Benchmark execution error:', err);
         process.exit(1);
     });
@@ -280,5 +295,5 @@ if (require.main === module) {
 
 module.exports = {
     runBenchmark,
-    calculatePercentile
+    calculatePercentile,
 };

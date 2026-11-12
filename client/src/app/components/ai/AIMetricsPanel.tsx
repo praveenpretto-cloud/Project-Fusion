@@ -2,8 +2,19 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Activity, Clock, Cpu, Database, Eye, RefreshCw, ShieldAlert,
-    ShieldCheck, TrendingUp, Wrench, AlertTriangle, Layers, BarChart3
+    Activity,
+    Clock,
+    Cpu,
+    Database,
+    Eye,
+    RefreshCw,
+    ShieldAlert,
+    ShieldCheck,
+    TrendingUp,
+    Wrench,
+    AlertTriangle,
+    Layers,
+    BarChart3,
 } from 'lucide-react';
 
 export interface TelemetryMetrics {
@@ -192,7 +203,9 @@ export default function AIMetricsPanel() {
                     {/* Investigations Total */}
                     <div className="bg-[#10141D] border border-gray-800 rounded-lg p-3 space-y-1">
                         <div className="flex items-center justify-between text-gray-400">
-                            <span className="text-[10px] uppercase font-semibold">Investigations</span>
+                            <span className="text-[10px] uppercase font-semibold">
+                                Investigations
+                            </span>
                             <Activity className="w-3.5 h-3.5 text-blue-400" />
                         </div>
                         <div className="text-lg font-bold text-white">
@@ -207,12 +220,16 @@ export default function AIMetricsPanel() {
                     {/* Investigation Latency */}
                     <div className="bg-[#10141D] border border-gray-800 rounded-lg p-3 space-y-1">
                         <div className="flex items-center justify-between text-gray-400">
-                            <span className="text-[10px] uppercase font-semibold">Pipeline Latency</span>
+                            <span className="text-[10px] uppercase font-semibold">
+                                Pipeline Latency
+                            </span>
                             <Clock className="w-3.5 h-3.5 text-blue-400" />
                         </div>
                         <div className="text-lg font-bold text-white">
                             {metrics.investigations.duration_ms.median}ms
-                            <span className="text-[10px] text-gray-400 font-normal ml-1">median</span>
+                            <span className="text-[10px] text-gray-400 font-normal ml-1">
+                                median
+                            </span>
                         </div>
                         <div className="text-[10px] text-gray-500 flex justify-between">
                             <span>p90: {metrics.investigations.duration_ms.p90}ms</span>
@@ -242,7 +259,9 @@ export default function AIMetricsPanel() {
                             <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
                         </div>
                         <div className="text-lg font-bold text-purple-300">
-                            {(metrics.models.input_tokens + metrics.models.output_tokens).toLocaleString()}
+                            {(
+                                metrics.models.input_tokens + metrics.models.output_tokens
+                            ).toLocaleString()}
                         </div>
                         <div className="text-[10px] text-gray-500 flex justify-between">
                             <span>In: {metrics.models.input_tokens}</span>
@@ -283,7 +302,9 @@ export default function AIMetricsPanel() {
                     {/* DLP Sanitization */}
                     <div className="bg-[#10141D] border border-gray-800 rounded-lg p-3 space-y-1">
                         <div className="flex items-center justify-between text-gray-400">
-                            <span className="text-[10px] uppercase font-semibold">DLP Redactions</span>
+                            <span className="text-[10px] uppercase font-semibold">
+                                DLP Redactions
+                            </span>
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                         </div>
                         <div className="text-lg font-bold text-emerald-300">
@@ -298,7 +319,9 @@ export default function AIMetricsPanel() {
                     {/* Model Latency (Median) */}
                     <div className="bg-[#10141D] border border-gray-800 rounded-lg p-3 space-y-1">
                         <div className="flex items-center justify-between text-gray-400">
-                            <span className="text-[10px] uppercase font-semibold">Model Latency</span>
+                            <span className="text-[10px] uppercase font-semibold">
+                                Model Latency
+                            </span>
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
                         </div>
                         <div className="text-lg font-bold text-white">
@@ -314,4 +337,3 @@ export default function AIMetricsPanel() {
         </div>
     );
 }
-

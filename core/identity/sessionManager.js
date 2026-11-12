@@ -109,7 +109,12 @@ class SessionManager {
     /**
      * Creates a new backend-managed session for an operator.
      */
-    async createSession({ operatorId, ipAddress = '127.0.0.1', userAgent = 'Unknown', pool = null }) {
+    async createSession({
+        operatorId,
+        ipAddress = '127.0.0.1',
+        userAgent = 'Unknown',
+        pool = null,
+    }) {
         if (!operatorId) {
             throw new Error('Cannot create session without operatorId');
         }
@@ -129,14 +134,30 @@ class SessionManager {
                 `INSERT INTO identity.operator_sessions
                  (session_id, token_hash, csrf_token_hash, operator_id, ip_address, user_agent, created_at, last_activity_at, expires_at, idle_expires_at)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, $9)`,
-                [sessionId, tokenHash, csrfTokenHash, operatorId, ipAddress, userAgent, now, expiresAt, idleExpiresAt]
+                [
+                    sessionId,
+                    tokenHash,
+                    csrfTokenHash,
+                    operatorId,
+                    ipAddress,
+                    userAgent,
+                    now,
+                    expiresAt,
+                    idleExpiresAt,
+                ]
             );
 
             // Audit record
             await pool.query(
                 `INSERT INTO identity.auth_audit_log (event_type, operator_id, ip_address, user_agent, metadata)
                  VALUES ($1, $2, $3, $4, $5)`,
-                ['SESSION_CREATED', operatorId, ipAddress, userAgent, JSON.stringify({ sessionId, expiresAt })]
+                [
+                    'SESSION_CREATED',
+                    operatorId,
+                    ipAddress,
+                    userAgent,
+                    JSON.stringify({ sessionId, expiresAt }),
+                ]
             );
         } else {
             inMemorySessions.set(tokenHash, {
@@ -286,7 +307,11 @@ class SessionManager {
                 await pool.query(
                     `INSERT INTO identity.auth_audit_log (event_type, operator_id, metadata)
                      VALUES ($1, $2, $3)`,
-                    ['SESSION_REVOKED', operator_id, JSON.stringify({ sessionId: session_id, reason })]
+                    [
+                        'SESSION_REVOKED',
+                        operator_id,
+                        JSON.stringify({ sessionId: session_id, reason }),
+                    ]
                 );
             }
         } else {
@@ -304,7 +329,10 @@ class SessionManager {
     /**
      * Revokes all active sessions for an operator (e.g. upon operator deactivation)
      */
-    async revokeOperatorSessions(operatorId, { reason = 'OPERATOR_DEACTIVATED', pool = null } = {}) {
+    async revokeOperatorSessions(
+        operatorId,
+        { reason = 'OPERATOR_DEACTIVATED', pool = null } = {}
+    ) {
         if (!operatorId) return 0;
         const now = new Date();
         let revokedCount = 0;
@@ -322,7 +350,11 @@ class SessionManager {
                 await pool.query(
                     `INSERT INTO identity.auth_audit_log (event_type, operator_id, metadata)
                      VALUES ($1, $2, $3)`,
-                    ['ALL_SESSIONS_REVOKED', operatorId, JSON.stringify({ reason, count: revokedCount })]
+                    [
+                        'ALL_SESSIONS_REVOKED',
+                        operatorId,
+                        JSON.stringify({ reason, count: revokedCount }),
+                    ]
                 );
             }
         } else {
@@ -335,7 +367,9 @@ class SessionManager {
             }
         }
 
-        logger.info(`[AUTH] Revoked ${revokedCount} active sessions for operator ${operatorId}. Reason: ${reason}`);
+        logger.info(
+            `[AUTH] Revoked ${revokedCount} active sessions for operator ${operatorId}. Reason: ${reason}`
+        );
         return revokedCount;
     }
 

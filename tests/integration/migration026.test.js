@@ -653,7 +653,9 @@ describe('Phase AI-2C.2: Migration 026 Implementation & Multi-Tenant Preconditio
                     INSERT INTO identity.tenants (slug, name)
                     VALUES ('tenant-missing-policy', 'Tenant Missing Policy')
                 `)
-            ).rejects.toThrow(/null value in column "retention_policy" of relation "tenants" violates not-null constraint/);
+            ).rejects.toThrow(
+                /null value in column "retention_policy" of relation "tenants" violates not-null constraint/
+            );
         });
 
         test('16. Audit-log append-only trigger prevents UPDATE and DELETE on audit records', async () => {
@@ -671,21 +673,24 @@ describe('Phase AI-2C.2: Migration 026 Implementation & Multi-Tenant Preconditio
                     'UPDATE identity.auth_audit_log SET event_type = $1 WHERE audit_id = $2',
                     ['TAMPERED_EVENT', auditId]
                 )
-            ).rejects.toThrow(/identity\.auth_audit_log is append-only\. UPDATE and DELETE operations are strictly prohibited\./);
+            ).rejects.toThrow(
+                /identity\.auth_audit_log is append-only\. UPDATE and DELETE operations are strictly prohibited\./
+            );
 
             // Attempt DELETE -> must be blocked by trg_audit_log_append_only
             await expect(
-                execPool.query(
-                    'DELETE FROM identity.auth_audit_log WHERE audit_id = $1',
-                    [auditId]
-                )
-            ).rejects.toThrow(/identity\.auth_audit_log is append-only\. UPDATE and DELETE operations are strictly prohibited\./);
+                execPool.query('DELETE FROM identity.auth_audit_log WHERE audit_id = $1', [auditId])
+            ).rejects.toThrow(
+                /identity\.auth_audit_log is append-only\. UPDATE and DELETE operations are strictly prohibited\./
+            );
         });
 
         test('17. Tenant deletion restriction when audit records exist (ON DELETE RESTRICT)', async () => {
             // Attempt deleting demo tenant while audit record and memberships reference it
             await expect(
-                execPool.query('DELETE FROM identity.tenants WHERE tenant_id = $1', [DEMO_TENANT_ID])
+                execPool.query('DELETE FROM identity.tenants WHERE tenant_id = $1', [
+                    DEMO_TENANT_ID,
+                ])
             ).rejects.toThrow(/violates foreign key constraint/);
         });
     });

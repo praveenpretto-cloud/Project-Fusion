@@ -30,11 +30,13 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         process.env.RAZORPAYX_ACCOUNT_NUMBER = '2323230040153680';
         delete process.env.RAZORPAY_BALANCE_FRESHNESS_TTL_SECONDS;
 
-        getAdapterCredentialSpy = jest.spyOn(vaultProvider, 'getAdapterCredential').mockImplementation((key) => {
-            if (key === 'RAZORPAY_KEY_ID') return 'rzp_test_mockKeyId1234';
-            if (key === 'RAZORPAY_KEY_SECRET') return 'mockSecret5678';
-            return null;
-        });
+        getAdapterCredentialSpy = jest
+            .spyOn(vaultProvider, 'getAdapterCredential')
+            .mockImplementation((key) => {
+                if (key === 'RAZORPAY_KEY_ID') return 'rzp_test_mockKeyId1234';
+                if (key === 'RAZORPAY_KEY_SECRET') return 'mockSecret5678';
+                return null;
+            });
 
         // Default mock fetch
         fetchSpy = jest.spyOn(global, 'fetch');
@@ -54,21 +56,22 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        entity: 'banking_balance',
-                        currency: 'INR',
-                        account_number: '2323230040153680',
-                        account_type: 'razorpayx_lite',
-                        amount: 500000,
-                        available_amount: 450000,
-                        refreshed_at: nowSec,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            entity: 'banking_balance',
+                            currency: 'INR',
+                            account_number: '2323230040153680',
+                            account_type: 'razorpayx_lite',
+                            amount: 500000,
+                            available_amount: 450000,
+                            refreshed_at: nowSec,
+                        },
+                    ],
+                }),
         });
 
         const res = await razorpayAdapter.getRazorpayBalance();
@@ -96,39 +99,40 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 3,
-                items: [
-                    {
-                        entity: 'banking_balance',
-                        currency: 'INR',
-                        account_number: '1111111111111111',
-                        account_type: 'current_account',
-                        amount: 9999999,
-                        available_amount: 9999999,
-                        refreshed_at: 1700000000,
-                    },
-                    {
-                        entity: 'banking_balance',
-                        currency: 'INR',
-                        account_number: '2323230040153680', // Matching item at index 1
-                        account_type: 'razorpayx_lite',
-                        amount: 12345,
-                        available_amount: 10000,
-                        refreshed_at: 1700000100,
-                    },
-                    {
-                        entity: 'banking_balance',
-                        currency: 'INR',
-                        account_number: '9999999999999999',
-                        account_type: 'fixed_deposit',
-                        amount: 5555555,
-                        available_amount: 0,
-                        refreshed_at: 1700000200,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 3,
+                    items: [
+                        {
+                            entity: 'banking_balance',
+                            currency: 'INR',
+                            account_number: '1111111111111111',
+                            account_type: 'current_account',
+                            amount: 9999999,
+                            available_amount: 9999999,
+                            refreshed_at: 1700000000,
+                        },
+                        {
+                            entity: 'banking_balance',
+                            currency: 'INR',
+                            account_number: '2323230040153680', // Matching item at index 1
+                            account_type: 'razorpayx_lite',
+                            amount: 12345,
+                            available_amount: 10000,
+                            refreshed_at: 1700000100,
+                        },
+                        {
+                            entity: 'banking_balance',
+                            currency: 'INR',
+                            account_number: '9999999999999999',
+                            account_type: 'fixed_deposit',
+                            amount: 5555555,
+                            available_amount: 0,
+                            refreshed_at: 1700000200,
+                        },
+                    ],
+                }),
         });
 
         const res = await razorpayAdapter.getRazorpayBalance();
@@ -172,19 +176,29 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                text: async () => JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
+                text: async () =>
+                    JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
             })
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                text: async () => JSON.stringify({ entity: 'collection', count: 25, items: page2Items }),
+                text: async () =>
+                    JSON.stringify({ entity: 'collection', count: 25, items: page2Items }),
             });
 
         const res = await razorpayAdapter.getRazorpayBalance();
 
         expect(fetchSpy).toHaveBeenCalledTimes(2);
-        expect(fetchSpy).toHaveBeenNthCalledWith(1, expect.stringContaining('skip=0'), expect.anything());
-        expect(fetchSpy).toHaveBeenNthCalledWith(2, expect.stringContaining('skip=100'), expect.anything());
+        expect(fetchSpy).toHaveBeenNthCalledWith(
+            1,
+            expect.stringContaining('skip=0'),
+            expect.anything()
+        );
+        expect(fetchSpy).toHaveBeenNthCalledWith(
+            2,
+            expect.stringContaining('skip=100'),
+            expect.anything()
+        );
         expect(res).toEqual({
             status: 'ACCOUNT_NOT_FOUND',
             account_type: null,
@@ -218,7 +232,10 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
             ok: false,
             status: 401,
             statusText: 'Unauthorized',
-            text: async () => JSON.stringify({ error: { code: 'BAD_REQUEST_ERROR', description: 'Invalid API Key' } }),
+            text: async () =>
+                JSON.stringify({
+                    error: { code: 'BAD_REQUEST_ERROR', description: 'Invalid API Key' },
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -234,7 +251,8 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
             ok: false,
             status: 403,
             statusText: 'Forbidden',
-            text: async () => JSON.stringify({ error: { code: 'FORBIDDEN', description: 'Access denied' } }),
+            text: async () =>
+                JSON.stringify({ error: { code: 'FORBIDDEN', description: 'Access denied' } }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -292,18 +310,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        available_amount: 1000,
-                        // amount is missing
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            available_amount: 1000,
+                            // amount is missing
+                        },
+                    ],
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -315,18 +334,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 1000,
-                        // available_amount is missing
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 1000,
+                            // available_amount is missing
+                        },
+                    ],
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -341,18 +361,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 1234.56, // Invalid: must be integer paise
-                        available_amount: 1000,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 1234.56, // Invalid: must be integer paise
+                            available_amount: 1000,
+                        },
+                    ],
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -364,18 +385,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: -500,
-                        available_amount: 0,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: -500,
+                            available_amount: 0,
+                        },
+                    ],
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -387,18 +409,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: Number.MAX_SAFE_INTEGER + 100,
-                        available_amount: 1000,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: Number.MAX_SAFE_INTEGER + 100,
+                            available_amount: 1000,
+                        },
+                    ],
+                }),
         });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -413,19 +436,20 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 10000,
-                        available_amount: 10000,
-                        refreshed_at: null, // missing timestamp
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 10000,
+                            available_amount: 10000,
+                            refreshed_at: null, // missing timestamp
+                        },
+                    ],
+                }),
         });
 
         const res = await razorpayAdapter.getRazorpayBalance();
@@ -444,19 +468,20 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 25000,
-                        available_amount: 20000,
-                        refreshed_at: staleSec,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 25000,
+                            available_amount: 20000,
+                            refreshed_at: staleSec,
+                        },
+                    ],
+                }),
         });
 
         const res = await razorpayAdapter.getRazorpayBalance();
@@ -468,19 +493,20 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 25000,
-                        available_amount: 20000,
-                        refreshed_at: freshSec,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 25000,
+                            available_amount: 20000,
+                            refreshed_at: freshSec,
+                        },
+                    ],
+                }),
         });
 
         const freshRes = await razorpayAdapter.getRazorpayBalance();
@@ -518,12 +544,14 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                text: async () => JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
+                text: async () =>
+                    JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
             })
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                text: async () => JSON.stringify({ entity: 'collection', count: 2, items: page2Items }),
+                text: async () =>
+                    JSON.stringify({ entity: 'collection', count: 2, items: page2Items }),
             });
 
         const res = await razorpayAdapter.getRazorpayBalance();
@@ -547,13 +575,17 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
             .mockResolvedValueOnce({
                 ok: true,
                 status: 200,
-                text: async () => JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
+                text: async () =>
+                    JSON.stringify({ entity: 'collection', count: 100, items: page1Items }),
             })
             .mockResolvedValueOnce({
                 ok: false,
                 status: 500,
                 statusText: 'Internal Server Error',
-                text: async () => JSON.stringify({ error: { code: 'SERVER_ERROR', description: 'Internal failure' } }),
+                text: async () =>
+                    JSON.stringify({
+                        error: { code: 'SERVER_ERROR', description: 'Internal failure' },
+                    }),
             });
 
         await expect(razorpayAdapter.getRazorpayBalance()).rejects.toThrow(
@@ -582,18 +614,19 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            text: async () => JSON.stringify({
-                entity: 'collection',
-                count: 1,
-                items: [
-                    {
-                        account_number: '2323230040153680',
-                        currency: 'INR',
-                        amount: 10000,
-                        available_amount: 10000,
-                    },
-                ],
-            }),
+            text: async () =>
+                JSON.stringify({
+                    entity: 'collection',
+                    count: 1,
+                    items: [
+                        {
+                            account_number: '2323230040153680',
+                            currency: 'INR',
+                            amount: 10000,
+                            available_amount: 10000,
+                        },
+                    ],
+                }),
         });
 
         await razorpayAdapter.getRazorpayBalance();
@@ -632,4 +665,3 @@ describe('RazorpayX Banking Balance Adapter (GET /v1/banking_balances)', () => {
         }).toThrow();
     });
 });
-

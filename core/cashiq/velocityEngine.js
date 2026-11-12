@@ -5,7 +5,7 @@ const logger = require('../../logger');
 /**
  * Evaluates whether an outbound instruction breaches the daily velocity limit.
  * If it does, the required approvals are bumped to 2.
- * 
+ *
  * @param {object} pool - Postgres Pool
  * @param {string} businessId - The business ID
  * @param {number} newInstructionAmount - The amount of the new instruction
@@ -18,8 +18,10 @@ async function evaluateVelocity(pool, businessId, newInstructionAmount) {
             `SELECT daily_velocity_limit FROM businesses WHERE business_id = $1`,
             [businessId]
         );
-        
-        const limit = limitRes.rows.length ? Number(limitRes.rows[0].daily_velocity_limit) : 5000000;
+
+        const limit = limitRes.rows.length
+            ? Number(limitRes.rows[0].daily_velocity_limit)
+            : 5000000;
 
         // 2. Calculate the current daily velocity (sum of all APPROVED/SETTLED today)
         // We look at instructions created today
@@ -31,7 +33,7 @@ async function evaluateVelocity(pool, businessId, newInstructionAmount) {
                AND created_at >= CURRENT_DATE`,
             [businessId]
         );
-        
+
         const currentVelocity = Number(velocityRes.rows[0].total_outflow || 0);
 
         // 3. Evaluate breach
@@ -39,15 +41,16 @@ async function evaluateVelocity(pool, businessId, newInstructionAmount) {
         const requiresTwoCheckers = totalWithNew > limit;
 
         if (requiresTwoCheckers) {
-            logger.warn(`[VELOCITY] Business ${businessId} breached daily limit (${totalWithNew} > ${limit}). Requiring 2 checkers.`);
+            logger.warn(
+                `[VELOCITY] Business ${businessId} breached daily limit (${totalWithNew} > ${limit}). Requiring 2 checkers.`
+            );
         }
 
         return {
             requiresTwoCheckers,
             limit,
-            currentVelocity
+            currentVelocity,
         };
-
     } catch (err) {
         logger.error(`[VELOCITY] Error evaluating velocity for ${businessId}: ${err.message}`);
         throw err;

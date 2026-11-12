@@ -21,10 +21,15 @@ export default function CFOAuthenticatorPage() {
                 const res = await fetch('/api/zoho/approvals');
                 const data = await res.json();
                 if (data.approvals) {
-                    setApprovals(data.approvals.filter((a: Approval) => a.status === 'DRAFTED' || a.status === 'PENDING_APPROVAL'));
+                    setApprovals(
+                        data.approvals.filter(
+                            (a: Approval) =>
+                                a.status === 'DRAFTED' || a.status === 'PENDING_APPROVAL'
+                        )
+                    );
                 }
             } catch {
-                console.error("Failed to fetch approvals");
+                console.error('Failed to fetch approvals');
             } finally {
                 setLoading(false);
             }
@@ -38,7 +43,9 @@ export default function CFOAuthenticatorPage() {
     // ADR-002 Governance: Direct unauthenticated execution is disabled.
     // Approvals must be authenticated and cryptographically authorized via WebAuthn step-up (/approve/[instructionId]).
     const executePayment = async (_approvalId: string) => {
-        alert("Direct unauthenticated mobile execution is disabled by ADR-002 Dual-Control Governance. Please use the Institutional Treasury Approval Portal (/approve/[id]) with your WebAuthn security key.");
+        alert(
+            'Direct unauthenticated mobile execution is disabled by ADR-002 Dual-Control Governance. Please use the Institutional Treasury Approval Portal (/approve/[id]) with your WebAuthn security key.'
+        );
     };
 
     return (
@@ -50,7 +57,9 @@ export default function CFOAuthenticatorPage() {
                         <div className="w-8 h-8 rounded bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center font-bold text-lg shadow-[0_0_15px_rgba(99,102,241,0.5)]">
                             F
                         </div>
-                        <span className="font-bold tracking-widest text-sm text-gray-300">FUSION <span className="text-indigo-400">AUTH</span></span>
+                        <span className="font-bold tracking-widest text-sm text-gray-300">
+                            FUSION <span className="text-indigo-400">AUTH</span>
+                        </span>
                     </div>
                     <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse" />
                 </div>
@@ -67,26 +76,34 @@ export default function CFOAuthenticatorPage() {
                         <span>Institutional Governance Policy (ADR-002)</span>
                     </div>
                     <p className="text-[11px] text-amber-200/80 leading-relaxed">
-                        Direct unauthenticated mobile execution is disabled. Dual-control governance requires an authenticated operator session and cryptographic FIDO2 verification via the Institutional Treasury Approval Portal.
+                        Direct unauthenticated mobile execution is disabled. Dual-control governance
+                        requires an authenticated operator session and cryptographic FIDO2
+                        verification via the Institutional Treasury Approval Portal.
                     </p>
                 </div>
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-48 gap-3">
                         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-xs text-gray-500 font-mono tracking-widest uppercase">Syncing Queue...</span>
+                        <span className="text-xs text-gray-500 font-mono tracking-widest uppercase">
+                            Syncing Queue...
+                        </span>
                     </div>
                 ) : approvals.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-64 opacity-50">
                         <div className="text-4xl mb-4">🛡️</div>
                         <p className="text-sm font-medium text-gray-300">No Pending Approvals</p>
-                        <p className="text-xs text-gray-500 text-center mt-2 max-w-[200px]">You are all caught up. Your treasury is secure.</p>
+                        <p className="text-xs text-gray-500 text-center mt-2 max-w-[200px]">
+                            You are all caught up. Your treasury is secure.
+                        </p>
                     </div>
                 ) : (
                     approvals.map((app) => {
                         const isExecuting = executingId === app.approval_id;
                         return (
-                            <div key={app.approval_id} className={`bg-[#0F1318] border ${isExecuting ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'border-gray-800'} rounded-2xl p-5 relative overflow-hidden transition-all duration-500`}>
-                                
+                            <div
+                                key={app.approval_id}
+                                className={`bg-[#0F1318] border ${isExecuting ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'border-gray-800'} rounded-2xl p-5 relative overflow-hidden transition-all duration-500`}
+                            >
                                 {/* Background execution glow */}
                                 {isExecuting && (
                                     <div className="absolute inset-0 bg-emerald-900/10 animate-pulse" />
@@ -98,13 +115,17 @@ export default function CFOAuthenticatorPage() {
                                             <span className="text-[9px] font-bold tracking-widest uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                                                 REQUIRES SIGN-OFF
                                             </span>
-                                            <h3 className="text-base font-bold text-gray-200 mt-2">{app.vendor}</h3>
+                                            <h3 className="text-base font-bold text-gray-200 mt-2">
+                                                {app.vendor}
+                                            </h3>
                                         </div>
                                         <div className="text-right">
                                             <div className="text-xl font-black text-white font-mono tracking-tight">
                                                 ₹{new Intl.NumberFormat('en-IN').format(app.amount)}
                                             </div>
-                                            <div className="text-[10px] text-gray-500 font-mono mt-0.5">INV: {app.invoice_id}</div>
+                                            <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                                                INV: {app.invoice_id}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -112,15 +133,21 @@ export default function CFOAuthenticatorPage() {
                                     <div className="flex flex-wrap gap-2 mb-6 border-y border-gray-800/60 py-3 mt-4">
                                         <div className="flex items-center gap-1.5 bg-gray-900 px-2 py-1 rounded">
                                             <span className="text-[10px]">🔒</span>
-                                            <span className="text-[9px] text-gray-400 font-mono">SAGA LOCKED</span>
+                                            <span className="text-[9px] text-gray-400 font-mono">
+                                                SAGA LOCKED
+                                            </span>
                                         </div>
                                         <div className="flex items-center gap-1.5 bg-gray-900 px-2 py-1 rounded">
                                             <span className="text-[10px]">🏦</span>
-                                            <span className="text-[9px] text-gray-400 font-mono">VIA HDFC</span>
+                                            <span className="text-[9px] text-gray-400 font-mono">
+                                                VIA HDFC
+                                            </span>
                                         </div>
                                         <div className="flex items-center gap-1.5 bg-emerald-950/30 px-2 py-1 rounded">
                                             <span className="text-[10px]">✅</span>
-                                            <span className="text-[9px] text-emerald-400 font-mono">43B COMPLIANT</span>
+                                            <span className="text-[9px] text-emerald-400 font-mono">
+                                                43B COMPLIANT
+                                            </span>
                                         </div>
                                     </div>
 
@@ -143,15 +170,21 @@ export default function CFOAuthenticatorPage() {
             <div className="fixed bottom-0 left-0 right-0 h-20 bg-[#0a0d11]/90 backdrop-blur-lg border-t border-white/5 flex justify-around items-center px-6 pb-4">
                 <div className="flex flex-col items-center gap-1 opacity-100">
                     <span className="text-lg">🛡️</span>
-                    <span className="text-[9px] font-bold tracking-wider text-indigo-400">APPROVE</span>
+                    <span className="text-[9px] font-bold tracking-wider text-indigo-400">
+                        APPROVE
+                    </span>
                 </div>
                 <div className="flex flex-col items-center gap-1 opacity-40">
                     <span className="text-lg">📊</span>
-                    <span className="text-[9px] font-bold tracking-wider text-gray-400">LIMITS</span>
+                    <span className="text-[9px] font-bold tracking-wider text-gray-400">
+                        LIMITS
+                    </span>
                 </div>
                 <div className="flex flex-col items-center gap-1 opacity-40">
                     <span className="text-lg">⚙️</span>
-                    <span className="text-[9px] font-bold tracking-wider text-gray-400">SETTINGS</span>
+                    <span className="text-[9px] font-bold tracking-wider text-gray-400">
+                        SETTINGS
+                    </span>
                 </div>
             </div>
         </div>

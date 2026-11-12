@@ -39,21 +39,36 @@ const REQUIRED_ADDRESS_FIELDS = [
 
 // Indian state codes for FEMA regulatory reporting
 const INDIA_STATE_CODES = {
-    'Tamil Nadu': 'TN', 'TN': 'TN',
-    'Maharashtra': 'MH', 'MH': 'MH',
-    'Karnataka': 'KA', 'KA': 'KA',
-    'Gujarat': 'GJ', 'GJ': 'GJ',
-    'Delhi': 'DL', 'DL': 'DL',
-    'Telangana': 'TG', 'TG': 'TG',
-    'West Bengal': 'WB', 'WB': 'WB',
-    'Rajasthan': 'RJ', 'RJ': 'RJ',
-    'Uttar Pradesh': 'UP', 'UP': 'UP',
-    'Kerala': 'KL', 'KL': 'KL',
-    'Andhra Pradesh': 'AP', 'AP': 'AP',
-    'Punjab': 'PB', 'PB': 'PB',
-    'Haryana': 'HR', 'HR': 'HR',
-    'Bihar': 'BR', 'BR': 'BR',
-    'Madhya Pradesh': 'MP', 'MP': 'MP',
+    'Tamil Nadu': 'TN',
+    TN: 'TN',
+    Maharashtra: 'MH',
+    MH: 'MH',
+    Karnataka: 'KA',
+    KA: 'KA',
+    Gujarat: 'GJ',
+    GJ: 'GJ',
+    Delhi: 'DL',
+    DL: 'DL',
+    Telangana: 'TG',
+    TG: 'TG',
+    'West Bengal': 'WB',
+    WB: 'WB',
+    Rajasthan: 'RJ',
+    RJ: 'RJ',
+    'Uttar Pradesh': 'UP',
+    UP: 'UP',
+    Kerala: 'KL',
+    KL: 'KL',
+    'Andhra Pradesh': 'AP',
+    AP: 'AP',
+    Punjab: 'PB',
+    PB: 'PB',
+    Haryana: 'HR',
+    HR: 'HR',
+    Bihar: 'BR',
+    BR: 'BR',
+    'Madhya Pradesh': 'MP',
+    MP: 'MP',
 };
 
 /**
@@ -74,7 +89,9 @@ function validateStructuredAddress(address, partyLabel = 'party') {
     for (const field of REQUIRED_ADDRESS_FIELDS) {
         const val = address[field];
         if (!val || typeof val !== 'string' || val.trim() === '') {
-            errors.push(`${partyLabel}.structuredAddress.${field} is required (ISO 20022 Nov 2026 mandate)`);
+            errors.push(
+                `${partyLabel}.structuredAddress.${field} is required (ISO 20022 Nov 2026 mandate)`
+            );
         }
     }
 
@@ -147,7 +164,10 @@ function buildRemittanceInfo(invoiceId, purposeCode = 'IVPT') {
  * @returns {Object} pacs.008 message object
  */
 function buildPacs008Envelope(enrichedInvoice) {
-    const msgId = `FUSN-${enrichedInvoice.invoiceId.replace(/[^A-Z0-9]/gi, '').substring(0, 20).toUpperCase()}-${Date.now()}`;
+    const msgId = `FUSN-${enrichedInvoice.invoiceId
+        .replace(/[^A-Z0-9]/gi, '')
+        .substring(0, 20)
+        .toUpperCase()}-${Date.now()}`;
     const creationDateTime = new Date().toISOString();
 
     return {
@@ -170,7 +190,10 @@ function buildPacs008Envelope(enrichedInvoice) {
             address: enrichedInvoice.seller.structuredAddress,
             gstPan: enrichedInvoice.seller.gstPan,
         },
-        remittanceInformation: buildRemittanceInfo(enrichedInvoice.invoiceId, enrichedInvoice.purposeCode || 'IVPT'),
+        remittanceInformation: buildRemittanceInfo(
+            enrichedInvoice.invoiceId,
+            enrichedInvoice.purposeCode || 'IVPT'
+        ),
     };
 }
 
@@ -207,7 +230,9 @@ function enrichToISO(invoice) {
 
     // HARD STOP: ISO 20022 Nov 2026 mandate — no fallback to unstructured.
     if (validationErrors.length > 0) {
-        logger.warn(`[ISO_ENRICHER] ⚠️ Validation failed for ${invoice.invoiceId}: ${validationErrors.join('; ')}`);
+        logger.warn(
+            `[ISO_ENRICHER] ⚠️ Validation failed for ${invoice.invoiceId}: ${validationErrors.join('; ')}`
+        );
         return { success: false, enriched: null, validationErrors };
     }
 
@@ -280,7 +305,9 @@ function enrichToISO(invoice) {
         isoCompliant: true,
     };
 
-    logger.info(`[ISO_ENRICHER] ✅ Invoice ${invoice.invoiceId} enriched. FEMA IBU: ${requiresFemaIBUReport}. Hash: ${enriched.enrichmentHash.slice(0, 16)}...`);
+    logger.info(
+        `[ISO_ENRICHER] ✅ Invoice ${invoice.invoiceId} enriched. FEMA IBU: ${requiresFemaIBUReport}. Hash: ${enriched.enrichmentHash.slice(0, 16)}...`
+    );
 
     return { success: true, enriched, validationErrors: [] };
 }

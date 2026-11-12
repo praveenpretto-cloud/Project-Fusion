@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * INSTRUCTION METADATA & ANNOTATION ROUTER (RELIABILITY R2B)
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * GOVERNANCE & SAFETY MANDATES:
  * 1. PERSISTENT TRANSACTION ANNOTATIONS: Replaces browser-only localStorage
  *    with institutional-grade PostgreSQL JSONB persistence on public.instructions.
@@ -99,7 +99,11 @@ const inMemoryAuditLog = [];
  */
 function validateAnnotationPayload(body) {
     if (!body || typeof body !== 'object' || Array.isArray(body)) {
-        return { valid: false, error: 'BAD_REQUEST', detail: 'Request body must be a JSON object.' };
+        return {
+            valid: false,
+            error: 'BAD_REQUEST',
+            detail: 'Request body must be a JSON object.',
+        };
     }
 
     // 1. Prohibit payment-state mutations
@@ -151,7 +155,10 @@ function validateAnnotationPayload(body) {
 
     // 5. GST applicability validation
     if (body.gstApplicable !== undefined && body.gstApplicable !== null) {
-        if (typeof body.gstApplicable !== 'string' || !APPROVED_GST_STATUSES.includes(body.gstApplicable.toLowerCase())) {
+        if (
+            typeof body.gstApplicable !== 'string' ||
+            !APPROVED_GST_STATUSES.includes(body.gstApplicable.toLowerCase())
+        ) {
             return {
                 valid: false,
                 error: 'BAD_REQUEST',
@@ -161,8 +168,15 @@ function validateAnnotationPayload(body) {
     }
 
     // 6. Linked invoice ID validation
-    if (body.linkedInvoiceId !== undefined && body.linkedInvoiceId !== null && body.linkedInvoiceId !== '') {
-        if (typeof body.linkedInvoiceId !== 'string' || !UUID_REGEX.test(body.linkedInvoiceId.trim())) {
+    if (
+        body.linkedInvoiceId !== undefined &&
+        body.linkedInvoiceId !== null &&
+        body.linkedInvoiceId !== ''
+    ) {
+        if (
+            typeof body.linkedInvoiceId !== 'string' ||
+            !UUID_REGEX.test(body.linkedInvoiceId.trim())
+        ) {
             return {
                 valid: false,
                 error: 'BAD_REQUEST',
@@ -189,7 +203,8 @@ async function authenticateOperator(req, pool = null) {
         };
     }
 
-    const sessionMgr = (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
+    const sessionMgr =
+        (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
     let validation = await sessionMgr.validateSession(rawToken, { pool });
 
     // Fallback to in-memory session validation if DB didn't find it (test environments)
@@ -226,7 +241,10 @@ async function authenticateOperator(req, pool = null) {
     }
 
     // Platform SYSTEM_ADMIN (00000000-4000-8000-0000-000000000005) is prohibited from financial mutations
-    if (operator.operatorId === '00000000-4000-8000-0000-000000000005' || operator.role === 'SYSTEM_ADMIN') {
+    if (
+        operator.operatorId === '00000000-4000-8000-0000-000000000005' ||
+        operator.role === 'SYSTEM_ADMIN'
+    ) {
         return {
             authenticated: false,
             statusCode: 403,
@@ -315,7 +333,10 @@ async function handleUpdateMetadata(req, res) {
 
         // 4. Cross-Business Access Check (Fail Closed)
         const requestedBizId = req.body.businessId || req.body.business_id;
-        if (requestedBizId && requestedBizId.toLowerCase() !== PRIMARY_AUTHORIZED_BUSINESS_ID.toLowerCase()) {
+        if (
+            requestedBizId &&
+            requestedBizId.toLowerCase() !== PRIMARY_AUTHORIZED_BUSINESS_ID.toLowerCase()
+        ) {
             return res.status(403).json({
                 error: 'FORBIDDEN',
                 detail: 'Cross-business access prohibited. Operator is not authorized for requested business entity.',
@@ -366,7 +387,8 @@ async function handleUpdateMetadata(req, res) {
             existingRow = result.rows[0];
         } else {
             // In-memory mock fallback for unit tests without pool
-            const mockInstructions = (req.app && req.app.locals && req.app.locals.mockInstructions) || [];
+            const mockInstructions =
+                (req.app && req.app.locals && req.app.locals.mockInstructions) || [];
             existingRow = mockInstructions.find((i) => i.instruction_id === instructionId);
             if (!existingRow) {
                 return res.status(404).json({
@@ -379,7 +401,11 @@ async function handleUpdateMetadata(req, res) {
         const existingMetadata = existingRow.metadata || {};
 
         // Cross-business entity check on existing record
-        if (existingMetadata.business_id && existingMetadata.business_id.toLowerCase() !== PRIMARY_AUTHORIZED_BUSINESS_ID.toLowerCase()) {
+        if (
+            existingMetadata.business_id &&
+            existingMetadata.business_id.toLowerCase() !==
+                PRIMARY_AUTHORIZED_BUSINESS_ID.toLowerCase()
+        ) {
             if (inTransaction && client) {
                 await client.query('ROLLBACK');
                 inTransaction = false;
@@ -416,8 +442,12 @@ async function handleUpdateMetadata(req, res) {
             ...existingMetadata,
             ...(req.body.category !== undefined && { category: req.body.category }),
             ...(req.body.notes !== undefined && { notes: req.body.notes.trim() }),
-            ...(req.body.gstApplicable !== undefined && { gstApplicable: req.body.gstApplicable.toLowerCase() }),
-            ...(req.body.linkedInvoiceId !== undefined && { linkedInvoiceId: req.body.linkedInvoiceId ? req.body.linkedInvoiceId.trim() : '' }),
+            ...(req.body.gstApplicable !== undefined && {
+                gstApplicable: req.body.gstApplicable.toLowerCase(),
+            }),
+            ...(req.body.linkedInvoiceId !== undefined && {
+                linkedInvoiceId: req.body.linkedInvoiceId ? req.body.linkedInvoiceId.trim() : '',
+            }),
             business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
             version: newVersion,
             annotated_by: operator.operatorId,
@@ -473,7 +503,9 @@ async function handleUpdateMetadata(req, res) {
             inTransaction = false;
         }
 
-        logger.info(`[INSTRUCTION ANNOTATION] Operator ${operator.operatorId} updated metadata on ${instructionId} to v${newVersion}`);
+        logger.info(
+            `[INSTRUCTION ANNOTATION] Operator ${operator.operatorId} updated metadata on ${instructionId} to v${newVersion}`
+        );
 
         return res.status(200).json({
             success: true,
@@ -531,7 +563,8 @@ async function handleGetMetadata(req, res) {
             }
             existingRow = result.rows[0];
         } else {
-            const mockInstructions = (req.app && req.app.locals && req.app.locals.mockInstructions) || [];
+            const mockInstructions =
+                (req.app && req.app.locals && req.app.locals.mockInstructions) || [];
             existingRow = mockInstructions.find((i) => i.instruction_id === instructionId);
             if (!existingRow) {
                 return res.status(404).json({
@@ -567,7 +600,8 @@ async function handleDevSession(req, res) {
 
     try {
         const pool = req.app && req.app.locals && req.app.locals.pool;
-        const sessionMgr = (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
+        const sessionMgr =
+            (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
         const operatorId = req.body?.operatorId || '00000000-0000-4000-8000-000000000002'; // OPS_OPERATOR
 
         const session = await sessionMgr.createSession({

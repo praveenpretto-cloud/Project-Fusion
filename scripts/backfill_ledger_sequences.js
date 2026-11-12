@@ -7,11 +7,11 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 /**
  * WORKSTREAM 4: Safe Historical Ledger Sequence Backfill
- * 
+ *
  * Reconstructs deterministic ordering strictly via cryptographic DAG links (prev_hash),
  * asserts 100% chain integrity, assigns monotonic sequence IDs starting from 1,
  * and synchronizes PostgreSQL sequence generator.
- * 
+ *
  * Aborts immediately without modifying data if chain is ambiguous, broken, or tampered.
  */
 async function backfillLedgerSequences(options = {}) {
@@ -105,18 +105,15 @@ async function backfillLedgerSequences(options = {}) {
         for (let i = 0; i < chain.length; i++) {
             const deterministicSeq = i + 1;
             const entry = chain[i];
-            await client.query(
-                'UPDATE ledger_journal SET sequence_id = $1 WHERE entry_id = $2',
-                [deterministicSeq, entry.entry_id]
-            );
+            await client.query('UPDATE ledger_journal SET sequence_id = $1 WHERE entry_id = $2', [
+                deterministicSeq,
+                entry.entry_id,
+            ]);
         }
 
         // 6. Synchronize the PostgreSQL sequence generator with max sequence_id
         const maxSeq = chain.length;
-        await client.query(
-            "SELECT setval('ledger_journal_sequence_id_seq', $1, true)",
-            [maxSeq]
-        );
+        await client.query("SELECT setval('ledger_journal_sequence_id_seq', $1, true)", [maxSeq]);
 
         await client.query('COMMIT');
         console.log(
@@ -160,4 +157,3 @@ if (require.main === module) {
 }
 
 module.exports = { backfillLedgerSequences };
-

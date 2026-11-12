@@ -171,7 +171,9 @@ class AdapterRegistry {
                 results[idx] = result;
             } else {
                 const reason = settled.reason;
-                logger.error(`[REGISTRY-FIAT] Uncaught promise rejection: ${reason?.message || reason}`);
+                logger.error(
+                    `[REGISTRY-FIAT] Uncaught promise rejection: ${reason?.message || reason}`
+                );
             }
         }
 
@@ -197,7 +199,6 @@ class AdapterRegistry {
     async executeBatchPreservingOrder(instructions) {
         return this.executeBatchConcurrently(instructions);
     }
-
 }
 
 // Export as a singleton with class reference attached for isolated testing

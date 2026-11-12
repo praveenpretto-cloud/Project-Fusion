@@ -14,16 +14,27 @@
  */
 
 const { processWebhookEvent } = require('../../core/webhooks/webhookProcessor');
-const { toCanonicalMinorUnits, fromCanonicalMinorUnits } = require('../../core/orchestrator/financialDecimal');
+const {
+    toCanonicalMinorUnits,
+    fromCanonicalMinorUnits,
+} = require('../../core/orchestrator/financialDecimal');
 
 function createMockPoolWithRefundsTable(initialState = {}) {
     const db = {
-        instructions: new Map((initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])),
+        instructions: new Map(
+            (initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])
+        ),
         processed_webhook_events: new Map(
-            (initialState.processed_webhook_events || []).map((e) => [`${e.provider}:${e.event_id}`, { ...e }])
+            (initialState.processed_webhook_events || []).map((e) => [
+                `${e.provider}:${e.event_id}`,
+                { ...e },
+            ])
         ),
         payment_refunds: new Map(
-            (initialState.payment_refunds || []).map((r) => [`${r.provider}:${r.provider_refund_id}`, { ...r }])
+            (initialState.payment_refunds || []).map((r) => [
+                `${r.provider}:${r.provider_refund_id}`,
+                { ...r },
+            ])
         ),
         ledger_journal: [...(initialState.ledger_journal || [])],
     };
@@ -51,7 +62,8 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                         stagedInstructions = new Map();
                         for (const [k, v] of db.instructions) stagedInstructions.set(k, { ...v });
                         stagedEvents = new Map();
-                        for (const [k, v] of db.processed_webhook_events) stagedEvents.set(k, { ...v });
+                        for (const [k, v] of db.processed_webhook_events)
+                            stagedEvents.set(k, { ...v });
                         stagedRefunds = new Map();
                         for (const [k, v] of db.payment_refunds) stagedRefunds.set(k, { ...v });
                         stagedJournal = [...db.ledger_journal];
@@ -60,8 +72,10 @@ function createMockPoolWithRefundsTable(initialState = {}) {
 
                     if (normalized === 'COMMIT') {
                         if (inTxn) {
-                            for (const [k, v] of stagedInstructions) db.instructions.set(k, { ...v });
-                            for (const [k, v] of stagedEvents) db.processed_webhook_events.set(k, { ...v });
+                            for (const [k, v] of stagedInstructions)
+                                db.instructions.set(k, { ...v });
+                            for (const [k, v] of stagedEvents)
+                                db.processed_webhook_events.set(k, { ...v });
                             for (const [k, v] of stagedRefunds) db.payment_refunds.set(k, { ...v });
                             db.ledger_journal = stagedJournal;
                             inTxn = false;
@@ -94,7 +108,17 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO LEDGER_JOURNAL')) {
-                        const [entryId, instructionId, accountId, direction, amount, currency, timestamp, hash, prevHash] = params;
+                        const [
+                            entryId,
+                            instructionId,
+                            accountId,
+                            direction,
+                            amount,
+                            currency,
+                            timestamp,
+                            hash,
+                            prevHash,
+                        ] = params;
                         const targetJournal = inTxn ? stagedJournal : db.ledger_journal;
                         targetJournal.push({
                             entry_id: entryId,
@@ -126,7 +150,8 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO PROCESSED_WEBHOOK_EVENTS')) {
-                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] = params;
+                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] =
+                            params;
                         const key = `${provider}:${eventId}`;
                         const targetStore = inTxn ? stagedEvents : db.processed_webhook_events;
 
@@ -145,22 +170,32 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                         return { rows: [{ event_id: eventId }] };
                     }
 
-                    if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')) {
+                    if (
+                        normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')
+                    ) {
                         const intentId = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.external_intent_id === intentId);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.external_intent_id === intentId
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
                     if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE INSTRUCTION_ID')) {
                         const id = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.instruction_id === id);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.instruction_id === id
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
                     // Query payment_refunds for single refund lock
-                    if (normalized.includes('FROM PAYMENT_REFUNDS WHERE PROVIDER = $1 AND PROVIDER_REFUND_ID = $2')) {
+                    if (
+                        normalized.includes(
+                            'FROM PAYMENT_REFUNDS WHERE PROVIDER = $1 AND PROVIDER_REFUND_ID = $2'
+                        )
+                    ) {
                         const [provider, refundId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         const key = `${provider}:${refundId}`;
@@ -169,12 +204,20 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                     }
 
                     // SUM query for payment_refunds with exclusion
-                    if (normalized.includes('FROM PAYMENT_REFUNDS') && normalized.includes('SUM(AMOUNT_MINOR)') && normalized.includes('PROVIDER_REFUND_ID != $2')) {
+                    if (
+                        normalized.includes('FROM PAYMENT_REFUNDS') &&
+                        normalized.includes('SUM(AMOUNT_MINOR)') &&
+                        normalized.includes('PROVIDER_REFUND_ID != $2')
+                    ) {
                         const [instructionId, refundId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         let sum = 0n;
                         for (const r of targetStore.values()) {
-                            if (r.instruction_id === instructionId && r.status === 'SUCCEEDED' && r.provider_refund_id !== refundId) {
+                            if (
+                                r.instruction_id === instructionId &&
+                                r.status === 'SUCCEEDED' &&
+                                r.provider_refund_id !== refundId
+                            ) {
                                 sum += BigInt(r.amount_minor);
                             }
                         }
@@ -182,7 +225,10 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                     }
 
                     // Final SUM query for payment_refunds
-                    if (normalized.includes('FROM PAYMENT_REFUNDS') && normalized.includes('SUM(AMOUNT_MINOR)')) {
+                    if (
+                        normalized.includes('FROM PAYMENT_REFUNDS') &&
+                        normalized.includes('SUM(AMOUNT_MINOR)')
+                    ) {
                         const [instructionId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         let sum = 0n;
@@ -198,7 +244,17 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                     if (normalized.startsWith('INSERT INTO PAYMENT_REFUNDS')) {
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         // Format: provider, item.id, txn.instruction_id, txn.external_intent_id, item.amount_minor, currency, status, eventId, [ledger_entry_id]
-                        const [provider, refundId, instructionId, intentId, amountMinor, currency, status, eventId, ledgerEntryId] = params;
+                        const [
+                            provider,
+                            refundId,
+                            instructionId,
+                            intentId,
+                            amountMinor,
+                            currency,
+                            status,
+                            eventId,
+                            ledgerEntryId,
+                        ] = params;
                         const key = `${provider}:${refundId}`;
                         const existing = targetStore.get(key) || {};
                         const rec = {
@@ -211,7 +267,10 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                             currency,
                             status,
                             event_id: eventId,
-                            ledger_entry_id: ledgerEntryId !== undefined ? ledgerEntryId : existing.ledger_entry_id,
+                            ledger_entry_id:
+                                ledgerEntryId !== undefined
+                                    ? ledgerEntryId
+                                    : existing.ledger_entry_id,
                         };
                         targetStore.set(key, rec);
                         return { rows: [rec] };
@@ -226,14 +285,21 @@ function createMockPoolWithRefundsTable(initialState = {}) {
                         return { rows: [] };
                     }
 
-                    if (normalized.includes("UPDATE INSTRUCTIONS SET STATE = $1") || normalized.includes("UPDATE INSTRUCTIONS SET STATUS = $1")) {
+                    if (
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATE = $1') ||
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATUS = $1')
+                    ) {
                         const [targetState, metaStr, instructionId] = params;
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
                         if (targetStore.has(instructionId)) {
                             const inst = targetStore.get(instructionId);
                             inst.state = targetState;
                             inst.status = targetState;
-                            try { inst.metadata = JSON.parse(metaStr); } catch { inst.metadata = metaStr; }
+                            try {
+                                inst.metadata = JSON.parse(metaStr);
+                            } catch {
+                                inst.metadata = metaStr;
+                            }
                         }
                         return { rows: [] };
                     }
@@ -263,13 +329,15 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
     let mockVerifyLedger;
 
     beforeEach(() => {
-        mockCompensatingLedger = jest.fn(async (client, instructionId, sender, recipient, amount, currency, refundId) => {
-            return {
-                entryIdDebit: 'debit-uuid-' + refundId,
-                entryIdCredit: 'credit-uuid-' + refundId,
-                hash: 'hash_' + refundId,
-            };
-        });
+        mockCompensatingLedger = jest.fn(
+            async (client, instructionId, sender, recipient, amount, currency, refundId) => {
+                return {
+                    entryIdDebit: 'debit-uuid-' + refundId,
+                    entryIdCredit: 'credit-uuid-' + refundId,
+                    hash: 'hash_' + refundId,
+                };
+            }
+        );
         mockVerifyLedger = jest.fn(async () => true);
     });
 
@@ -295,7 +363,12 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_ref_001',
             eventType: 'refund.created',
             intentId: 'pi_test_full',
-            rawBody: JSON.stringify({ id: 're_full_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_full_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_ref_001',
                 data: {
@@ -365,7 +438,12 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_part_001',
             eventType: 'refund.created',
             intentId: 'pi_test_multi',
-            rawBody: JSON.stringify({ id: 're_part_001', amount: 30, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_part_001',
+                amount: 30,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_part_001',
                 data: {
@@ -397,7 +475,12 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_part_002',
             eventType: 'refund.created',
             intentId: 'pi_test_multi',
-            rawBody: JSON.stringify({ id: 're_part_002', amount: 70, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_part_002',
+                amount: 70,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_part_002',
                 data: {
@@ -447,10 +530,23 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_replay_001',
             eventType: 'refund.created',
             intentId: 'pi_test_replay',
-            rawBody: JSON.stringify({ id: 're_dup_001', amount: 5000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_dup_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_replay_001',
-                data: { object: { id: 're_dup_001', amount: 5000, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_replay' } },
+                data: {
+                    object: {
+                        id: 're_dup_001',
+                        amount: 5000,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_replay',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -465,10 +561,23 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_replay_002',
             eventType: 'refund.updated',
             intentId: 'pi_test_replay',
-            rawBody: JSON.stringify({ id: 're_dup_001', amount: 5000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_dup_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_replay_002',
-                data: { object: { id: 're_dup_001', amount: 5000, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_replay' } },
+                data: {
+                    object: {
+                        id: 're_dup_001',
+                        amount: 5000,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_replay',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -502,10 +611,23 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_over_001',
             eventType: 'refund.created',
             intentId: 'pi_test_over',
-            rawBody: JSON.stringify({ id: 're_over_001', amount: 1500, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_over_001',
+                amount: 1500,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_over_001',
-                data: { object: { id: 're_over_001', amount: 1500, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_over' } },
+                data: {
+                    object: {
+                        id: 're_over_001',
+                        amount: 1500,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_over',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -543,10 +665,23 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_pend_001',
             eventType: 'refund.updated',
             intentId: 'pi_test_statuses',
-            rawBody: JSON.stringify({ id: 're_pend_001', amount: 2000, currency: 'usd', status: 'pending' }),
+            rawBody: JSON.stringify({
+                id: 're_pend_001',
+                amount: 2000,
+                currency: 'usd',
+                status: 'pending',
+            }),
             payload: {
                 id: 'evt_pend_001',
-                data: { object: { id: 're_pend_001', amount: 2000, currency: 'usd', status: 'pending', payment_intent: 'pi_test_statuses' } },
+                data: {
+                    object: {
+                        id: 're_pend_001',
+                        amount: 2000,
+                        currency: 'usd',
+                        status: 'pending',
+                        payment_intent: 'pi_test_statuses',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -566,10 +701,23 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
             eventId: 'evt_fail_001',
             eventType: 'refund.failed',
             intentId: 'pi_test_statuses',
-            rawBody: JSON.stringify({ id: 're_pend_001', amount: 2000, currency: 'usd', status: 'failed' }),
+            rawBody: JSON.stringify({
+                id: 're_pend_001',
+                amount: 2000,
+                currency: 'usd',
+                status: 'failed',
+            }),
             payload: {
                 id: 'evt_fail_001',
-                data: { object: { id: 're_pend_001', amount: 2000, currency: 'usd', status: 'failed', payment_intent: 'pi_test_statuses' } },
+                data: {
+                    object: {
+                        id: 're_pend_001',
+                        amount: 2000,
+                        currency: 'usd',
+                        status: 'failed',
+                        payment_intent: 'pi_test_statuses',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -627,8 +775,18 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
                         amount_refunded: 10000,
                         refunds: {
                             data: [
-                                { id: 're_batch_1', amount: 4000, currency: 'usd', status: 'succeeded' },
-                                { id: 're_batch_2', amount: 6000, currency: 'usd', status: 'succeeded' },
+                                {
+                                    id: 're_batch_1',
+                                    amount: 4000,
+                                    currency: 'usd',
+                                    status: 'succeeded',
+                                },
+                                {
+                                    id: 're_batch_2',
+                                    amount: 6000,
+                                    currency: 'usd',
+                                    status: 'succeeded',
+                                },
                             ],
                         },
                     },
@@ -648,4 +806,3 @@ describe('MR2.3 Payment Refunds & Authoritative Persistence', () => {
         expect(pool.getDb().payment_refunds.get('STRIPE:re_batch_2').amount_minor).toBe(6000n);
     });
 });
-

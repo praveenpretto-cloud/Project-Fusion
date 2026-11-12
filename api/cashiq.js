@@ -7,23 +7,25 @@
  */
 
 const express = require('express');
-const router  = express.Router();
-const multer  = require('multer');
-const logger  = require('../logger');
+const router = express.Router();
+const multer = require('multer');
+const logger = require('../logger');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const { getCashSnapshot, getTransactions } = require('../core/cashiq/cashPositionService');
-const { importBankStatementCSV }           = require('../adapters/aaStub');
-const { syncObligationsFromZoho }          = require('../adapters/zohoAdapter');
-const { runSentinelSweep }                 = require('../core/cashiq/cashSentinel');
+const { importBankStatementCSV } = require('../adapters/aaStub');
+const { syncObligationsFromZoho } = require('../adapters/zohoAdapter');
+const { runSentinelSweep } = require('../core/cashiq/cashSentinel');
 
 // ── HELPERS ──────────────────────────────────────────────────────────────────
 function ok(res, data, status = 200) {
     return res.status(status).json({ success: true, timestamp: new Date().toISOString(), ...data });
 }
 function fail(res, message, detail = null, status = 400) {
-    return res.status(status).json({ success: false, error: message, detail, timestamp: new Date().toISOString() });
+    return res
+        .status(status)
+        .json({ success: false, error: message, detail, timestamp: new Date().toISOString() });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -74,7 +76,10 @@ router.get('/consolidated/dashboard', async (req, res) => {
             GROUP BY a.business_id
         `;
         const balResult = await pool.query(balQuery);
-        const balMap = balResult.rows.reduce((acc, row) => ({ ...acc, [row.business_id]: Number(row.total_balance) }), {});
+        const balMap = balResult.rows.reduce(
+            (acc, row) => ({ ...acc, [row.business_id]: Number(row.total_balance) }),
+            {}
+        );
 
         // 3. Get 30d cash flows per business
         const flowQuery = `
@@ -85,10 +90,12 @@ router.get('/consolidated/dashboard', async (req, res) => {
         `;
         const flowResult = await pool.query(flowQuery);
         const flowMap = {};
-        flowResult.rows.forEach(row => {
+        flowResult.rows.forEach((row) => {
             if (!flowMap[row.business_id]) flowMap[row.business_id] = { inflow: 0, outflow: 0 };
-            if (row.direction === 'CREDIT') flowMap[row.business_id].inflow = Number(row.total_amount);
-            if (row.direction === 'DEBIT') flowMap[row.business_id].outflow = Number(row.total_amount);
+            if (row.direction === 'CREDIT')
+                flowMap[row.business_id].inflow = Number(row.total_amount);
+            if (row.direction === 'DEBIT')
+                flowMap[row.business_id].outflow = Number(row.total_amount);
         });
 
         // 4. Get unpaid obligations per business
@@ -100,10 +107,12 @@ router.get('/consolidated/dashboard', async (req, res) => {
         `;
         const obResult = await pool.query(obQuery);
         const obMap = {};
-        obResult.rows.forEach(row => {
+        obResult.rows.forEach((row) => {
             if (!obMap[row.business_id]) obMap[row.business_id] = { ap: 0, ar: 0 };
-            if (row.obligation_type === 'PAYABLE') obMap[row.business_id].ap = Number(row.total_amount);
-            if (row.obligation_type === 'RECEIVABLE') obMap[row.business_id].ar = Number(row.total_amount);
+            if (row.obligation_type === 'PAYABLE')
+                obMap[row.business_id].ap = Number(row.total_amount);
+            if (row.obligation_type === 'RECEIVABLE')
+                obMap[row.business_id].ar = Number(row.total_amount);
         });
 
         // Combine into unified structure
@@ -113,7 +122,7 @@ router.get('/consolidated/dashboard', async (req, res) => {
         let totalAP = 0;
         let totalAR = 0;
 
-        const entities = businesses.map(b => {
+        const entities = businesses.map((b) => {
             const balance = balMap[b.business_id] || 0;
             const inflow = flowMap[b.business_id]?.inflow || 0;
             const outflow = flowMap[b.business_id]?.outflow || 0;
@@ -130,7 +139,7 @@ router.get('/consolidated/dashboard', async (req, res) => {
                 business_id: b.business_id,
                 name: b.name,
                 industry: b.industry,
-                metrics: { balance, inflow, outflow, ap, ar }
+                metrics: { balance, inflow, outflow, ap, ar },
             };
         });
 
@@ -146,9 +155,9 @@ router.get('/consolidated/dashboard', async (req, res) => {
                 net_cashflow_30d: totalInflow - totalOutflow,
                 total_ap: totalAP,
                 total_ar: totalAR,
-                global_runway_days: globalRunwayDays
+                global_runway_days: globalRunwayDays,
             },
-            entities
+            entities,
         });
     } catch (err) {
         logger.error(`[CASHIQ] GET /consolidated/dashboard: ${err.message}`);
@@ -170,7 +179,14 @@ router.post('/onboard-business', async (req, res) => {
             `INSERT INTO businesses (name, gstin, incorporation_type, industry, city, ca_id)
              VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING business_id, name, gstin, city, onboarded_at`,
-            [name, gstin || null, incorporation_type || null, industry || null, city || null, ca_id || null]
+            [
+                name,
+                gstin || null,
+                incorporation_type || null,
+                industry || null,
+                city || null,
+                ca_id || null,
+            ]
         );
         const biz = r.rows[0];
 
@@ -187,7 +203,11 @@ router.post('/onboard-business', async (req, res) => {
         );
 
         logger.info(`[CASHIQ] New business onboarded: ${biz.name} (${biz.business_id})`);
-        return ok(res, { business: biz, message: `${biz.name} onboarded with default alert rules.` }, 201);
+        return ok(
+            res,
+            { business: biz, message: `${biz.name} onboarded with default alert rules.` },
+            201
+        );
     } catch (err) {
         if (err.message.includes('unique') || err.message.includes('duplicate')) {
             return fail(res, 'A business with this GSTIN already exists', null, 409);
@@ -222,7 +242,8 @@ router.get('/:businessId/historical-trends', async (req, res) => {
     const pool = req.app.locals.pool;
     const { businessId } = req.params;
     try {
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             SELECT 
                 TO_CHAR(txn_date, 'YYYY-MM') as month,
                 SUM(CASE WHEN direction = 'CREDIT' THEN amount ELSE 0 END) as inflow,
@@ -231,7 +252,9 @@ router.get('/:businessId/historical-trends', async (req, res) => {
             WHERE business_id = $1 AND txn_date >= CURRENT_DATE - INTERVAL '36 months'
             GROUP BY TO_CHAR(txn_date, 'YYYY-MM')
             ORDER BY month ASC
-        `, [businessId]);
+        `,
+            [businessId]
+        );
         return ok(res, { trends: result.rows });
     } catch (err) {
         logger.error(`[CASHIQ] historical-trends error: ${err.message}`);
@@ -246,7 +269,8 @@ router.get('/:businessId/fx-exposures', async (req, res) => {
     const pool = req.app.locals.pool;
     const { businessId } = req.params;
     try {
-        const result = await pool.query(`
+        const result = await pool.query(
+            `
             SELECT 
                 exposure_id, vendor_name, currency, foreign_amount, 
                 base_rate, current_rate, target_date, status,
@@ -256,7 +280,9 @@ router.get('/:businessId/fx-exposures', async (req, res) => {
             FROM fx_exposures
             WHERE business_id = $1 AND status = 'OPEN'
             ORDER BY target_date ASC
-        `, [businessId]);
+        `,
+            [businessId]
+        );
         return ok(res, { exposures: result.rows });
     } catch (err) {
         logger.error(`[CASHIQ] fx-exposures error: ${err.message}`);
@@ -274,7 +300,8 @@ router.get('/:businessId/transactions', async (req, res) => {
 
     try {
         const result = await getTransactions(pool, businessId, {
-            category, direction,
+            category,
+            direction,
             page: parseInt(page),
             limit: Math.min(parseInt(limit), 100),
         });
@@ -371,14 +398,13 @@ router.put('/:businessId/whatsapp', async (req, res) => {
         `;
         const r = await pool.query(query, [whatsapp_config || '{}', businessId]);
         if (r.rowCount === 0) return fail(res, 'Business not found', null, 404);
-        
+
         return ok(res, { whatsapp_config: r.rows[0].whatsapp_config });
     } catch (err) {
         logger.error(`[CASHIQ] whatsapp error: ${err.message}`);
         return fail(res, 'Failed to update whatsapp config', err.message, 500);
     }
 });
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/cashiq/:businessId/alerts — active alert events
@@ -448,9 +474,18 @@ router.put('/:businessId/alert-rules/:ruleId', async (req, res) => {
         const params = [];
         let idx = 1;
 
-        if (threshold_value !== undefined) { updates.push(`threshold_value = $${idx++}`); params.push(threshold_value); }
-        if (threshold_days  !== undefined) { updates.push(`threshold_days = $${idx++}`);  params.push(threshold_days); }
-        if (is_active       !== undefined) { updates.push(`is_active = $${idx++}`);       params.push(is_active); }
+        if (threshold_value !== undefined) {
+            updates.push(`threshold_value = $${idx++}`);
+            params.push(threshold_value);
+        }
+        if (threshold_days !== undefined) {
+            updates.push(`threshold_days = $${idx++}`);
+            params.push(threshold_days);
+        }
+        if (is_active !== undefined) {
+            updates.push(`is_active = $${idx++}`);
+            params.push(is_active);
+        }
 
         if (updates.length === 0) return fail(res, 'No fields to update');
 
@@ -510,7 +545,7 @@ router.post('/:businessId/accounts', async (req, res) => {
                 bank_name,
                 account_number_masked || null,
                 account_type || 'CURRENT',
-                od_limit !== undefined && od_limit !== null ? parseFloat(od_limit) : 2000000.00
+                od_limit !== undefined && od_limit !== null ? parseFloat(od_limit) : 2000000.0,
             ]
         );
         return ok(res, { account: r.rows[0] }, 201);
@@ -562,7 +597,7 @@ router.post(
 
         try {
             const csvText = req.file.buffer.toString('utf8');
-            const result  = await importBankStatementCSV(pool, businessId, accountId, csvText);
+            const result = await importBankStatementCSV(pool, businessId, accountId, csvText);
             return ok(res, {
                 message: `Imported ${result.imported} transactions, skipped ${result.skipped}.`,
                 ...result,
@@ -612,19 +647,24 @@ router.post('/sentinel/sweep', async (req, res) => {
 router.get('/verify-gstin/:gstin', async (req, res) => {
     const { gstin } = req.params;
     const gstinClean = (gstin || '').toUpperCase().trim();
-    
+
     // Regular expression for Indian GSTIN (15 chars)
     const gstinRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
     if (!gstinRegex.test(gstinClean)) {
-        return fail(res, 'Invalid GSTIN format. Must be 15 characters matching standard GSTIN format.', null, 400);
+        return fail(
+            res,
+            'Invalid GSTIN format. Must be 15 characters matching standard GSTIN format.',
+            null,
+            400
+        );
     }
-    
+
     // Mock GST Registry databases
     let tradeName = 'Alternative SME Enterprises';
     let legalName = 'Alternative SME Enterprises Pvt Ltd';
     let address = '32, Gandhi Road, T Nagar, Chennai, Tamil Nadu, 600017';
     let taxpayerType = 'Regular';
-    
+
     if (gstinClean === '33AABCC1234D1Z5') {
         tradeName = 'Coimbatore Textile Mills';
         legalName = 'COIMBATORE TEXTILE MILLS PRIVATE LIMITED';
@@ -634,7 +674,7 @@ router.get('/verify-gstin/:gstin', async (req, res) => {
         legalName = 'TECHVISTA SOLUTIONS LLP';
         address = '45, OMR IT Corridor, Chennai, Tamil Nadu, 600096';
     }
-    
+
     return ok(res, {
         gstin: gstinClean,
         legalName,
@@ -642,7 +682,7 @@ router.get('/verify-gstin/:gstin', async (req, res) => {
         taxpayerType,
         status: 'Active',
         address,
-        verifiedAt: new Date().toISOString()
+        verifiedAt: new Date().toISOString(),
     });
 });
 
@@ -653,9 +693,9 @@ router.post('/:businessId/tds-confirm', async (req, res) => {
     const pool = req.app.locals.pool;
     const { businessId } = req.params;
     const { obligationId } = req.body;
-    
+
     if (!obligationId) return fail(res, 'obligationId is required in body');
-    
+
     try {
         const r = await pool.query(
             `UPDATE obligations 
@@ -664,13 +704,18 @@ router.post('/:businessId/tds-confirm', async (req, res) => {
              RETURNING obligation_id, status`,
             [obligationId, businessId]
         );
-        
+
         if (r.rows.length === 0) {
             return fail(res, 'Obligation not found for this business', null, 404);
         }
-        
-        logger.info(`[CASHIQ] TDS Obligation marked as paid: ${obligationId} for business ${businessId}`);
-        return ok(res, { message: 'TDS Obligation marked as paid successfully', obligation: r.rows[0] });
+
+        logger.info(
+            `[CASHIQ] TDS Obligation marked as paid: ${obligationId} for business ${businessId}`
+        );
+        return ok(res, {
+            message: 'TDS Obligation marked as paid successfully',
+            obligation: r.rows[0],
+        });
     } catch (err) {
         logger.error(`[CASHIQ] tds-confirm error: ${err.message}`);
         return fail(res, 'Failed to update TDS obligation status', err.message, 500);
@@ -703,7 +748,7 @@ router.get('/:businessId/export-audit', async (req, res) => {
     if (!businessId || !uuidRegex.test(businessId)) {
         return fail(res, 'Invalid business ID format. Expected standard UUID.', null, 400);
     }
-    
+
     try {
         const r = await pool.query(
             `SELECT t.txn_id, a.bank_name, a.account_number_masked, t.txn_date, 
@@ -731,17 +776,21 @@ router.get('/:businessId/export-audit', async (req, res) => {
              ORDER BY t.txn_date DESC`,
             [businessId]
         );
-        
+
         // Build CSV string
-        let csvContent = 'Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category\n';
+        let csvContent =
+            'Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category\n';
         for (const row of r.rows) {
             const dateStr = new Date(row.txn_date).toISOString().split('T')[0];
             const escapedNarration = `"${(row.narration || '').replace(/"/g, '""')}"`;
             csvContent += `${row.txn_id},${row.bank_name || ''},${row.account_number_masked || ''},${dateStr},${escapedNarration},${row.direction},${row.amount},${row.balance_after || ''},${row.currency || 'UNKNOWN'},${row.category || 'UNCLASSIFIED'}\n`;
         }
-        
+
         res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename=cashiq_audit_business_${businessId}.csv`);
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename=cashiq_audit_business_${businessId}.csv`
+        );
         return res.status(200).send(csvContent);
     } catch (err) {
         logger.error(`[CASHIQ] export-audit error: ${err.message}`);
@@ -799,11 +848,23 @@ router.get('/:businessId/contacts', async (req, res) => {
 // POST /api/cashiq/:businessId/contacts — create contact
 router.post('/:businessId/contacts', async (req, res) => {
     const pool = req.app.locals.pool;
-    const { name, type, gstin, pan, email, phone, bank_name, ifsc, account_number,
-            payment_terms_days, notes } = req.body;
+    const {
+        name,
+        type,
+        gstin,
+        pan,
+        email,
+        phone,
+        bank_name,
+        ifsc,
+        account_number,
+        payment_terms_days,
+        notes,
+    } = req.body;
 
     if (!name) return fail(res, 'Contact name is required');
-    if (!type || !['VENDOR', 'CUSTOMER'].includes(type)) return fail(res, 'type must be VENDOR or CUSTOMER');
+    if (!type || !['VENDOR', 'CUSTOMER'].includes(type))
+        return fail(res, 'type must be VENDOR or CUSTOMER');
 
     try {
         const r = await pool.query(
@@ -812,12 +873,29 @@ router.post('/:businessId/contacts', async (req, res) => {
               account_number, payment_terms_days, notes)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
              RETURNING contact_id AS id, name, type, gstin, pan`,
-            [req.params.businessId, name, type, gstin || null, pan || null, email || null,
-             phone || null, bank_name || null, ifsc || null, account_number || null,
-             payment_terms_days || 30, notes || null]
+            [
+                req.params.businessId,
+                name,
+                type,
+                gstin || null,
+                pan || null,
+                email || null,
+                phone || null,
+                bank_name || null,
+                ifsc || null,
+                account_number || null,
+                payment_terms_days || 30,
+                notes || null,
+            ]
         );
-        logger.info(`[CASHIQ] Contact created: ${name} (${type}) for business ${req.params.businessId}`);
-        return ok(res, { contact: r.rows[0], message: `${type} '${name}' added to directory.` }, 201);
+        logger.info(
+            `[CASHIQ] Contact created: ${name} (${type}) for business ${req.params.businessId}`
+        );
+        return ok(
+            res,
+            { contact: r.rows[0], message: `${type} '${name}' added to directory.` },
+            201
+        );
     } catch (err) {
         logger.error(`[CASHIQ] contacts POST: ${err.message}`);
         return fail(res, 'Failed to create contact', err.message, 500);
@@ -827,13 +905,24 @@ router.post('/:businessId/contacts', async (req, res) => {
 // PUT /api/cashiq/:businessId/contacts/:contactId — update contact
 router.put('/:businessId/contacts/:contactId', async (req, res) => {
     const pool = req.app.locals.pool;
-    const fields = ['name', 'type', 'gstin', 'pan', 'email', 'phone', 'bank_name',
-                    'ifsc', 'account_number', 'payment_terms_days', 'notes'];
+    const fields = [
+        'name',
+        'type',
+        'gstin',
+        'pan',
+        'email',
+        'phone',
+        'bank_name',
+        'ifsc',
+        'account_number',
+        'payment_terms_days',
+        'notes',
+    ];
     const updates = [];
     const params = [];
     let idx = 1;
 
-    fields.forEach(f => {
+    fields.forEach((f) => {
         if (req.body[f] !== undefined) {
             updates.push(`${f} = $${idx++}`);
             params.push(req.body[f]);
@@ -861,10 +950,10 @@ router.put('/:businessId/contacts/:contactId', async (req, res) => {
 router.delete('/:businessId/contacts/:contactId', async (req, res) => {
     const pool = req.app.locals.pool;
     try {
-        await pool.query(
-            `DELETE FROM vendor_contacts WHERE contact_id = $1 AND business_id = $2`,
-            [req.params.contactId, req.params.businessId]
-        );
+        await pool.query(`DELETE FROM vendor_contacts WHERE contact_id = $1 AND business_id = $2`, [
+            req.params.contactId,
+            req.params.businessId,
+        ]);
         return ok(res, { message: 'Contact deleted' });
     } catch (err) {
         return fail(res, 'Failed to delete contact', err.message, 500);
@@ -913,8 +1002,8 @@ router.get('/:businessId/scheduled-payments', async (req, res) => {
 // POST /api/cashiq/:businessId/scheduled-payments — create a scheduled payment
 router.post('/:businessId/scheduled-payments', async (req, res) => {
     const pool = req.app.locals.pool;
-    const { label, amount, currency, recipient_name, purpose,
-            scheduled_date, recurrence, note } = req.body;
+    const { label, amount, currency, recipient_name, purpose, scheduled_date, recurrence, note } =
+        req.body;
 
     if (!amount || parseFloat(amount) <= 0) return fail(res, 'Valid amount is required');
     if (!recipient_name) return fail(res, 'recipient_name is required');
@@ -932,12 +1021,26 @@ router.post('/:businessId/scheduled-payments', async (req, res) => {
               scheduled_date, recurrence, note)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              RETURNING schedule_id AS id, label, amount, currency, scheduled_date, status`,
-            [req.params.businessId, label || `${purpose || 'Payment'} to ${recipient_name}`,
-             parseFloat(amount), currency || 'INR', recipient_name, purpose || 'VENDOR_PAYMENT',
-             scheduled_date, recurrence || 'ONCE', note || null]
+            [
+                req.params.businessId,
+                label || `${purpose || 'Payment'} to ${recipient_name}`,
+                parseFloat(amount),
+                currency || 'INR',
+                recipient_name,
+                purpose || 'VENDOR_PAYMENT',
+                scheduled_date,
+                recurrence || 'ONCE',
+                note || null,
+            ]
         );
-        logger.info(`[CASHIQ] Scheduled payment created: ${amount} ${currency} to ${recipient_name} on ${scheduled_date}`);
-        return ok(res, { payment: r.rows[0], message: `Payment scheduled for ${scheduled_date}.` }, 201);
+        logger.info(
+            `[CASHIQ] Scheduled payment created: ${amount} ${currency} to ${recipient_name} on ${scheduled_date}`
+        );
+        return ok(
+            res,
+            { payment: r.rows[0], message: `Payment scheduled for ${scheduled_date}.` },
+            201
+        );
     } catch (err) {
         logger.error(`[CASHIQ] scheduled-payments POST: ${err.message}`);
         return fail(res, 'Failed to schedule payment', err.message, 500);
@@ -1014,10 +1117,22 @@ router.get('/:businessId/search', async (req, res) => {
         );
 
         const combinedResults = [
-            ...invoicesRes.rows.map(r => ({ ...r, label: `Invoice ${r.id.substring(0,8)}: ${r.seller_name} → ${r.buyer_name} (${r.currency} ${r.amount})` })),
-            ...instructionsRes.rows.map(r => ({ ...r, label: `Instruction ${r.id.substring(0,8)}: ${r.sender} → ${r.recipient} (${r.currency} ${r.amount}) [${r.state}]` })),
-            ...contactsRes.rows.map(r => ({ ...r, label: `${r.contact_type === 'VENDOR' ? '🏪 Vendor' : '👤 Customer'}: ${r.name} (${r.email || 'No email'})` })),
-            ...obligationsRes.rows.map(r => ({ ...r, label: `Obligation: ${r.description || r.obligation_type} (${r.currency} ${r.amount}) [${r.status}]` }))
+            ...invoicesRes.rows.map((r) => ({
+                ...r,
+                label: `Invoice ${r.id.substring(0, 8)}: ${r.seller_name} → ${r.buyer_name} (${r.currency} ${r.amount})`,
+            })),
+            ...instructionsRes.rows.map((r) => ({
+                ...r,
+                label: `Instruction ${r.id.substring(0, 8)}: ${r.sender} → ${r.recipient} (${r.currency} ${r.amount}) [${r.state}]`,
+            })),
+            ...contactsRes.rows.map((r) => ({
+                ...r,
+                label: `${r.contact_type === 'VENDOR' ? '🏪 Vendor' : '👤 Customer'}: ${r.name} (${r.email || 'No email'})`,
+            })),
+            ...obligationsRes.rows.map((r) => ({
+                ...r,
+                label: `Obligation: ${r.description || r.obligation_type} (${r.currency} ${r.amount}) [${r.status}]`,
+            })),
         ];
 
         return ok(res, { results: combinedResults });
@@ -1073,7 +1188,7 @@ router.post('/:businessId/obligations/:id/discount', async (req, res) => {
             `SELECT account_id FROM virtual_accounts WHERE business_id = $1 LIMIT 1`,
             [businessId]
         );
-        
+
         if (vaRes.rows.length > 0) {
             const vAccountId = vaRes.rows[0].account_id;
             await pool.query(
@@ -1085,14 +1200,15 @@ router.post('/:businessId/obligations/:id/discount', async (req, res) => {
             );
         }
 
-        logger.info(`[CASHIQ] Invoice ${id} Factored! Fee: ${fee}, Advance: ${advance} ${ob.currency}`);
-        return ok(res, { 
-            message: 'Invoice factored successfully!', 
-            advance_amount: advance, 
+        logger.info(
+            `[CASHIQ] Invoice ${id} Factored! Fee: ${fee}, Advance: ${advance} ${ob.currency}`
+        );
+        return ok(res, {
+            message: 'Invoice factored successfully!',
+            advance_amount: advance,
             fee_amount: fee,
-            status: 'FACTORED'
+            status: 'FACTORED',
         });
-
     } catch (err) {
         logger.error(`[CASHIQ] discount error: ${err.message}`);
         return fail(res, 'Failed to factor invoice', err.message, 500);
@@ -1122,17 +1238,15 @@ router.post('/:businessId/obligations/:id/dunning', async (req, res) => {
         );
 
         logger.info(`[CASHIQ] Smart Dunning executed for obligation ${id}`);
-        return ok(res, { 
-            message: 'Payment link generated and WhatsApp reminder sent to buyer.', 
-            status: 'DUNNING_SENT'
+        return ok(res, {
+            message: 'Payment link generated and WhatsApp reminder sent to buyer.',
+            status: 'DUNNING_SENT',
         });
-
     } catch (err) {
         logger.error(`[CASHIQ] dunning error: ${err.message}`);
         return fail(res, 'Failed to send dunning reminder', err.message, 500);
     }
 });
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/cashiq/:businessId/ar-reminders — Fetch AR collection reminder history
@@ -1184,58 +1298,65 @@ router.post('/:businessId/ar-reminder', async (req, res) => {
 
     try {
         // Fetch business name for the reminder message
-        const bizRes = await pool.query('SELECT name FROM businesses WHERE business_id = $1', [businessId]);
+        const bizRes = await pool.query('SELECT name FROM businesses WHERE business_id = $1', [
+            businessId,
+        ]);
         const businessName = bizRes.rows[0]?.name || 'Your Vendor';
 
         // Format amount in Indian locale
         const formattedAmount = new Intl.NumberFormat('en-IN', {
-            style: 'currency', currency: 'INR', maximumFractionDigits: 0
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0,
         }).format(amount);
 
         // Build the reminder message
-        const reminderMessage = channel === 'WHATSAPP'
-            ? [
-                `Dear *${party}*,`,
-                ``,
-                `This is a friendly reminder from *${businessName}* regarding Invoice *${invoiceId}*.`,
-                ``,
-                `📋 *Invoice:* ${invoiceId}`,
-                `💰 *Amount Due:* ${formattedAmount}`,
-                `⏰ *Days Outstanding:* ${daysOutstanding} days`,
-                ``,
-                daysOutstanding > 45
-                    ? `⚠️ This payment has exceeded 45 days and may trigger penalties under *Section 43B(h)* of the Income Tax Act.`
-                    : `Please arrange payment at your earliest convenience.`,
-                ``,
-                `For any queries, kindly contact your account manager.`,
-                ``,
-                `Thank you,`,
-                `*${businessName} Finance Team*`
-              ].join('\n')
-            : [
-                `Dear ${party},`,
-                ``,
-                `We hope this email finds you well.`,
-                ``,
-                `This is a formal reminder from ${businessName} regarding the following outstanding invoice:`,
-                ``,
-                `  Invoice Number : ${invoiceId}`,
-                `  Amount Due     : ${formattedAmount}`,
-                `  Days Overdue   : ${daysOutstanding} days`,
-                ``,
-                daysOutstanding > 45
-                    ? `Please note that this payment has exceeded 45 days and may be subject to interest and disallowance of expenses under Section 43B(h) of the Income Tax Act.`
-                    : `We kindly request you to arrange payment at your earliest convenience.`,
-                ``,
-                `If you have already made the payment, please disregard this notice and share the UTR/transaction reference with us.`,
-                ``,
-                `Warm regards,`,
-                `${businessName} Finance Team`
-              ].join('\n');
+        const reminderMessage =
+            channel === 'WHATSAPP'
+                ? [
+                      `Dear *${party}*,`,
+                      ``,
+                      `This is a friendly reminder from *${businessName}* regarding Invoice *${invoiceId}*.`,
+                      ``,
+                      `📋 *Invoice:* ${invoiceId}`,
+                      `💰 *Amount Due:* ${formattedAmount}`,
+                      `⏰ *Days Outstanding:* ${daysOutstanding} days`,
+                      ``,
+                      daysOutstanding > 45
+                          ? `⚠️ This payment has exceeded 45 days and may trigger penalties under *Section 43B(h)* of the Income Tax Act.`
+                          : `Please arrange payment at your earliest convenience.`,
+                      ``,
+                      `For any queries, kindly contact your account manager.`,
+                      ``,
+                      `Thank you,`,
+                      `*${businessName} Finance Team*`,
+                  ].join('\n')
+                : [
+                      `Dear ${party},`,
+                      ``,
+                      `We hope this email finds you well.`,
+                      ``,
+                      `This is a formal reminder from ${businessName} regarding the following outstanding invoice:`,
+                      ``,
+                      `  Invoice Number : ${invoiceId}`,
+                      `  Amount Due     : ${formattedAmount}`,
+                      `  Days Overdue   : ${daysOutstanding} days`,
+                      ``,
+                      daysOutstanding > 45
+                          ? `Please note that this payment has exceeded 45 days and may be subject to interest and disallowance of expenses under Section 43B(h) of the Income Tax Act.`
+                          : `We kindly request you to arrange payment at your earliest convenience.`,
+                      ``,
+                      `If you have already made the payment, please disregard this notice and share the UTR/transaction reference with us.`,
+                      ``,
+                      `Warm regards,`,
+                      `${businessName} Finance Team`,
+                  ].join('\n');
 
         // In production: call Twilio WhatsApp API or SMTP/SendGrid here.
         // For prototype: log and return mock success.
-        logger.info(`[AR-REMINDER] ${channel} reminder triggered for invoice ${invoiceId} | Party: ${party} | Days: ${daysOutstanding} | Business: ${businessId}`);
+        logger.info(
+            `[AR-REMINDER] ${channel} reminder triggered for invoice ${invoiceId} | Party: ${party} | Days: ${daysOutstanding} | Business: ${businessId}`
+        );
 
         // Persist to DB
         await pool.query(`
@@ -1259,7 +1380,6 @@ router.post('/:businessId/ar-reminder', async (req, res) => {
             reminder: r.rows[0],
             reminderPreview: reminderMessage,
         });
-
     } catch (err) {
         logger.error(`[AR-REMINDER] Error: ${err.message}`);
         return fail(res, 'Failed to send reminder', err.message, 500);

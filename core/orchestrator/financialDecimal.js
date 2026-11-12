@@ -2,7 +2,7 @@
 
 /**
  * EXACT FINANCIAL DECIMAL UTILITY
- * 
+ *
  * Provides deterministic canonical decimal string representations and exact arithmetic
  * for Project Fusion's cryptographic double-entry ledger without relying on JavaScript
  * IEEE 754 64-bit floating-point numbers (which suffer from precision loss, silent rounding,
@@ -76,12 +76,16 @@ const ASSET_MIN_AMOUNT = {
 
 /**
  * Resolves the canonical scale (decimal places) for a given currency code or numeric scale.
- * 
+ *
  * @param {string|number} currencyOrScale - Currency ISO code (e.g. 'USD', 'XLM') or explicit integer scale
  * @returns {number} Decimal places
  */
 function getAssetScale(currencyOrScale) {
-    if (typeof currencyOrScale === 'number' && Number.isInteger(currencyOrScale) && currencyOrScale >= 0) {
+    if (
+        typeof currencyOrScale === 'number' &&
+        Number.isInteger(currencyOrScale) &&
+        currencyOrScale >= 0
+    ) {
         return currencyOrScale;
     }
     if (typeof currencyOrScale === 'string') {
@@ -104,7 +108,7 @@ function getAssetScale(currencyOrScale) {
  * - Allows normalization of trailing zero column padding (e.g. from PostgreSQL NUMERIC(38,7)).
  * - Rejects any input whose significant fractional digits exceed the permitted scale (no silent rounding).
  * - Rejects scientific notation, malformed decimals, null, and empty strings.
- * 
+ *
  * @param {string|number|bigint} val - The financial value to format
  * @param {string|number} currencyOrScale - Asset currency symbol (e.g. 'XLM', 'USD') or integer scale (default 2)
  * @returns {string} Canonical decimal string representation (e.g., "100.00", "1.0000000")
@@ -145,7 +149,8 @@ function toCanonicalDecimal(val, currencyOrScale = 2) {
         // Check if the extra digits beyond scale are all zeroes (e.g. from DB NUMERIC(38,7) padding)
         const extraDigits = fracPart.slice(scale);
         if (!/^0+$/.test(extraDigits)) {
-            const assetName = typeof currencyOrScale === 'string' ? currencyOrScale : 'specified currency';
+            const assetName =
+                typeof currencyOrScale === 'string' ? currencyOrScale : 'specified currency';
             throw new RangeError(
                 `Financial amount '${val}' exceeds maximum precision of ${scale} decimal places for ${assetName}`
             );
@@ -173,7 +178,7 @@ function toCanonicalDecimal(val, currencyOrScale = 2) {
  * Exact arbitrary-precision decimal addition using string/BigInt manipulation.
  * Zero floating-point operations. Automatically handles arbitrary-precision inputs
  * with half-up rounding to target scale.
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale
@@ -200,11 +205,11 @@ function decimalAdd(valA, valB, currencyOrScale = 2) {
         const absRemainder = remainder < 0n ? -remainder : remainder;
         const half = divisor / 2n;
         if (absRemainder >= half) {
-            quotient += (sum < 0n ? -1n : 1n);
+            quotient += sum < 0n ? -1n : 1n;
         }
         sum = quotient;
     } else if (maxScale < scale) {
-        sum = sum * (10n ** BigInt(scale - maxScale));
+        sum = sum * 10n ** BigInt(scale - maxScale);
     }
 
     const isNeg = sum < 0n;
@@ -214,7 +219,7 @@ function decimalAdd(valA, valB, currencyOrScale = 2) {
 
 /**
  * Parses numeric input into exact decimal components without floating-point conversion.
- * 
+ *
  * @param {string|number|bigint} val
  * @returns {{ isNegative: boolean, intPart: string, fracPart: string, scale: number, rawBigInt: bigint }}
  */
@@ -265,7 +270,7 @@ function formatRawBigInt(bigIntVal, scale, isNeg) {
         return scale > 0 ? '0.' + '0'.repeat(scale) : '0';
     }
     const str = bigIntVal.toString().padStart(scale + 1, '0');
-    const intPart = scale > 0 ? (str.slice(0, -scale) || '0') : str;
+    const intPart = scale > 0 ? str.slice(0, -scale) || '0' : str;
     const fracPart = scale > 0 ? str.slice(-scale) : '';
     const prefix = isNeg && (intPart !== '0' || !/^0+$/.test(fracPart)) ? '-' : '';
     return scale > 0 ? prefix + intPart + '.' + fracPart : prefix + intPart;
@@ -274,7 +279,7 @@ function formatRawBigInt(bigIntVal, scale, isNeg) {
 /**
  * Exact decimal subtraction (valA - valB) using BigInt manipulation.
  * Automatically handles arbitrary-precision inputs with half-up rounding to target scale.
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale
@@ -301,11 +306,11 @@ function decimalSubtract(valA, valB, currencyOrScale = 2) {
         const absRemainder = remainder < 0n ? -remainder : remainder;
         const half = divisor / 2n;
         if (absRemainder >= half) {
-            quotient += (diff < 0n ? -1n : 1n);
+            quotient += diff < 0n ? -1n : 1n;
         }
         diff = quotient;
     } else if (maxScale < scale) {
-        diff = diff * (10n ** BigInt(scale - maxScale));
+        diff = diff * 10n ** BigInt(scale - maxScale);
     }
 
     const isNeg = diff < 0n;
@@ -316,7 +321,7 @@ function decimalSubtract(valA, valB, currencyOrScale = 2) {
 /**
  * Exact decimal multiplication (valA * valB) with half-up rounding.
  * Zero IEEE 754 floating-point operations.
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale - Target scale or currency symbol
@@ -342,7 +347,7 @@ function decimalMultiply(valA, valB, currencyOrScale = 2) {
         prod = quotient;
     } else if (totalScale < scale) {
         const diff = scale - totalScale;
-        prod = prod * (10n ** BigInt(diff));
+        prod = prod * 10n ** BigInt(diff);
     }
 
     return formatRawBigInt(prod, scale, isNeg);
@@ -351,7 +356,7 @@ function decimalMultiply(valA, valB, currencyOrScale = 2) {
 /**
  * Exact decimal division (valA / valB) with half-up rounding.
  * Zero IEEE 754 floating-point operations.
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale - Target scale or currency symbol
@@ -371,9 +376,9 @@ function decimalDivide(valA, valB, currencyOrScale = 2) {
     let numA = a.rawBigInt;
     let numB = b.rawBigInt;
     if (powerA >= powerB) {
-        numA = numA * (10n ** BigInt(powerA - powerB));
+        numA = numA * 10n ** BigInt(powerA - powerB);
     } else {
-        numB = numB * (10n ** BigInt(powerB - powerA));
+        numB = numB * 10n ** BigInt(powerB - powerA);
     }
     let quotient = numA / numB;
     const remainder = numA % numB;
@@ -386,7 +391,7 @@ function decimalDivide(valA, valB, currencyOrScale = 2) {
 
 /**
  * Exact decimal comparison (-1: A < B, 0: A === B, 1: A > B).
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale
@@ -414,7 +419,7 @@ function decimalCompare(valA, valB, currencyOrScale = 2) {
 
 /**
  * Checks exact decimal equality.
- * 
+ *
  * @param {string|number|bigint} valA
  * @param {string|number|bigint} valB
  * @param {string|number} currencyOrScale
@@ -427,7 +432,7 @@ function decimalEquals(valA, valB, currencyOrScale = 2) {
 /**
  * Exact decimal half-up rounding (round-half-away-from-zero) using BigInt.
  * Converts an arbitrary-precision intermediate decimal to the target scale.
- * 
+ *
  * @param {string|number|bigint} val - Financial value to round
  * @param {string|number} currencyOrScale - Target scale or currency symbol
  * @returns {string} Exact canonical rounded decimal string
@@ -440,7 +445,7 @@ function decimalRound(val, currencyOrScale = 2) {
 /**
  * Trims insignificant trailing zeros from a canonical decimal string
  * while preserving at least `minScale` decimal places.
- * 
+ *
  * @param {string} decimalStr - Canonical decimal string
  * @param {string|number} minScale - Minimum scale to retain (default 2)
  * @returns {string} Trimmed decimal string

@@ -18,12 +18,20 @@ const { processWebhookEvent } = require('../../core/webhooks/webhookProcessor');
 
 function createMockPoolForMR24(initialState = {}) {
     const db = {
-        instructions: new Map((initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])),
+        instructions: new Map(
+            (initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])
+        ),
         processed_webhook_events: new Map(
-            (initialState.processed_webhook_events || []).map((e) => [`${e.provider}:${e.event_id}`, { ...e }])
+            (initialState.processed_webhook_events || []).map((e) => [
+                `${e.provider}:${e.event_id}`,
+                { ...e },
+            ])
         ),
         payment_refunds: new Map(
-            (initialState.payment_refunds || []).map((r) => [`${r.provider}:${r.provider_refund_id}`, { ...r }])
+            (initialState.payment_refunds || []).map((r) => [
+                `${r.provider}:${r.provider_refund_id}`,
+                { ...r },
+            ])
         ),
         ledger_journal: [...(initialState.ledger_journal || [])],
     };
@@ -54,7 +62,8 @@ function createMockPoolForMR24(initialState = {}) {
                         stagedInstructions = new Map();
                         for (const [k, v] of db.instructions) stagedInstructions.set(k, { ...v });
                         stagedEvents = new Map();
-                        for (const [k, v] of db.processed_webhook_events) stagedEvents.set(k, { ...v });
+                        for (const [k, v] of db.processed_webhook_events)
+                            stagedEvents.set(k, { ...v });
                         stagedRefunds = new Map();
                         for (const [k, v] of db.payment_refunds) stagedRefunds.set(k, { ...v });
                         stagedJournal = [...db.ledger_journal];
@@ -63,8 +72,10 @@ function createMockPoolForMR24(initialState = {}) {
 
                     if (normalized === 'COMMIT') {
                         if (inTxn) {
-                            for (const [k, v] of stagedInstructions) db.instructions.set(k, { ...v });
-                            for (const [k, v] of stagedEvents) db.processed_webhook_events.set(k, { ...v });
+                            for (const [k, v] of stagedInstructions)
+                                db.instructions.set(k, { ...v });
+                            for (const [k, v] of stagedEvents)
+                                db.processed_webhook_events.set(k, { ...v });
                             for (const [k, v] of stagedRefunds) db.payment_refunds.set(k, { ...v });
                             db.ledger_journal = stagedJournal;
                             inTxn = false;
@@ -96,7 +107,17 @@ function createMockPoolForMR24(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO LEDGER_JOURNAL')) {
-                        const [entryId, instructionId, accountId, direction, amount, currency, timestamp, hash, prevHash] = params;
+                        const [
+                            entryId,
+                            instructionId,
+                            accountId,
+                            direction,
+                            amount,
+                            currency,
+                            timestamp,
+                            hash,
+                            prevHash,
+                        ] = params;
                         const targetJournal = inTxn ? stagedJournal : db.ledger_journal;
                         targetJournal.push({
                             entry_id: entryId,
@@ -128,7 +149,8 @@ function createMockPoolForMR24(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO PROCESSED_WEBHOOK_EVENTS')) {
-                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] = params;
+                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] =
+                            params;
                         const key = `${provider}:${eventId}`;
                         const targetStore = inTxn ? stagedEvents : db.processed_webhook_events;
 
@@ -147,21 +169,31 @@ function createMockPoolForMR24(initialState = {}) {
                         return { rows: [{ event_id: eventId }] };
                     }
 
-                    if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')) {
+                    if (
+                        normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')
+                    ) {
                         const intentId = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.external_intent_id === intentId);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.external_intent_id === intentId
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
                     if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE INSTRUCTION_ID')) {
                         const id = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.instruction_id === id);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.instruction_id === id
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
-                    if (normalized.includes('FROM PAYMENT_REFUNDS WHERE PROVIDER = $1 AND PROVIDER_REFUND_ID = $2')) {
+                    if (
+                        normalized.includes(
+                            'FROM PAYMENT_REFUNDS WHERE PROVIDER = $1 AND PROVIDER_REFUND_ID = $2'
+                        )
+                    ) {
                         const [provider, refundId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         const key = `${provider}:${refundId}`;
@@ -169,19 +201,30 @@ function createMockPoolForMR24(initialState = {}) {
                         return { rows: found ? [{ ...found }] : [] };
                     }
 
-                    if (normalized.includes('FROM PAYMENT_REFUNDS') && normalized.includes('SUM(AMOUNT_MINOR)') && normalized.includes('PROVIDER_REFUND_ID != $2')) {
+                    if (
+                        normalized.includes('FROM PAYMENT_REFUNDS') &&
+                        normalized.includes('SUM(AMOUNT_MINOR)') &&
+                        normalized.includes('PROVIDER_REFUND_ID != $2')
+                    ) {
                         const [instructionId, refundId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         let sum = 0n;
                         for (const r of targetStore.values()) {
-                            if (r.instruction_id === instructionId && r.status === 'SUCCEEDED' && r.provider_refund_id !== refundId) {
+                            if (
+                                r.instruction_id === instructionId &&
+                                r.status === 'SUCCEEDED' &&
+                                r.provider_refund_id !== refundId
+                            ) {
                                 sum += BigInt(r.amount_minor);
                             }
                         }
                         return { rows: [{ total: sum.toString() }] };
                     }
 
-                    if (normalized.includes('FROM PAYMENT_REFUNDS') && normalized.includes('SUM(AMOUNT_MINOR)')) {
+                    if (
+                        normalized.includes('FROM PAYMENT_REFUNDS') &&
+                        normalized.includes('SUM(AMOUNT_MINOR)')
+                    ) {
                         const [instructionId] = params;
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
                         let sum = 0n;
@@ -195,13 +238,26 @@ function createMockPoolForMR24(initialState = {}) {
 
                     if (normalized.startsWith('INSERT INTO PAYMENT_REFUNDS')) {
                         const targetStore = inTxn ? stagedRefunds : db.payment_refunds;
-                        const [provider, refundId, instructionId, intentId, amountMinor, currency, status, eventId, ledgerEntryId] = params;
+                        const [
+                            provider,
+                            refundId,
+                            instructionId,
+                            intentId,
+                            amountMinor,
+                            currency,
+                            status,
+                            eventId,
+                            ledgerEntryId,
+                        ] = params;
                         const key = `${provider}:${refundId}`;
                         const existing = targetStore.get(key) || {};
 
                         // Enforce stale event rule: SUCCEEDED cannot regress to PENDING or FAILED
                         let effectiveStatus = status;
-                        if (existing.status === 'SUCCEEDED' && (status === 'PENDING' || status === 'FAILED' || status === 'CANCELED')) {
+                        if (
+                            existing.status === 'SUCCEEDED' &&
+                            (status === 'PENDING' || status === 'FAILED' || status === 'CANCELED')
+                        ) {
                             effectiveStatus = 'SUCCEEDED';
                         }
 
@@ -215,7 +271,10 @@ function createMockPoolForMR24(initialState = {}) {
                             currency,
                             status: effectiveStatus,
                             event_id: eventId,
-                            ledger_entry_id: ledgerEntryId !== undefined ? ledgerEntryId : existing.ledger_entry_id,
+                            ledger_entry_id:
+                                ledgerEntryId !== undefined
+                                    ? ledgerEntryId
+                                    : existing.ledger_entry_id,
                         };
                         targetStore.set(key, rec);
                         return { rows: [rec] };
@@ -230,14 +289,21 @@ function createMockPoolForMR24(initialState = {}) {
                         return { rows: [] };
                     }
 
-                    if (normalized.includes("UPDATE INSTRUCTIONS SET STATE = $1") || normalized.includes("UPDATE INSTRUCTIONS SET STATUS = $1")) {
+                    if (
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATE = $1') ||
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATUS = $1')
+                    ) {
                         const [targetState, metaStr, instructionId] = params;
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
                         if (targetStore.has(instructionId)) {
                             const inst = targetStore.get(instructionId);
                             inst.state = targetState;
                             inst.status = targetState;
-                            try { inst.metadata = JSON.parse(metaStr); } catch { inst.metadata = metaStr; }
+                            try {
+                                inst.metadata = JSON.parse(metaStr);
+                            } catch {
+                                inst.metadata = metaStr;
+                            }
                         }
                         return { rows: [] };
                     }
@@ -267,13 +333,15 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
     let mockVerifyLedger;
 
     beforeEach(() => {
-        mockCompensatingLedger = jest.fn(async (client, instructionId, sender, recipient, amount, currency, refundId) => {
-            return {
-                entryIdDebit: 'debit-uuid-' + refundId,
-                entryIdCredit: 'credit-uuid-' + refundId,
-                hash: 'hash_' + refundId,
-            };
-        });
+        mockCompensatingLedger = jest.fn(
+            async (client, instructionId, sender, recipient, amount, currency, refundId) => {
+                return {
+                    entryIdDebit: 'debit-uuid-' + refundId,
+                    entryIdCredit: 'credit-uuid-' + refundId,
+                    hash: 'hash_' + refundId,
+                };
+            }
+        );
         mockVerifyLedger = jest.fn(async () => true);
     });
 
@@ -299,7 +367,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_early_refund_001',
             eventType: 'refund.created',
             intentId: 'pi_test_unsettled',
-            rawBody: JSON.stringify({ id: 're_early_001', amount: 5000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_early_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 id: 'evt_early_refund_001',
                 data: {
@@ -325,7 +398,9 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
         expect(mockCompensatingLedger).not.toHaveBeenCalled();
 
         // Database must NOT mark event as permanently consumed (transaction was rolled back)
-        expect(pool.getDb().processed_webhook_events.has('STRIPE:evt_early_refund_001')).toBe(false);
+        expect(pool.getDb().processed_webhook_events.has('STRIPE:evt_early_refund_001')).toBe(
+            false
+        );
         // Instruction remains in PENDING_EXECUTION
         expect(pool.getDb().instructions.get('inst_unsettled').state).toBe('PENDING_EXECUTION');
     });
@@ -354,7 +429,9 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventType: 'payment_intent.succeeded',
             intentId: 'pi_test_recovery',
             rawBody: JSON.stringify({ id: 'pi_test_recovery', amount: 10000, currency: 'usd' }),
-            payload: { data: { object: { id: 'pi_test_recovery', amount: 10000, currency: 'usd' } } },
+            payload: {
+                data: { object: { id: 'pi_test_recovery', amount: 10000, currency: 'usd' } },
+            },
         });
         expect(pool.getDb().instructions.get('inst_recovery').state).toBe('SETTLED');
 
@@ -365,7 +442,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_early_refund_retry',
             eventType: 'refund.created',
             intentId: 'pi_test_recovery',
-            rawBody: JSON.stringify({ id: 're_recovered_001', amount: 4000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_recovered_001',
+                amount: 4000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 data: {
                     object: {
@@ -410,7 +492,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_ooo_updated',
             eventType: 'refund.updated',
             intentId: 'pi_test_ooo',
-            rawBody: JSON.stringify({ id: 're_ooo_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_ooo_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 data: {
                     object: {
@@ -437,7 +524,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_ooo_created',
             eventType: 'refund.created',
             intentId: 'pi_test_ooo',
-            rawBody: JSON.stringify({ id: 're_ooo_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_ooo_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 data: {
                     object: {
@@ -481,7 +573,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_tp_pending',
             eventType: 'refund.created',
             intentId: 'pi_test_two_phase',
-            rawBody: JSON.stringify({ id: 're_tp_001', amount: 10000, currency: 'usd', status: 'pending' }),
+            rawBody: JSON.stringify({
+                id: 're_tp_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'pending',
+            }),
             payload: {
                 data: {
                     object: {
@@ -507,7 +604,12 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_tp_succeeded',
             eventType: 'refund.updated',
             intentId: 'pi_test_two_phase',
-            rawBody: JSON.stringify({ id: 're_tp_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_tp_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
                 data: {
                     object: {
@@ -551,9 +653,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_stale_1',
             eventType: 'refund.created',
             intentId: 'pi_test_stale',
-            rawBody: JSON.stringify({ id: 're_stale_001', amount: 5000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_stale_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
-                data: { object: { id: 're_stale_001', amount: 5000, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_stale' } },
+                data: {
+                    object: {
+                        id: 're_stale_001',
+                        amount: 5000,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_stale',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -568,9 +683,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_stale_2_pending',
             eventType: 'refund.updated',
             intentId: 'pi_test_stale',
-            rawBody: JSON.stringify({ id: 're_stale_001', amount: 5000, currency: 'usd', status: 'pending' }),
+            rawBody: JSON.stringify({
+                id: 're_stale_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'pending',
+            }),
             payload: {
-                data: { object: { id: 're_stale_001', amount: 5000, currency: 'usd', status: 'pending', payment_intent: 'pi_test_stale' } },
+                data: {
+                    object: {
+                        id: 're_stale_001',
+                        amount: 5000,
+                        currency: 'usd',
+                        status: 'pending',
+                        payment_intent: 'pi_test_stale',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -586,9 +714,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_stale_3_failed',
             eventType: 'refund.failed',
             intentId: 'pi_test_stale',
-            rawBody: JSON.stringify({ id: 're_stale_001', amount: 5000, currency: 'usd', status: 'failed' }),
+            rawBody: JSON.stringify({
+                id: 're_stale_001',
+                amount: 5000,
+                currency: 'usd',
+                status: 'failed',
+            }),
             payload: {
-                data: { object: { id: 're_stale_001', amount: 5000, currency: 'usd', status: 'failed', payment_intent: 'pi_test_stale' } },
+                data: {
+                    object: {
+                        id: 're_stale_001',
+                        amount: 5000,
+                        currency: 'usd',
+                        status: 'failed',
+                        payment_intent: 'pi_test_stale',
+                    },
+                },
             },
             writeCompensatingLedgerFn: mockCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -614,17 +755,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             ],
         });
 
-        const failingCompensatingLedger = jest.fn()
+        const failingCompensatingLedger = jest
+            .fn()
             .mockImplementationOnce(async () => {
-                throw new Error('LEDGER_WRITE_IO_FAILURE: Simulated database crash during ledger append');
+                throw new Error(
+                    'LEDGER_WRITE_IO_FAILURE: Simulated database crash during ledger append'
+                );
             })
-            .mockImplementationOnce(async (client, instructionId, sender, recipient, amount, currency, refundId) => {
-                return {
-                    entryIdDebit: 'debit-uuid-' + refundId,
-                    entryIdCredit: 'credit-uuid-' + refundId,
-                    hash: 'hash_' + refundId,
-                };
-            });
+            .mockImplementationOnce(
+                async (client, instructionId, sender, recipient, amount, currency, refundId) => {
+                    return {
+                        entryIdDebit: 'debit-uuid-' + refundId,
+                        entryIdCredit: 'credit-uuid-' + refundId,
+                        hash: 'hash_' + refundId,
+                    };
+                }
+            );
 
         // Attempt 1: Fails during ledger write
         const resFail = await processWebhookEvent({
@@ -633,9 +779,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_crash_001',
             eventType: 'refund.created',
             intentId: 'pi_test_rollback',
-            rawBody: JSON.stringify({ id: 're_crash_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_crash_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
-                data: { object: { id: 're_crash_001', amount: 10000, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_rollback' } },
+                data: {
+                    object: {
+                        id: 're_crash_001',
+                        amount: 10000,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_rollback',
+                    },
+                },
             },
             writeCompensatingLedgerFn: failingCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -654,9 +813,22 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
             eventId: 'evt_crash_001',
             eventType: 'refund.created',
             intentId: 'pi_test_rollback',
-            rawBody: JSON.stringify({ id: 're_crash_001', amount: 10000, currency: 'usd', status: 'succeeded' }),
+            rawBody: JSON.stringify({
+                id: 're_crash_001',
+                amount: 10000,
+                currency: 'usd',
+                status: 'succeeded',
+            }),
             payload: {
-                data: { object: { id: 're_crash_001', amount: 10000, currency: 'usd', status: 'succeeded', payment_intent: 'pi_test_rollback' } },
+                data: {
+                    object: {
+                        id: 're_crash_001',
+                        amount: 10000,
+                        currency: 'usd',
+                        status: 'succeeded',
+                        payment_intent: 'pi_test_rollback',
+                    },
+                },
             },
             writeCompensatingLedgerFn: failingCompensatingLedger,
             verifyLedgerIntegrityFn: mockVerifyLedger,
@@ -669,4 +841,3 @@ describe('MR2.4 Concurrency, Event Ordering & Recovery Suite', () => {
         expect(pool.getDb().instructions.get('inst_rollback_retry').state).toBe('REFUNDED');
     });
 });
-

@@ -12,18 +12,20 @@ jest.mock('ioredis', () => {
         setnx: jest.fn().mockResolvedValue(1),
         get: jest.fn().mockResolvedValue(null),
         setex: jest.fn().mockResolvedValue('OK'),
-        del: jest.fn().mockResolvedValue(1)
+        del: jest.fn().mockResolvedValue(1),
     }));
 });
 
 // Mock database pool to bypass actual PG inserts during logic validation
 jest.mock('pg', () => {
-    const mockQuery = jest.fn().mockResolvedValue({ rows: [{kyc_status: 'VERIFIED', verified: true}] });
+    const mockQuery = jest
+        .fn()
+        .mockResolvedValue({ rows: [{ kyc_status: 'VERIFIED', verified: true }] });
     return {
         Pool: jest.fn(() => ({
             query: mockQuery,
-            connect: jest.fn().mockResolvedValue({ query: mockQuery, release: jest.fn() })
-        }))
+            connect: jest.fn().mockResolvedValue({ query: mockQuery, release: jest.fn() }),
+        })),
     };
 });
 
@@ -34,7 +36,7 @@ describe('Bulk Ingestion API', () => {
     let app;
 
     beforeAll(() => {
-        app = require('../../server'); 
+        app = require('../../server');
     });
 
     beforeEach(() => {
@@ -43,9 +45,30 @@ describe('Bulk Ingestion API', () => {
 
     it('should segregate a bulk array payload to correct Kafka topics', async () => {
         const payload = [
-            { amount: '100.00', currency: 'USD', sender: '1', recipient: '2', purpose: 'PAYROLL', auth_token: 'afat_valid' },
-            { amount: '500.000000', currency: 'USDC', sender: '1', recipient: '2', purpose: 'PAYROLL', auth_token: 'afat_valid' },
-            { amount: '50.00', currency: 'EUR', sender: '3', recipient: '4', purpose: 'MARKETPLACE_PAYOUT', auth_token: 'afat_valid' }
+            {
+                amount: '100.00',
+                currency: 'USD',
+                sender: '1',
+                recipient: '2',
+                purpose: 'PAYROLL',
+                auth_token: 'afat_valid',
+            },
+            {
+                amount: '500.000000',
+                currency: 'USDC',
+                sender: '1',
+                recipient: '2',
+                purpose: 'PAYROLL',
+                auth_token: 'afat_valid',
+            },
+            {
+                amount: '50.00',
+                currency: 'EUR',
+                sender: '3',
+                recipient: '4',
+                purpose: 'MARKETPLACE_PAYOUT',
+                auth_token: 'afat_valid',
+            },
         ];
 
         process.env.LOAD_TEST_MODE = 'true';

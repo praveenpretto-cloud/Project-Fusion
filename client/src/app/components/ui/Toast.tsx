@@ -24,7 +24,10 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         return () => clearTimeout(timer);
     }, [toast.id, toast.duration, onDismiss]);
 
-    const styles: Record<ToastType, { bg: string; border: string; icon: string; titleColor: string }> = {
+    const styles: Record<
+        ToastType,
+        { bg: string; border: string; icon: string; titleColor: string }
+    > = {
         success: {
             bg: 'bg-[#0a1a11]',
             border: 'border-emerald-700/50',
@@ -59,9 +62,13 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
         >
             <span className="text-base shrink-0 mt-0.5">{s.icon}</span>
             <div className="flex-1 min-w-0">
-                <div className={`text-xs font-bold ${s.titleColor} leading-tight`}>{toast.title}</div>
+                <div className={`text-xs font-bold ${s.titleColor} leading-tight`}>
+                    {toast.title}
+                </div>
                 {toast.message && (
-                    <div className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{toast.message}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">
+                        {toast.message}
+                    </div>
                 )}
             </div>
             <button
@@ -83,7 +90,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
     if (toasts.length === 0) return null;
     return (
         <div className="fixed bottom-6 right-6 z-[100] flex flex-col gap-2 pointer-events-none">
-            {toasts.map(t => (
+            {toasts.map((t) => (
                 <div key={t.id} className="pointer-events-auto">
                     <ToastItem toast={t} onDismiss={onDismiss} />
                 </div>
@@ -96,18 +103,16 @@ export function useToast() {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     const dismiss = useCallback((id: string) => {
-        setToasts(prev => prev.filter(t => t.id !== id));
+        setToasts((prev) => prev.filter((t) => t.id !== id));
     }, []);
 
-    const showToast = useCallback((
-        type: ToastType,
-        title: string,
-        message?: string,
-        duration?: number
-    ) => {
-        const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        setToasts(prev => [...prev.slice(-4), { id, type, title, message, duration }]);
-    }, []);
+    const showToast = useCallback(
+        (type: ToastType, title: string, message?: string, duration?: number) => {
+            const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            setToasts((prev) => [...prev.slice(-4), { id, type, title, message, duration }]);
+        },
+        []
+    );
 
     return { toasts, showToast, dismiss };
 }

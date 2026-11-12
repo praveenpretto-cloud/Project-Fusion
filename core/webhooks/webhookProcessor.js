@@ -14,8 +14,15 @@
 const crypto = require('crypto');
 const Stripe = require('stripe');
 const logger = require('../../logger');
-const { writeLedger, writeCompensatingLedger, verifyLedgerIntegrity } = require('../orchestrator/ledgerUtils');
-const { toCanonicalMinorUnits, fromCanonicalMinorUnits } = require('../orchestrator/financialDecimal');
+const {
+    writeLedger,
+    writeCompensatingLedger,
+    verifyLedgerIntegrity,
+} = require('../orchestrator/ledgerUtils');
+const {
+    toCanonicalMinorUnits,
+    fromCanonicalMinorUnits,
+} = require('../orchestrator/financialDecimal');
 
 /**
  * Timing-safe string comparison to protect against side-channel timing attacks.
@@ -74,7 +81,9 @@ function verifyStripeSignature(rawBody, signature, secret) {
 
     // Strict Testnet Enforcement: reject any event flagged with livemode = true
     if (event.livemode === true) {
-        const err = new Error('CRITICAL: Production livemode Stripe event detected! Project Fusion strictly prohibits live operations.');
+        const err = new Error(
+            'CRITICAL: Production livemode Stripe event detected! Project Fusion strictly prohibits live operations.'
+        );
         err.statusCode = 400;
         throw err;
     }
@@ -103,15 +112,14 @@ function verifyRazorpayXSignature(rawBody, signature, secret) {
 
     // Security Rule: Do NOT use the Razorpay API key secret as the webhook secret
     if (process.env.RAZORPAY_KEY_SECRET && secret === process.env.RAZORPAY_KEY_SECRET) {
-        const err = new Error('SECURITY VIOLATION: Razorpay API key secret must NOT be used as the webhook signing secret.');
+        const err = new Error(
+            'SECURITY VIOLATION: Razorpay API key secret must NOT be used as the webhook signing secret.'
+        );
         err.statusCode = 500;
         throw err;
     }
 
-    const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex');
+    const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
     return timingSafeEqual(signature, expectedSignature);
 }
@@ -184,7 +192,9 @@ async function processWebhookEvent({
         if (insertEvent.rows.length === 0) {
             // Event has ALREADY been processed! Replay or duplicate delivery detected.
             await client.query('ROLLBACK');
-            logger.warn(`[WEBHOOK] 🛑 Duplicate event received and ignored: ${provider} event ${eventId}`);
+            logger.warn(
+                `[WEBHOOK] 🛑 Duplicate event received and ignored: ${provider} event ${eventId}`
+            );
             return {
                 status: 200,
                 body: { received: true, duplicate: true, message: 'Duplicate event ignored' },
@@ -192,9 +202,18 @@ async function processWebhookEvent({
         }
 
         // 3. TRANSACTION LOOKUP & ROW LOCKING (FOR UPDATE)
-        const rawObj = (payload && payload.data && payload.data.object) ? payload.data.object : (payload || {});
-        const effectiveIntentId = intentId || rawObj.payment_intent || (rawObj.object === 'payment_intent' ? rawObj.id : (rawObj.id?.startsWith('pi_') ? rawObj.id : null));
-        const effectiveInstructionId = instructionId || rawObj.metadata?.instruction_id || rawObj.metadata?.instructionId;
+        const rawObj =
+            payload && payload.data && payload.data.object ? payload.data.object : payload || {};
+        const effectiveIntentId =
+            intentId ||
+            rawObj.payment_intent ||
+            (rawObj.object === 'payment_intent'
+                ? rawObj.id
+                : rawObj.id?.startsWith('pi_')
+                  ? rawObj.id
+                  : null);
+        const effectiveInstructionId =
+            instructionId || rawObj.metadata?.instruction_id || rawObj.metadata?.instructionId;
 
         let txnResult;
         if (effectiveIntentId) {
@@ -203,7 +222,11 @@ async function processWebhookEvent({
                 [effectiveIntentId]
             );
         }
-        if ((!txnResult || txnResult.rows.length === 0) && rawObj.payment_intent && rawObj.payment_intent !== effectiveIntentId) {
+        if (
+            (!txnResult || txnResult.rows.length === 0) &&
+            rawObj.payment_intent &&
+            rawObj.payment_intent !== effectiveIntentId
+        ) {
             txnResult = await client.query(
                 'SELECT * FROM instructions WHERE external_intent_id = $1 FOR UPDATE',
                 [rawObj.payment_intent]
@@ -215,7 +238,11 @@ async function processWebhookEvent({
                 [effectiveInstructionId]
             );
         }
-        if ((!txnResult || txnResult.rows.length === 0) && intentId && intentId !== effectiveIntentId) {
+        if (
+            (!txnResult || txnResult.rows.length === 0) &&
+            intentId &&
+            intentId !== effectiveIntentId
+        ) {
             txnResult = await client.query(
                 'SELECT * FROM instructions WHERE external_intent_id = $1 FOR UPDATE',
                 [intentId]
@@ -225,10 +252,16 @@ async function processWebhookEvent({
         if (!txnResult || txnResult.rows.length === 0) {
             // Unknown provider reference! Roll back event recording so instruction can be linked if ingested later
             await client.query('ROLLBACK');
-            logger.warn(`[WEBHOOK] ⚠️ Transaction not found for provider reference: ${intentId || instructionId}. Returning retryable 404 status.`);
+            logger.warn(
+                `[WEBHOOK] ⚠️ Transaction not found for provider reference: ${intentId || instructionId}. Returning retryable 404 status.`
+            );
             return {
                 status: 404,
-                body: { error: 'Instruction not found for reference', retryable: true, reference: intentId || instructionId },
+                body: {
+                    error: 'Instruction not found for reference',
+                    retryable: true,
+                    reference: intentId || instructionId,
+                },
             };
         }
 
@@ -244,72 +277,107 @@ async function processWebhookEvent({
 
         // 4. PROVIDER-SPECIFIC STATE TRANSITIONS & SETTLEMENT LOGIC
         const isStripeSuccess = provider === 'STRIPE' && eventType === 'payment_intent.succeeded';
-        const isRazorpaySuccess = provider === 'RAZORPAYX' && (
-            eventType === 'payout.processed' || 
-            payload?.status === 'processed' ||
-            payload?.payload?.payout?.entity?.status === 'processed'
-        );
+        const isRazorpaySuccess =
+            provider === 'RAZORPAYX' &&
+            (eventType === 'payout.processed' ||
+                payload?.status === 'processed' ||
+                payload?.payload?.payout?.entity?.status === 'processed');
         const isSuccess = isStripeSuccess || isRazorpaySuccess;
 
-        const isStripeFailure = provider === 'STRIPE' && (
-            eventType === 'payment_intent.payment_failed' || 
-            eventType === 'charge.failed'
-        );
-        const isRazorpayFailure = provider === 'RAZORPAYX' && (
-            eventType === 'payout.failed' || 
-            eventType === 'payout.rejected'
-        );
+        const isStripeFailure =
+            provider === 'STRIPE' &&
+            (eventType === 'payment_intent.payment_failed' || eventType === 'charge.failed');
+        const isRazorpayFailure =
+            provider === 'RAZORPAYX' &&
+            (eventType === 'payout.failed' || eventType === 'payout.rejected');
         const isFailure = isStripeFailure || isRazorpayFailure;
 
-        const isStripeRefund = provider === 'STRIPE' && (
-            eventType === 'charge.refunded' || 
-            eventType === 'refund.created' ||
-            eventType === 'refund.updated' ||
-            eventType === 'refund.failed' ||
-            eventType === 'charge.dispute.created'
-        );
-        const isRazorpayReversal = provider === 'RAZORPAYX' && (
-            eventType === 'payout.reversed'
-        );
+        const isStripeRefund =
+            provider === 'STRIPE' &&
+            (eventType === 'charge.refunded' ||
+                eventType === 'refund.created' ||
+                eventType === 'refund.updated' ||
+                eventType === 'refund.failed' ||
+                eventType === 'charge.dispute.created');
+        const isRazorpayReversal = provider === 'RAZORPAYX' && eventType === 'payout.reversed';
 
         // A. SUCCESSFUL SETTLEMENT
         if (isSuccess) {
             if (txn.state === 'SETTLED') {
                 // Prevent duplicate ledger settlement!
-                logger.info(`[WEBHOOK] Instruction ${txn.instruction_id} is already SETTLED. Duplicate settlement prevented.`);
+                logger.info(
+                    `[WEBHOOK] Instruction ${txn.instruction_id} is already SETTLED. Duplicate settlement prevented.`
+                );
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, already_settled: true, instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        already_settled: true,
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             }
 
             if (txn.state === 'FAILED' || txn.state === 'ROLLED_BACK') {
-                logger.warn(`[WEBHOOK] Out-of-order success received for instruction ${txn.instruction_id} in terminal state ${txn.state}. Ignoring.`);
+                logger.warn(
+                    `[WEBHOOK] Out-of-order success received for instruction ${txn.instruction_id} in terminal state ${txn.state}. Ignoring.`
+                );
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, ignored: true, reason: `Instruction in terminal state ${txn.state}`, instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        ignored: true,
+                        reason: `Instruction in terminal state ${txn.state}`,
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             }
 
             // AMOUNT AND CURRENCY VERIFICATION (FAIL-CLOSED)
             if (provider === 'STRIPE') {
-                const rawObj = (payload && Object.keys(payload).length > 0) ? payload : (rawBody ? (() => { try { return JSON.parse(rawBody.toString('utf8')); } catch { return {}; } })() : {});
-                const obj = (rawObj && rawObj.data && rawObj.data.object) ? rawObj.data.object : (rawObj || {});
+                const rawObj =
+                    payload && Object.keys(payload).length > 0
+                        ? payload
+                        : rawBody
+                          ? (() => {
+                                try {
+                                    return JSON.parse(rawBody.toString('utf8'));
+                                } catch {
+                                    return {};
+                                }
+                            })()
+                          : {};
+                const obj =
+                    rawObj && rawObj.data && rawObj.data.object ? rawObj.data.object : rawObj || {};
                 const webhookCurrency = (obj.currency || '').toUpperCase();
                 const instructionCurrency = (txn.currency || '').toUpperCase();
 
-                if (webhookCurrency && instructionCurrency && webhookCurrency !== instructionCurrency) {
-                    logger.error(`[WEBHOOK] ❌ Currency mismatch for ${txn.instruction_id}: instruction expects ${instructionCurrency}, webhook reported ${webhookCurrency}`);
+                if (
+                    webhookCurrency &&
+                    instructionCurrency &&
+                    webhookCurrency !== instructionCurrency
+                ) {
+                    logger.error(
+                        `[WEBHOOK] ❌ Currency mismatch for ${txn.instruction_id}: instruction expects ${instructionCurrency}, webhook reported ${webhookCurrency}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
-                        [`Currency mismatch: expected ${instructionCurrency}, received ${webhookCurrency}`, txn.instruction_id]
+                        [
+                            `Currency mismatch: expected ${instructionCurrency}, received ${webhookCurrency}`,
+                            txn.instruction_id,
+                        ]
                     );
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'CURRENCY_MISMATCH', instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'CURRENCY_MISMATCH',
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
 
@@ -318,21 +386,42 @@ async function processWebhookEvent({
                 try {
                     expectedMinorUnits = toStripeMinorUnits(txn.amount, txn.currency);
                 } catch (convErr) {
-                    logger.error(`[WEBHOOK] ❌ Amount validation conversion failure for ${txn.instruction_id}: ${convErr.message}`);
+                    logger.error(
+                        `[WEBHOOK] ❌ Amount validation conversion failure for ${txn.instruction_id}: ${convErr.message}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
-                        [`Amount validation conversion failure: ${convErr.message}`, txn.instruction_id]
+                        [
+                            `Amount validation conversion failure: ${convErr.message}`,
+                            txn.instruction_id,
+                        ]
                     );
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'CONVERSION_FAILURE', detail: convErr.message, instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'CONVERSION_FAILURE',
+                            detail: convErr.message,
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
 
-                const actualAmount = obj.amount_received !== undefined && obj.amount_received !== null ? obj.amount_received : obj.amount;
-                if (rawObj && rawObj.data && rawObj.data.object && (actualAmount === undefined || actualAmount === null)) {
-                    logger.error(`[WEBHOOK] ❌ Missing amount in webhook payload for ${txn.instruction_id}`);
+                const actualAmount =
+                    obj.amount_received !== undefined && obj.amount_received !== null
+                        ? obj.amount_received
+                        : obj.amount;
+                if (
+                    rawObj &&
+                    rawObj.data &&
+                    rawObj.data.object &&
+                    (actualAmount === undefined || actualAmount === null)
+                ) {
+                    logger.error(
+                        `[WEBHOOK] ❌ Missing amount in webhook payload for ${txn.instruction_id}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
                         ['Missing amount in webhook payload', txn.instruction_id]
@@ -340,20 +429,39 @@ async function processWebhookEvent({
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'MISSING_AMOUNT', instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'MISSING_AMOUNT',
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
 
-                if (actualAmount !== undefined && actualAmount !== null && Number(actualAmount) !== expectedMinorUnits) {
-                    logger.error(`[WEBHOOK] ❌ Amount mismatch for ${txn.instruction_id}: expected ${expectedMinorUnits} minor units, webhook reported ${actualAmount}`);
+                if (
+                    actualAmount !== undefined &&
+                    actualAmount !== null &&
+                    Number(actualAmount) !== expectedMinorUnits
+                ) {
+                    logger.error(
+                        `[WEBHOOK] ❌ Amount mismatch for ${txn.instruction_id}: expected ${expectedMinorUnits} minor units, webhook reported ${actualAmount}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
-                        [`Amount mismatch: expected ${expectedMinorUnits} minor units, received ${actualAmount}`, txn.instruction_id]
+                        [
+                            `Amount mismatch: expected ${expectedMinorUnits} minor units, received ${actualAmount}`,
+                            txn.instruction_id,
+                        ]
                     );
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'AMOUNT_MISMATCH', instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'AMOUNT_MISMATCH',
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
             }
@@ -372,7 +480,12 @@ async function processWebhookEvent({
             );
 
             // Double-entry ledger verification
-            await verifyLedgerIntegrityFn(client, txn.instruction_id, txn.currency, txn.tax_withheld || 0);
+            await verifyLedgerIntegrityFn(
+                client,
+                txn.instruction_id,
+                txn.currency,
+                txn.tax_withheld || 0
+            );
 
             // Update state to SETTLED
             await client.query(
@@ -392,11 +505,18 @@ async function processWebhookEvent({
         if (isFailure) {
             if (txn.state === 'SETTLED') {
                 // Out-of-order failure event arriving after settlement
-                logger.warn(`[WEBHOOK] Out-of-order failure event received for already SETTLED instruction ${txn.instruction_id}. State preserved.`);
+                logger.warn(
+                    `[WEBHOOK] Out-of-order failure event received for already SETTLED instruction ${txn.instruction_id}. State preserved.`
+                );
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, ignored: true, reason: 'Instruction already settled, out-of-order failure ignored', instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        ignored: true,
+                        reason: 'Instruction already settled, out-of-order failure ignored',
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             }
 
@@ -404,11 +524,17 @@ async function processWebhookEvent({
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, already_failed: true, instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        already_failed: true,
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             }
 
-            logger.error(`[WEBHOOK] ❌ Payment Failed upstream for ${txn.instruction_id}: ${failureReason || 'Provider error'}`);
+            logger.error(
+                `[WEBHOOK] ❌ Payment Failed upstream for ${txn.instruction_id}: ${failureReason || 'Provider error'}`
+            );
             await client.query(
                 "UPDATE instructions SET state = 'FAILED', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
                 [failureReason || 'Upstream provider payment failed', txn.instruction_id]
@@ -423,15 +549,18 @@ async function processWebhookEvent({
         // C. LEGITIMATE POST-SETTLEMENT REFUNDS & REVERSALS
         // Preserves the original settled payment record and posts compensating double-entry ledger entries.
         if (isStripeRefund) {
-            const isSettledOrRefunded = txn.state === 'SETTLED' || 
-                                        txn.status === 'PARTIALLY_REFUNDED' || 
-                                        txn.status === 'SETTLED' || 
-                                        txn.state === 'PARTIALLY_REFUNDED' ||
-                                        txn.state === 'REFUNDED' ||
-                                        txn.status === 'REFUNDED';
+            const isSettledOrRefunded =
+                txn.state === 'SETTLED' ||
+                txn.status === 'PARTIALLY_REFUNDED' ||
+                txn.status === 'SETTLED' ||
+                txn.state === 'PARTIALLY_REFUNDED' ||
+                txn.state === 'REFUNDED' ||
+                txn.status === 'REFUNDED';
 
             if (!isSettledOrRefunded) {
-                logger.warn(`[WEBHOOK] ⚠️ Out-of-order refund event received for non-settled instruction ${txn.instruction_id} in state ${txn.state}. Rolling back and returning retryable 409 Conflict.`);
+                logger.warn(
+                    `[WEBHOOK] ⚠️ Out-of-order refund event received for non-settled instruction ${txn.instruction_id} in state ${txn.state}. Rolling back and returning retryable 409 Conflict.`
+                );
                 await client.query('ROLLBACK');
                 return {
                     status: 409,
@@ -448,7 +577,11 @@ async function processWebhookEvent({
             // Extract metadata
             let meta = txn.metadata;
             if (typeof meta === 'string') {
-                try { meta = JSON.parse(meta); } catch { meta = {}; }
+                try {
+                    meta = JSON.parse(meta);
+                } catch {
+                    meta = {};
+                }
             } else if (!meta || typeof meta !== 'object') {
                 meta = {};
             }
@@ -457,10 +590,18 @@ async function processWebhookEvent({
             }
 
             // Identify refund candidates from payload
-            const rawObj = (payload && payload.data && payload.data.object) ? payload.data.object : (payload || {});
+            const rawObj =
+                payload && payload.data && payload.data.object
+                    ? payload.data.object
+                    : payload || {};
             let refundItems = [];
 
-            if (eventType === 'charge.refunded' && rawObj.refunds && Array.isArray(rawObj.refunds.data) && rawObj.refunds.data.length > 0) {
+            if (
+                eventType === 'charge.refunded' &&
+                rawObj.refunds &&
+                Array.isArray(rawObj.refunds.data) &&
+                rawObj.refunds.data.length > 0
+            ) {
                 // Multi-refund array from charge.refunded
                 refundItems = rawObj.refunds.data.map((r) => ({
                     id: r.id,
@@ -470,33 +611,63 @@ async function processWebhookEvent({
                 }));
             } else if (rawObj.id && typeof rawObj.id === 'string' && rawObj.id.startsWith('re_')) {
                 // Direct refund object or mock refund payload
-                const refundAmt = rawObj.amount !== undefined ? rawObj.amount : (rawObj.amount_refunded !== undefined ? rawObj.amount_refunded : 0);
-                const refundStatus = (rawObj.status || (eventType === 'refund.failed' ? 'failed' : 'succeeded')).toLowerCase();
-                refundItems = [{
-                    id: rawObj.id,
-                    amount_minor: BigInt(refundAmt !== undefined ? refundAmt : 0),
-                    status: refundStatus,
-                    currency: (rawObj.currency || txn.currency).toUpperCase(),
-                }];
-            } else if (eventType === 'charge.refunded' && (!rawObj.refunds || !Array.isArray(rawObj.refunds.data) || rawObj.refunds.data.length === 0)) {
+                const refundAmt =
+                    rawObj.amount !== undefined
+                        ? rawObj.amount
+                        : rawObj.amount_refunded !== undefined
+                          ? rawObj.amount_refunded
+                          : 0;
+                const refundStatus = (
+                    rawObj.status || (eventType === 'refund.failed' ? 'failed' : 'succeeded')
+                ).toLowerCase();
+                refundItems = [
+                    {
+                        id: rawObj.id,
+                        amount_minor: BigInt(refundAmt !== undefined ? refundAmt : 0),
+                        status: refundStatus,
+                        currency: (rawObj.currency || txn.currency).toUpperCase(),
+                    },
+                ];
+            } else if (
+                eventType === 'charge.refunded' &&
+                (!rawObj.refunds ||
+                    !Array.isArray(rawObj.refunds.data) ||
+                    rawObj.refunds.data.length === 0)
+            ) {
                 // Real Charge object without individual refund objects
-                logger.warn(`[WEBHOOK] charge.refunded event ${eventId} carries no individual refund objects in refunds.data. Preserving idempotency without assuming cumulative charge amount is a new refund.`);
+                logger.warn(
+                    `[WEBHOOK] charge.refunded event ${eventId} carries no individual refund objects in refunds.data. Preserving idempotency without assuming cumulative charge amount is a new refund.`
+                );
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, ignored: true, reason: 'CHARGE_REFUND_WITHOUT_ITEMS', instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        ignored: true,
+                        reason: 'CHARGE_REFUND_WITHOUT_ITEMS',
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             } else {
                 // Individual refund event (refund.created, refund.updated, refund.failed)
                 const refundId = rawObj.id || rawObj.refund_id || eventId;
-                const refundAmt = rawObj.amount !== undefined ? rawObj.amount : (rawObj.amount_refunded !== undefined ? rawObj.amount_refunded : 0);
-                const refundStatus = (rawObj.status || (eventType === 'refund.failed' ? 'failed' : 'succeeded')).toLowerCase();
-                refundItems = [{
-                    id: refundId,
-                    amount_minor: BigInt(refundAmt !== undefined ? refundAmt : 0),
-                    status: refundStatus,
-                    currency: (rawObj.currency || txn.currency).toUpperCase(),
-                }];
+                const refundAmt =
+                    rawObj.amount !== undefined
+                        ? rawObj.amount
+                        : rawObj.amount_refunded !== undefined
+                          ? rawObj.amount_refunded
+                          : 0;
+                const refundStatus = (
+                    rawObj.status || (eventType === 'refund.failed' ? 'failed' : 'succeeded')
+                ).toLowerCase();
+                refundItems = [
+                    {
+                        id: refundId,
+                        amount_minor: BigInt(refundAmt !== undefined ? refundAmt : 0),
+                        status: refundStatus,
+                        currency: (rawObj.currency || txn.currency).toUpperCase(),
+                    },
+                ];
             }
 
             let anyNewPosting = false;
@@ -509,15 +680,25 @@ async function processWebhookEvent({
             // Fail-closed Currency mismatch validation for refunds
             for (const item of refundItems) {
                 if (item.currency && txn.currency && item.currency !== txn.currency.toUpperCase()) {
-                    logger.error(`[WEBHOOK] ❌ Currency mismatch in refund for ${txn.instruction_id}: instruction expects ${txn.currency}, refund reported ${item.currency}`);
+                    logger.error(
+                        `[WEBHOOK] ❌ Currency mismatch in refund for ${txn.instruction_id}: instruction expects ${txn.currency}, refund reported ${item.currency}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
-                        [`Currency mismatch in refund: expected ${txn.currency}, received ${item.currency}`, txn.instruction_id]
+                        [
+                            `Currency mismatch in refund: expected ${txn.currency}, received ${item.currency}`,
+                            txn.instruction_id,
+                        ]
                     );
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'CURRENCY_MISMATCH', instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'CURRENCY_MISMATCH',
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
             }
@@ -525,7 +706,9 @@ async function processWebhookEvent({
             // Check if authoritative payment_refunds table exists
             let hasRefundsTable = false;
             try {
-                const regCheck = await client.query("SELECT to_regclass('public.payment_refunds') AS tbl");
+                const regCheck = await client.query(
+                    "SELECT to_regclass('public.payment_refunds') AS tbl"
+                );
                 hasRefundsTable = Boolean(regCheck.rows[0]?.tbl);
             } catch (_) {
                 hasRefundsTable = false;
@@ -535,8 +718,14 @@ async function processWebhookEvent({
                 lastRefundId = item.id;
 
                 // Positive amount validation for non-failed refunds
-                if (item.status !== 'failed' && item.status !== 'canceled' && item.amount_minor <= 0n) {
-                    logger.error(`[WEBHOOK] ❌ Invalid non-positive refund amount for ${txn.instruction_id}: ${item.amount_minor}`);
+                if (
+                    item.status !== 'failed' &&
+                    item.status !== 'canceled' &&
+                    item.amount_minor <= 0n
+                ) {
+                    logger.error(
+                        `[WEBHOOK] ❌ Invalid non-positive refund amount for ${txn.instruction_id}: ${item.amount_minor}`
+                    );
                     await client.query(
                         "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
                         [`Invalid refund amount: minor units must be positive`, txn.instruction_id]
@@ -544,7 +733,12 @@ async function processWebhookEvent({
                     await client.query('COMMIT');
                     return {
                         status: 200,
-                        body: { received: true, mismatch: true, reason: 'INVALID_REFUND_AMOUNT', instruction_id: txn.instruction_id },
+                        body: {
+                            received: true,
+                            mismatch: true,
+                            reason: 'INVALID_REFUND_AMOUNT',
+                            instruction_id: txn.instruction_id,
+                        },
                     };
                 }
 
@@ -560,17 +754,26 @@ async function processWebhookEvent({
                     existingDbRecord = dbCheck.rows[0] || null;
                 }
 
-                const isAlreadySucceeded = (existingDbRecord && existingDbRecord.status === 'SUCCEEDED') ||
-                                           (existingRecord && existingRecord.status === 'SUCCEEDED');
+                const isAlreadySucceeded =
+                    (existingDbRecord && existingDbRecord.status === 'SUCCEEDED') ||
+                    (existingRecord && existingRecord.status === 'SUCCEEDED');
 
-                if (isAlreadySucceeded && (item.status === 'pending' || item.status === 'failed' || item.status === 'canceled')) {
-                    logger.warn(`[WEBHOOK] ⚠️ Stale ${item.status} event ignored for already SUCCEEDED refund ${item.id}. Status regression prevented.`);
+                if (
+                    isAlreadySucceeded &&
+                    (item.status === 'pending' ||
+                        item.status === 'failed' ||
+                        item.status === 'canceled')
+                ) {
+                    logger.warn(
+                        `[WEBHOOK] ⚠️ Stale ${item.status} event ignored for already SUCCEEDED refund ${item.id}. Status regression prevented.`
+                    );
                     continue;
                 }
 
                 if (item.status === 'failed' || item.status === 'canceled') {
                     if (hasRefundsTable) {
-                        await client.query(`
+                        await client.query(
+                            `
                             INSERT INTO payment_refunds (
                                 provider, provider_refund_id, instruction_id, external_intent_id,
                                 amount_minor, currency, status, event_id, updated_at
@@ -582,11 +785,18 @@ async function processWebhookEvent({
                                 END,
                                 event_id = EXCLUDED.event_id,
                                 updated_at = NOW()
-                        `, [
-                            provider, item.id, txn.instruction_id, txn.external_intent_id,
-                            item.amount_minor, (item.currency || txn.currency).toUpperCase(),
-                            item.status.toUpperCase(), eventId
-                        ]);
+                        `,
+                            [
+                                provider,
+                                item.id,
+                                txn.instruction_id,
+                                txn.external_intent_id,
+                                item.amount_minor,
+                                (item.currency || txn.currency).toUpperCase(),
+                                item.status.toUpperCase(),
+                                eventId,
+                            ]
+                        );
                     }
                     if (existingRecord) {
                         existingRecord.status = item.status.toUpperCase();
@@ -595,7 +805,10 @@ async function processWebhookEvent({
                         meta.refunds.push({
                             refund_id: item.id,
                             amount_minor: Number(item.amount_minor),
-                            amount_decimal: fromCanonicalMinorUnits(item.amount_minor, txn.currency),
+                            amount_decimal: fromCanonicalMinorUnits(
+                                item.amount_minor,
+                                txn.currency
+                            ),
                             currency: txn.currency,
                             status: item.status.toUpperCase(),
                             created_at: new Date().toISOString(),
@@ -608,7 +821,8 @@ async function processWebhookEvent({
 
                 if (item.status === 'pending') {
                     if (hasRefundsTable) {
-                        await client.query(`
+                        await client.query(
+                            `
                             INSERT INTO payment_refunds (
                                 provider, provider_refund_id, instruction_id, external_intent_id,
                                 amount_minor, currency, status, event_id, updated_at
@@ -620,11 +834,18 @@ async function processWebhookEvent({
                                 END,
                                 event_id = EXCLUDED.event_id,
                                 updated_at = NOW()
-                        `, [
-                            provider, item.id, txn.instruction_id, txn.external_intent_id,
-                            item.amount_minor, (item.currency || txn.currency).toUpperCase(),
-                            'PENDING', eventId
-                        ]);
+                        `,
+                            [
+                                provider,
+                                item.id,
+                                txn.instruction_id,
+                                txn.external_intent_id,
+                                item.amount_minor,
+                                (item.currency || txn.currency).toUpperCase(),
+                                'PENDING',
+                                eventId,
+                            ]
+                        );
                     }
                     if (existingRecord) {
                         existingRecord.status = 'PENDING';
@@ -633,7 +854,10 @@ async function processWebhookEvent({
                         meta.refunds.push({
                             refund_id: item.id,
                             amount_minor: Number(item.amount_minor),
-                            amount_decimal: fromCanonicalMinorUnits(item.amount_minor, txn.currency),
+                            amount_decimal: fromCanonicalMinorUnits(
+                                item.amount_minor,
+                                txn.currency
+                            ),
                             currency: txn.currency,
                             status: 'PENDING',
                             created_at: new Date().toISOString(),
@@ -645,36 +869,54 @@ async function processWebhookEvent({
                 }
 
                 if (item.status === 'succeeded') {
-                    const isAlreadyPosted = (existingDbRecord && existingDbRecord.status === 'SUCCEEDED' && existingDbRecord.ledger_entry_id) ||
-                                            (existingRecord && existingRecord.ledger_posted);
+                    const isAlreadyPosted =
+                        (existingDbRecord &&
+                            existingDbRecord.status === 'SUCCEEDED' &&
+                            existingDbRecord.ledger_entry_id) ||
+                        (existingRecord && existingRecord.ledger_posted);
 
                     if (isAlreadyPosted) {
                         // Already posted to ledger! Idempotent replay detected for this refund.
-                        logger.info(`[WEBHOOK] Refund ${item.id} already posted to ledger. Skipping duplicate ledger posting.`);
+                        logger.info(
+                            `[WEBHOOK] Refund ${item.id} already posted to ledger. Skipping duplicate ledger posting.`
+                        );
                         continue;
                     }
 
                     // Check over-refund limit against DB or meta
                     let effectiveCumulative = cumulativeRefundedMinor;
                     if (hasRefundsTable) {
-                        const sumRes = await client.query(`
+                        const sumRes = await client.query(
+                            `
                             SELECT COALESCE(SUM(amount_minor), 0) AS total
                             FROM payment_refunds
                             WHERE instruction_id = $1 AND status = 'SUCCEEDED' AND provider_refund_id != $2
-                        `, [txn.instruction_id, item.id]);
+                        `,
+                            [txn.instruction_id, item.id]
+                        );
                         effectiveCumulative = BigInt(sumRes.rows[0].total);
                     }
 
                     if (effectiveCumulative + item.amount_minor > totalCapturedMinor) {
-                        logger.error(`[WEBHOOK] ❌ Over-refund attempt on ${txn.instruction_id}: ${effectiveCumulative + item.amount_minor} exceeds captured ${totalCapturedMinor}`);
+                        logger.error(
+                            `[WEBHOOK] ❌ Over-refund attempt on ${txn.instruction_id}: ${effectiveCumulative + item.amount_minor} exceeds captured ${totalCapturedMinor}`
+                        );
                         await client.query(
                             "UPDATE instructions SET state = 'MANUAL_CHECK', error_message = $1, updated_at = NOW() WHERE instruction_id = $2",
-                            [`Over-refund attempt: refund amount exceeds remaining captured balance`, txn.instruction_id]
+                            [
+                                `Over-refund attempt: refund amount exceeds remaining captured balance`,
+                                txn.instruction_id,
+                            ]
                         );
                         await client.query('COMMIT');
                         return {
                             status: 200,
-                            body: { received: true, mismatch: true, reason: 'OVER_REFUND_ATTEMPT', instruction_id: txn.instruction_id },
+                            body: {
+                                received: true,
+                                mismatch: true,
+                                reason: 'OVER_REFUND_ATTEMPT',
+                                instruction_id: txn.instruction_id,
+                            },
                         };
                     }
 
@@ -691,11 +933,17 @@ async function processWebhookEvent({
                     );
 
                     // Verify ledger integrity
-                    await verifyLedgerIntegrityFn(client, txn.instruction_id, txn.currency, txn.tax_withheld || 0);
+                    await verifyLedgerIntegrityFn(
+                        client,
+                        txn.instruction_id,
+                        txn.currency,
+                        txn.tax_withheld || 0
+                    );
 
                     // Insert/update payment_refunds
                     if (hasRefundsTable) {
-                        await client.query(`
+                        await client.query(
+                            `
                             INSERT INTO payment_refunds (
                                 provider, provider_refund_id, instruction_id, external_intent_id,
                                 amount_minor, currency, status, event_id, ledger_entry_id, updated_at
@@ -705,11 +953,19 @@ async function processWebhookEvent({
                                 event_id = EXCLUDED.event_id,
                                 ledger_entry_id = COALESCE(payment_refunds.ledger_entry_id, EXCLUDED.ledger_entry_id),
                                 updated_at = NOW()
-                        `, [
-                            provider, item.id, txn.instruction_id, txn.external_intent_id,
-                            item.amount_minor, (item.currency || txn.currency).toUpperCase(),
-                            'SUCCEEDED', eventId, ledgerResult.entryIdDebit
-                        ]);
+                        `,
+                            [
+                                provider,
+                                item.id,
+                                txn.instruction_id,
+                                txn.external_intent_id,
+                                item.amount_minor,
+                                (item.currency || txn.currency).toUpperCase(),
+                                'SUCCEEDED',
+                                eventId,
+                                ledgerResult.entryIdDebit,
+                            ]
+                        );
                     }
 
                     cumulativeRefundedMinor = effectiveCumulative + item.amount_minor;
@@ -736,11 +992,14 @@ async function processWebhookEvent({
             }
 
             if (hasRefundsTable) {
-                const finalSumRes = await client.query(`
+                const finalSumRes = await client.query(
+                    `
                     SELECT COALESCE(SUM(amount_minor), 0) AS total
                     FROM payment_refunds
                     WHERE instruction_id = $1 AND status = 'SUCCEEDED'
-                `, [txn.instruction_id]);
+                `,
+                    [txn.instruction_id]
+                );
                 cumulativeRefundedMinor = BigInt(finalSumRes.rows[0].total);
             }
 
@@ -759,14 +1018,14 @@ async function processWebhookEvent({
             // Attempt state update with fallback for material freeze trigger
             try {
                 await client.query(
-                    "UPDATE instructions SET state = $1, status = $1, metadata = $2, updated_at = NOW() WHERE instruction_id = $3",
+                    'UPDATE instructions SET state = $1, status = $1, metadata = $2, updated_at = NOW() WHERE instruction_id = $3',
                     [targetState, JSON.stringify(meta), txn.instruction_id]
                 );
             } catch (stateErr) {
                 if (stateErr.message.includes('terminal state SETTLED')) {
                     // In fusion_db, material freeze trigger preserves original SETTLED state; update status & metadata
                     await client.query(
-                        "UPDATE instructions SET status = $1, metadata = $2, updated_at = NOW() WHERE instruction_id = $3",
+                        'UPDATE instructions SET status = $1, metadata = $2, updated_at = NOW() WHERE instruction_id = $3',
                         [targetState, JSON.stringify(meta), txn.instruction_id]
                     );
                 } else {
@@ -775,7 +1034,9 @@ async function processWebhookEvent({
             }
 
             await client.query('COMMIT');
-            logger.warn(`[WEBHOOK] 🔄 Refund lifecycle updated for ${txn.instruction_id} -> ${targetState} (Cumulative: ${fromCanonicalMinorUnits(cumulativeRefundedMinor, txn.currency)} ${txn.currency})`);
+            logger.warn(
+                `[WEBHOOK] 🔄 Refund lifecycle updated for ${txn.instruction_id} -> ${targetState} (Cumulative: ${fromCanonicalMinorUnits(cumulativeRefundedMinor, txn.currency)} ${txn.currency})`
+            );
 
             return {
                 status: 200,
@@ -784,7 +1045,10 @@ async function processWebhookEvent({
                     state: targetState,
                     operation: 'COMPENSATING_REFUND',
                     refund_id: lastRefundId,
-                    cumulative_refunded: fromCanonicalMinorUnits(cumulativeRefundedMinor, txn.currency),
+                    cumulative_refunded: fromCanonicalMinorUnits(
+                        cumulativeRefundedMinor,
+                        txn.currency
+                    ),
                     cumulative_refunded_minor: Number(cumulativeRefundedMinor),
                     any_posted: anyNewPosting,
                     instruction_id: txn.instruction_id,
@@ -792,11 +1056,11 @@ async function processWebhookEvent({
             };
         }
 
-        const isStripePending = provider === 'STRIPE' && (
-            eventType === 'payment_intent.processing' ||
-            eventType === 'payment_intent.created' ||
-            eventType === 'payment_intent.requires_action'
-        );
+        const isStripePending =
+            provider === 'STRIPE' &&
+            (eventType === 'payment_intent.processing' ||
+                eventType === 'payment_intent.created' ||
+                eventType === 'payment_intent.requires_action');
         if (isStripePending) {
             if (txn.state === 'PENDING_EXECUTION' || txn.state === 'LOCKED') {
                 await client.query(
@@ -807,13 +1071,20 @@ async function processWebhookEvent({
             await client.query('COMMIT');
             return {
                 status: 200,
-                body: { received: true, state: txn.state === 'SETTLED' ? 'SETTLED' : 'PENDING_SETTLEMENT', pending: true, instruction_id: txn.instruction_id },
+                body: {
+                    received: true,
+                    state: txn.state === 'SETTLED' ? 'SETTLED' : 'PENDING_SETTLEMENT',
+                    pending: true,
+                    instruction_id: txn.instruction_id,
+                },
             };
         }
 
         if (isRazorpayReversal) {
             if (txn.state === 'SETTLED') {
-                logger.warn(`[WEBHOOK] 🔄 Post-settlement reversal received for instruction ${txn.instruction_id}`);
+                logger.warn(
+                    `[WEBHOOK] 🔄 Post-settlement reversal received for instruction ${txn.instruction_id}`
+                );
                 await client.query(
                     "UPDATE instructions SET state = 'REVERSED', updated_at = NOW() WHERE instruction_id = $1",
                     [txn.instruction_id]
@@ -824,21 +1095,35 @@ async function processWebhookEvent({
                     body: { received: true, state: 'REVERSED', instruction_id: txn.instruction_id },
                 };
             } else {
-                logger.warn(`[WEBHOOK] Reversal event received for non-settled instruction ${txn.instruction_id} in state ${txn.state}`);
+                logger.warn(
+                    `[WEBHOOK] Reversal event received for non-settled instruction ${txn.instruction_id} in state ${txn.state}`
+                );
                 await client.query('COMMIT');
                 return {
                     status: 200,
-                    body: { received: true, ignored: true, reason: `Reversal on non-settled state ${txn.state}`, instruction_id: txn.instruction_id },
+                    body: {
+                        received: true,
+                        ignored: true,
+                        reason: `Reversal on non-settled state ${txn.state}`,
+                        instruction_id: txn.instruction_id,
+                    },
                 };
             }
         }
 
         // D. INFORMATIONAL / NON-MUTATING EVENTS
-        logger.info(`[WEBHOOK] Non-mutating event recorded: ${provider} ${eventType} for ${txn.instruction_id}`);
+        logger.info(
+            `[WEBHOOK] Non-mutating event recorded: ${provider} ${eventType} for ${txn.instruction_id}`
+        );
         await client.query('COMMIT');
         return {
             status: 200,
-            body: { received: true, informational: true, event_type: eventType, instruction_id: txn.instruction_id },
+            body: {
+                received: true,
+                informational: true,
+                event_type: eventType,
+                instruction_id: txn.instruction_id,
+            },
         };
     } catch (err) {
         // A failed database operation must NOT leave an event permanently marked as processed
@@ -846,7 +1131,10 @@ async function processWebhookEvent({
         logger.error(`[WEBHOOK DB ERROR] ❌ ${err.message}`);
         return {
             status: 500,
-            body: { error: 'Database transaction failed during webhook processing', detail: err.message },
+            body: {
+                error: 'Database transaction failed during webhook processing',
+                detail: err.message,
+            },
         };
     } finally {
         client.release();
@@ -859,4 +1147,3 @@ module.exports = {
     verifyRazorpayXSignature,
     processWebhookEvent,
 };
-

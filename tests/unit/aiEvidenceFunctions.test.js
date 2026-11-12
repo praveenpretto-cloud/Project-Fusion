@@ -14,7 +14,6 @@ const {
 const { toCanonicalDecimal } = require('../../core/orchestrator/financialDecimal');
 
 describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => {
-
     // Helper to generate a realistic SHA-256 hash
     function sha256(str) {
         return crypto.createHash('sha256').update(str).digest('hex');
@@ -30,7 +29,12 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
     describe('Capability 1 & 2: Parameterized SQL & Strict Input Validation', () => {
         test('rejects non-UUID instruction identifiers with INVALID_IDENTIFIER', async () => {
             const mockClient = { query: jest.fn() };
-            const badIds = ['not-a-uuid', '12345', 'SELECT * FROM users;', '3a7f8b2c-1234-4567-89ab'];
+            const badIds = [
+                'not-a-uuid',
+                '12345',
+                'SELECT * FROM users;',
+                '3a7f8b2c-1234-4567-89ab',
+            ];
 
             for (const badId of badIds) {
                 const resTimeline = await getTransactionTimeline(mockClient, badId);
@@ -58,12 +62,14 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql, params) => {
                     capturedQueries.push({ sql, params });
                     return { rows: [] };
-                })
+                }),
             };
 
             await getTransactionTimeline(mockClient, TEST_INSTRUCTION_ID);
             await getProviderFailureDetails(mockClient, TEST_INSTRUCTION_ID);
-            await getSettlementAndWebhookEvidence(mockClient, { instructionId: TEST_INSTRUCTION_ID });
+            await getSettlementAndWebhookEvidence(mockClient, {
+                instructionId: TEST_INSTRUCTION_ID,
+            });
             await getReconciliationEvidence(mockClient, TEST_INSTRUCTION_ID);
             await explainIsoValidationErrors(mockClient, TEST_INVOICE_ID);
 
@@ -90,17 +96,19 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
 
             const mockClient = {
                 query: jest.fn().mockResolvedValue({
-                    rows: [{
-                        instruction_id: TEST_INSTRUCTION_ID,
-                        state: 'SETTLED',
-                        amount: '1500.5',
-                        currency: 'USD',
-                        created_at: createdAt,
-                        updated_at: updatedAt,
-                        reconciliation_status: 'RECONCILED',
-                        reconciled_at: reconciledAt
-                    }]
-                })
+                    rows: [
+                        {
+                            instruction_id: TEST_INSTRUCTION_ID,
+                            state: 'SETTLED',
+                            amount: '1500.5',
+                            currency: 'USD',
+                            created_at: createdAt,
+                            updated_at: updatedAt,
+                            reconciliation_status: 'RECONCILED',
+                            reconciled_at: reconciledAt,
+                        },
+                    ],
+                }),
             };
 
             const res = await getTransactionTimeline(mockClient, TEST_INSTRUCTION_ID);
@@ -120,7 +128,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
 
         test('returns NOT_FOUND when instruction does not exist', async () => {
             const mockClient = {
-                query: jest.fn().mockResolvedValue({ rows: [] })
+                query: jest.fn().mockResolvedValue({ rows: [] }),
             };
 
             const res = await getTransactionTimeline(mockClient, TEST_INSTRUCTION_ID);
@@ -138,23 +146,25 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'FAILED',
-                                provider: 'FIAT',
-                                external_intent_id: 'unknown_ref_123',
-                                utr: null,
-                                execution_attempts: 1,
-                                error_message: 'Webhook reported failure',
-                                currency: 'USD'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'FAILED',
+                                    provider: 'FIAT',
+                                    external_intent_id: 'unknown_ref_123',
+                                    utr: null,
+                                    execution_attempts: 1,
+                                    error_message: 'Webhook reported failure',
+                                    currency: 'USD',
+                                },
+                            ],
                         };
                     }
                     if (sql.includes('FROM processed_webhook_events')) {
                         return { rows: [{ provider: 'STRIPE' }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getProviderFailureDetails(mockClient, TEST_INSTRUCTION_ID);
@@ -169,23 +179,28 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'FAILED',
-                                provider: 'FIAT',
-                                external_intent_id: 'pi_3MtwBwLkdIwHu7ix28a3tqPa',
-                                utr: null,
-                                execution_attempts: 1,
-                                error_message: 'Card declined',
-                                currency: 'USD'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'FAILED',
+                                    provider: 'FIAT',
+                                    external_intent_id: 'pi_3MtwBwLkdIwHu7ix28a3tqPa',
+                                    utr: null,
+                                    execution_attempts: 1,
+                                    error_message: 'Card declined',
+                                    currency: 'USD',
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
-            const resStripe = await getProviderFailureDetails(mockClientStripe, TEST_INSTRUCTION_ID);
+            const resStripe = await getProviderFailureDetails(
+                mockClientStripe,
+                TEST_INSTRUCTION_ID
+            );
             expect(resStripe.data.provider_classification).toBe('IDENTIFIER_FORMAT_CANDIDATE');
             expect(resStripe.data.resolved_provider).toBe('STRIPE');
 
@@ -193,23 +208,28 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'FAILED',
-                                provider: 'FIAT',
-                                external_intent_id: 'pout_L3rG8H7b0Z2M4A',
-                                utr: null,
-                                execution_attempts: 2,
-                                error_message: 'Insufficient balance in business account',
-                                currency: 'INR'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'FAILED',
+                                    provider: 'FIAT',
+                                    external_intent_id: 'pout_L3rG8H7b0Z2M4A',
+                                    utr: null,
+                                    execution_attempts: 2,
+                                    error_message: 'Insufficient balance in business account',
+                                    currency: 'INR',
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
-            const resRazorpay = await getProviderFailureDetails(mockClientRazorpay, TEST_INSTRUCTION_ID);
+            const resRazorpay = await getProviderFailureDetails(
+                mockClientRazorpay,
+                TEST_INSTRUCTION_ID
+            );
             expect(resRazorpay.data.provider_classification).toBe('IDENTIFIER_FORMAT_CANDIDATE');
             expect(resRazorpay.data.resolved_provider).toBe('RAZORPAYX');
         });
@@ -220,26 +240,30 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'FAILED',
-                                provider: 'CRYPTO',
-                                external_intent_id: hex64,
-                                utr: null,
-                                execution_attempts: 1,
-                                error_message: 'tx_failed',
-                                currency: 'XLM'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'FAILED',
+                                    provider: 'CRYPTO',
+                                    external_intent_id: hex64,
+                                    utr: null,
+                                    execution_attempts: 1,
+                                    error_message: 'tx_failed',
+                                    currency: 'XLM',
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getProviderFailureDetails(mockClient, TEST_INSTRUCTION_ID);
             expect(res.data.provider_classification).toBe('IDENTIFIER_FORMAT_CANDIDATE');
             expect(res.data.resolved_provider).toBe('GENERIC_HEX64');
-            expect(res.data.provider_evidence_note).toContain('does not prove Stellar network settlement');
+            expect(res.data.provider_evidence_note).toContain(
+                'does not prove Stellar network settlement'
+            );
         });
 
         test('Tier 3: UNVERIFIED_BROAD_CATEGORY for instructions.provider when intent format is absent', async () => {
@@ -247,20 +271,22 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'FAILED',
-                                provider: 'FIAT',
-                                external_intent_id: null,
-                                utr: null,
-                                execution_attempts: 0,
-                                error_message: 'Policy Rejected',
-                                currency: 'EUR'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'FAILED',
+                                    provider: 'FIAT',
+                                    external_intent_id: null,
+                                    utr: null,
+                                    execution_attempts: 0,
+                                    error_message: 'Policy Rejected',
+                                    currency: 'EUR',
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getProviderFailureDetails(mockClient, TEST_INSTRUCTION_ID);
@@ -273,20 +299,22 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                state: 'INITIATED',
-                                provider: null,
-                                external_intent_id: null,
-                                utr: null,
-                                execution_attempts: 0,
-                                error_message: null,
-                                currency: 'USD'
-                            }]
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    state: 'INITIATED',
+                                    provider: null,
+                                    external_intent_id: null,
+                                    utr: null,
+                                    execution_attempts: 0,
+                                    error_message: null,
+                                    currency: 'USD',
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getProviderFailureDetails(mockClient, TEST_INSTRUCTION_ID);
@@ -302,14 +330,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
     describe('Capability 6: getSagaExecutionEvidence & Generic Saga vs Invoices', () => {
         test('generic instruction with no invoice association returns INCOMPLETE_GENERIC_SAGA', async () => {
             const mockClient = {
-                query: jest.fn().mockResolvedValue({ rows: [] })
+                query: jest.fn().mockResolvedValue({ rows: [] }),
             };
 
             const res = await getSagaExecutionEvidence(mockClient, TEST_INSTRUCTION_ID);
             expect(res.success).toBe(true);
             expect(res.status).toBe('INCOMPLETE_GENERIC_SAGA');
             expect(res.steps).toEqual([]);
-            expect(res.message).toContain('Generic payment instructions do not persist intermediate Saga step history');
+            expect(res.message).toContain(
+                'Generic payment instructions do not persist intermediate Saga step history'
+            );
         });
 
         test('invoice lookup returns steps and clarifies escrow_flagged is an internal pipeline hold', async () => {
@@ -317,32 +347,50 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql, params) => {
                     if (sql.includes('LIMIT 2')) {
                         return {
-                            rows: [{
-                                invoice_id: TEST_INVOICE_ID,
-                                saga_id: TEST_SAGA_ID,
-                                state: 'IN_PROGRESS'
-                            }]
+                            rows: [
+                                {
+                                    invoice_id: TEST_INVOICE_ID,
+                                    saga_id: TEST_SAGA_ID,
+                                    state: 'IN_PROGRESS',
+                                },
+                            ],
                         };
                     }
                     if (sql.includes('FROM invoices WHERE invoice_id')) {
                         return {
-                            rows: [{
-                                invoice_id: TEST_INVOICE_ID,
-                                saga_id: TEST_SAGA_ID,
-                                state: 'IN_PROGRESS'
-                            }]
+                            rows: [
+                                {
+                                    invoice_id: TEST_INVOICE_ID,
+                                    saga_id: TEST_SAGA_ID,
+                                    state: 'IN_PROGRESS',
+                                },
+                            ],
                         };
                     }
                     if (sql.includes('FROM invoice_saga_steps')) {
                         return {
                             rows: [
-                                { step_id: 'STEP_01', amount_pct: '30.00', condition: 'ADVANCE', rail: 'STRIPE', status: 'COMPLETED', escrow_flagged: false },
-                                { step_id: 'STEP_02', amount_pct: '70.00', condition: 'DELIVERY', rail: 'STRIPE', status: 'PENDING', escrow_flagged: true }
-                            ]
+                                {
+                                    step_id: 'STEP_01',
+                                    amount_pct: '30.00',
+                                    condition: 'ADVANCE',
+                                    rail: 'STRIPE',
+                                    status: 'COMPLETED',
+                                    escrow_flagged: false,
+                                },
+                                {
+                                    step_id: 'STEP_02',
+                                    amount_pct: '70.00',
+                                    condition: 'DELIVERY',
+                                    rail: 'STRIPE',
+                                    status: 'PENDING',
+                                    escrow_flagged: true,
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getSagaExecutionEvidence(mockClient, TEST_INVOICE_ID);
@@ -351,7 +399,9 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             expect(res.steps.length).toBe(2);
             expect(res.steps[1].escrow_flagged).toBe(true);
             // Must contain disclaimer that escrow_flagged does not prove legal custody
-            expect(res.steps[1].escrow_disclaimer).toContain('does not establish third-party legal escrow custody');
+            expect(res.steps[1].escrow_disclaimer).toContain(
+                'does not establish third-party legal escrow custody'
+            );
             expect(res.steps[0].escrow_disclaimer).toBeNull();
         });
 
@@ -362,12 +412,12 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return {
                             rows: [
                                 { invoice_id: 'COLLIDE-ID', saga_id: 'SAGA-101' },
-                                { invoice_id: 'INV-202', saga_id: 'COLLIDE-ID' }
-                            ]
+                                { invoice_id: 'INV-202', saga_id: 'COLLIDE-ID' },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await getSagaExecutionEvidence(mockClient, 'COLLIDE-ID');
@@ -386,47 +436,75 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, provider: 'FIAT', external_intent_id: 'pi_test123', currency: 'USD', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    provider: 'FIAT',
+                                    external_intent_id: 'pi_test123',
+                                    currency: 'USD',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('FROM processed_webhook_events')) {
                         return {
-                            rows: [{
-                                event_id: 'evt_stripe_1',
-                                provider: 'STRIPE',
-                                event_type: 'payment_intent.succeeded',
-                                instruction_id: TEST_INSTRUCTION_ID,
-                                external_intent_id: 'pi_test123',
-                                payload_hash: sha256('webhook_payload_sample'),
-                                processed_at: processedAt
-                            }]
+                            rows: [
+                                {
+                                    event_id: 'evt_stripe_1',
+                                    provider: 'STRIPE',
+                                    event_type: 'payment_intent.succeeded',
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    external_intent_id: 'pi_test123',
+                                    payload_hash: sha256('webhook_payload_sample'),
+                                    processed_at: processedAt,
+                                },
+                            ],
                         };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
-            const res = await getSettlementAndWebhookEvidence(mockClient, { instructionId: TEST_INSTRUCTION_ID });
+            const res = await getSettlementAndWebhookEvidence(mockClient, {
+                instructionId: TEST_INSTRUCTION_ID,
+            });
             expect(res.success).toBe(true);
             expect(res.status).toBe('WEBHOOK_RECORDED');
             expect(res.events_count).toBe(1);
             expect(res.events[0].event_id).toBe('evt_stripe_1');
-            expect(res.delivery_tracking_note).toContain('Duplicate delivery count is not persisted by PostgreSQL');
+            expect(res.delivery_tracking_note).toContain(
+                'Duplicate delivery count is not persisted by PostgreSQL'
+            );
         });
 
         test('does NOT return NO_WEBHOOKS_STELLAR_RPC merely for XLM & CRYPTO without explicit provider proof', async () => {
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, provider: 'CRYPTO', external_intent_id: 'some_hash', currency: 'XLM', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    provider: 'CRYPTO',
+                                    external_intent_id: 'some_hash',
+                                    currency: 'XLM',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('FROM processed_webhook_events')) {
                         return { rows: [] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
-            const res = await getSettlementAndWebhookEvidence(mockClient, { instructionId: TEST_INSTRUCTION_ID });
+            const res = await getSettlementAndWebhookEvidence(mockClient, {
+                instructionId: TEST_INSTRUCTION_ID,
+            });
             expect(res.success).toBe(true);
             // AI-0.3.1 RULE: Must return WEBHOOK_NOT_RECORDED with UNVERIFIED_BROAD_CATEGORY
             expect(res.status).toBe('WEBHOOK_NOT_RECORDED');
@@ -438,7 +516,6 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
     // 6. TOOL 5: verifyLedgerIntegrity & Five Dimensions (Including PRED-01 to PRED-07)
     // =========================================================================
     describe('Capability 11: verifyLedgerIntegrity Five Dimensions & Synthetic PRED-01..07', () => {
-
         // Helper to create synthetic valid 2-entry ledger postings
         function createPostingPair({
             instructionId = TEST_INSTRUCTION_ID,
@@ -448,7 +525,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             prevHash = 'PRED_HASH_001',
             seq1 = 101,
             seq2 = 102,
-            timestamp = new Date('2026-11-01T12:00:00Z').toISOString()
+            timestamp = new Date('2026-11-01T12:00:00Z').toISOString(),
         }) {
             const entryId1 = 'e1-uuid';
             const entryId2 = 'e2-uuid';
@@ -472,7 +549,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                     timestamp,
                     hash: hash1,
                     prev_hash: prevHash,
-                    sequence_id: seq1
+                    sequence_id: seq1,
                 },
                 {
                     entry_id: entryId2,
@@ -484,8 +561,8 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                     timestamp,
                     hash: hash2,
                     prev_hash: hash1,
-                    sequence_id: seq2
-                }
+                    sequence_id: seq2,
+                },
             ];
         }
 
@@ -494,7 +571,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '10.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '10.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -503,7 +589,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] }; // Predecessor immediate match
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -512,7 +598,9 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             // Dimension 1: Application posting consistency
             expect(res.dimensions.application_posting_consistency).toBe('CONSISTENT');
             // Dimension 2: Conventional double-entry equality MUST be reported unbalanced
-            expect(res.dimensions.conventional_double_entry_balance).toBe('UNBALANCED_NO_TAX_LIABILITY_POSTING');
+            expect(res.dimensions.conventional_double_entry_balance).toBe(
+                'UNBALANCED_NO_TAX_LIABILITY_POSTING'
+            );
             expect(res.arithmetic_summary.debits_equal_credits).toBe(false);
             // Dimension 3, 4, 5
             expect(res.dimensions.entry_hash_validity).toBe('VALID');
@@ -525,7 +613,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: null, state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: null,
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -534,11 +631,13 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
-            expect(res.dimensions.application_posting_consistency).toBe('UNVERIFIABLE_MISSING_TAX_DATA');
+            expect(res.dimensions.application_posting_consistency).toBe(
+                'UNVERIFIABLE_MISSING_TAX_DATA'
+            );
             expect(res.arithmetic_summary.tax_withheld_status).toBe('TAX_DATA_UNAVAILABLE');
         });
 
@@ -546,14 +645,33 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         // Only 1 entry instead of 2
-                        return { rows: [{ entry_id: 'e1', direction: 'DEBIT', amount: '100.00', currency: 'USD', sequence_id: 101 }] };
+                        return {
+                            rows: [
+                                {
+                                    entry_id: 'e1',
+                                    direction: 'DEBIT',
+                                    amount: '100.00',
+                                    currency: 'USD',
+                                    sequence_id: 101,
+                                },
+                            ],
+                        };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -568,13 +686,22 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
                         // Instruction expects USD, ledger entries are in EUR
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -590,7 +717,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -600,7 +736,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -613,7 +749,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -623,7 +768,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -635,7 +780,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -649,7 +803,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ sequence_id: 100 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -657,11 +811,24 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
         });
 
         test('PRED-04: Missing predecessor returns PREDECESSOR_HASH_NOT_FOUND', async () => {
-            const entries = createPostingPair({ prevHash: 'NONEXISTENT_HASH', seq1: 101, seq2: 102 });
+            const entries = createPostingPair({
+                prevHash: 'NONEXISTENT_HASH',
+                seq1: 101,
+                seq2: 102,
+            });
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -673,7 +840,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [] }; // Hash does not exist anywhere
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -685,7 +852,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -698,11 +874,13 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ sequence_id: 110 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
-            expect(res.dimensions.immediate_global_predecessor).toBe('PREDECESSOR_SEQUENCE_VIOLATION');
+            expect(res.dimensions.immediate_global_predecessor).toBe(
+                'PREDECESSOR_SEQUENCE_VIOLATION'
+            );
         });
 
         test('PRED-06: Genesis entry with sequence ID > 1 and no earlier committed rows returns GENESIS_VERIFIED', async () => {
@@ -710,7 +888,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -724,7 +911,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -738,7 +925,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -748,11 +944,13 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ is_valid_genesis: false }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
-            expect(res.dimensions.immediate_global_predecessor).toBe('INVALID_GENESIS_PREDECESSOR_EXISTS');
+            expect(res.dimensions.immediate_global_predecessor).toBe(
+                'INVALID_GENESIS_PREDECESSOR_EXISTS'
+            );
         });
     });
 
@@ -768,7 +966,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             prevHash = 'PRED_HASH_001',
             seq1 = 101,
             seq2 = 102,
-            timestamp = new Date('2026-11-01T12:00:00Z').toISOString()
+            timestamp = new Date('2026-11-01T12:00:00Z').toISOString(),
         }) {
             const entryId1 = 'e1-uuid';
             const entryId2 = 'e2-uuid';
@@ -792,7 +990,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                     timestamp,
                     hash: hash1,
                     prev_hash: prevHash,
-                    sequence_id: seq1
+                    sequence_id: seq1,
                 },
                 {
                     entry_id: entryId2,
@@ -804,8 +1002,8 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                     timestamp,
                     hash: hash2,
                     prev_hash: hash1,
-                    sequence_id: seq2
-                }
+                    sequence_id: seq2,
+                },
             ];
         }
 
@@ -814,7 +1012,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -823,7 +1030,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -841,7 +1048,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -851,7 +1067,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -869,7 +1085,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql, params) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -887,7 +1112,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ sequence_id: 101 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -904,7 +1129,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql, params) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -919,7 +1153,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ sequence_id: 301 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -934,7 +1168,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql, params) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -949,7 +1192,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [] }; // Hash not found
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -963,7 +1206,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -975,7 +1227,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -990,7 +1242,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -1002,7 +1263,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -1016,7 +1277,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '0.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '0.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -1025,7 +1295,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
@@ -1039,7 +1309,16 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
             const mockClient = {
                 query: jest.fn(async (sql) => {
                     if (sql.includes('FROM instructions')) {
-                        return { rows: [{ instruction_id: TEST_INSTRUCTION_ID, currency: 'USD', tax_withheld: '50.00', state: 'SETTLED' }] };
+                        return {
+                            rows: [
+                                {
+                                    instruction_id: TEST_INSTRUCTION_ID,
+                                    currency: 'USD',
+                                    tax_withheld: '50.00',
+                                    state: 'SETTLED',
+                                },
+                            ],
+                        };
                     }
                     if (sql.includes('ledger_journal') && sql.includes('WHERE instruction_id')) {
                         return { rows: entries };
@@ -1048,11 +1327,13 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                         return { rows: [{ '?column?': 1 }] };
                     }
                     return { rows: [] };
-                })
+                }),
             };
 
             const res = await verifyLedgerIntegrity(mockClient, TEST_INSTRUCTION_ID);
-            expect(res.dimensions.conventional_double_entry_balance).toBe('UNBALANCED_NO_TAX_LIABILITY_POSTING');
+            expect(res.dimensions.conventional_double_entry_balance).toBe(
+                'UNBALANCED_NO_TAX_LIABILITY_POSTING'
+            );
             expect(res.dimensions.debits_equal_credits).toBe('UNBALANCED_NO_TAX_LIABILITY_POSTING');
             expect(res.arithmetic_summary.debits_equal_credits).toBe(false);
         });
@@ -1065,17 +1346,19 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
         test('SC-08: Reconciliation FAILED with instruction SETTLED isolates sync failure without declaring settlement failed', async () => {
             const mockClient = {
                 query: jest.fn().mockResolvedValue({
-                    rows: [{
-                        id: 'recon-uuid-001',
-                        instruction_id: TEST_INSTRUCTION_ID,
-                        zoho_invoice_id: 'ZOHO-INV-99',
-                        zoho_payment_id: null,
-                        reconciled_at: null,
-                        status: 'FAILED',
-                        error_message: 'Zoho API timeout on invoice sync',
-                        instruction_state: 'SETTLED'
-                    }]
-                })
+                    rows: [
+                        {
+                            id: 'recon-uuid-001',
+                            instruction_id: TEST_INSTRUCTION_ID,
+                            zoho_invoice_id: 'ZOHO-INV-99',
+                            zoho_payment_id: null,
+                            reconciled_at: null,
+                            status: 'FAILED',
+                            error_message: 'Zoho API timeout on invoice sync',
+                            instruction_state: 'SETTLED',
+                        },
+                    ],
+                }),
             };
 
             const res = await getReconciliationEvidence(mockClient, TEST_INSTRUCTION_ID);
@@ -1091,7 +1374,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
 
         test('returns NOT_RECORDED when no reconciliation row exists', async () => {
             const mockClient = {
-                query: jest.fn().mockResolvedValue({ rows: [] })
+                query: jest.fn().mockResolvedValue({ rows: [] }),
             };
 
             const res = await getReconciliationEvidence(mockClient, TEST_INSTRUCTION_ID);
@@ -1108,38 +1391,46 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
         test('extracts structured address errors from iso_enriched without running live XML parser', async () => {
             const mockClient = {
                 query: jest.fn().mockResolvedValue({
-                    rows: [{
-                        invoice_id: TEST_INVOICE_ID,
-                        saga_id: TEST_SAGA_ID,
-                        state: 'PARSED',
-                        iso_enriched: {
-                            validationErrors: [
-                                'seller.structuredAddress.streetName is required (ISO 20022 Nov 2026 mandate)',
-                                'seller.structuredAddress.postCode for India must be 6 digits'
-                            ]
-                        }
-                    }]
-                })
+                    rows: [
+                        {
+                            invoice_id: TEST_INVOICE_ID,
+                            saga_id: TEST_SAGA_ID,
+                            state: 'PARSED',
+                            iso_enriched: {
+                                validationErrors: [
+                                    'seller.structuredAddress.streetName is required (ISO 20022 Nov 2026 mandate)',
+                                    'seller.structuredAddress.postCode for India must be 6 digits',
+                                ],
+                            },
+                        },
+                    ],
+                }),
             };
 
             const res = await explainIsoValidationErrors(mockClient, TEST_INVOICE_ID);
             expect(res.success).toBe(true);
             expect(res.status).toBe('ISO_VALIDATION_ERRORS_PERSISTED');
             expect(res.data.error_count).toBe(2);
-            expect(res.data.persisted_errors[0].category).toBe('MANDATORY_STRUCTURED_ADDRESS_SYNTAX');
-            expect(res.data.disclaimer).toContain('does not represent an independent regulatory compliance or customs clearance determination');
+            expect(res.data.persisted_errors[0].category).toBe(
+                'MANDATORY_STRUCTURED_ADDRESS_SYNTAX'
+            );
+            expect(res.data.disclaimer).toContain(
+                'does not represent an independent regulatory compliance or customs clearance determination'
+            );
         });
 
         test('returns ISO_ENRICHED_NO_ERRORS when validationErrors array is empty', async () => {
             const mockClient = {
                 query: jest.fn().mockResolvedValue({
-                    rows: [{
-                        invoice_id: TEST_INVOICE_ID,
-                        saga_id: TEST_SAGA_ID,
-                        state: 'PARSED',
-                        iso_enriched: { validationErrors: [] }
-                    }]
-                })
+                    rows: [
+                        {
+                            invoice_id: TEST_INVOICE_ID,
+                            saga_id: TEST_SAGA_ID,
+                            state: 'PARSED',
+                            iso_enriched: { validationErrors: [] },
+                        },
+                    ],
+                }),
             };
 
             const res = await explainIsoValidationErrors(mockClient, TEST_INVOICE_ID);
@@ -1153,9 +1444,9 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 query: jest.fn().mockResolvedValue({
                     rows: [
                         { invoice_id: 'AMBIG-ID', saga_id: 'SAGA-1' },
-                        { invoice_id: 'INV-2', saga_id: 'AMBIG-ID' }
-                    ]
-                })
+                        { invoice_id: 'INV-2', saga_id: 'AMBIG-ID' },
+                    ],
+                }),
             };
 
             const res = await explainIsoValidationErrors(mockClient, 'AMBIG-ID');
@@ -1178,11 +1469,19 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 amount: '100.5',
                 currency: 'USD',
                 prev_hash: 'GENESIS_HASH',
-                timestamp: '2026-11-01T12:00:00.000Z'
+                timestamp: '2026-11-01T12:00:00.000Z',
             };
 
             // Canonical scale 2 representation for USD is '100.50'
-            const expectedPayload = 'GENESIS_HASH' + 'e1-uuid' + TEST_INSTRUCTION_ID + 'Alice_Corp' + 'DEBIT' + '100.50' + 'USD' + '2026-11-01T12:00:00.000Z';
+            const expectedPayload =
+                'GENESIS_HASH' +
+                'e1-uuid' +
+                TEST_INSTRUCTION_ID +
+                'Alice_Corp' +
+                'DEBIT' +
+                '100.50' +
+                'USD' +
+                '2026-11-01T12:00:00.000Z';
             const expectedHash = sha256(expectedPayload);
 
             const result = computePayloadHash(entry, '2026-11-01T12:00:00.000Z');
@@ -1193,7 +1492,8 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
         test('historical fallback 1: matches legacy parseFloat hash if stored hash matches legacy format', () => {
             const legacyAmt = parseFloat('100.50'); // '100.5' in JS string
             const ts = '2026-11-01T12:00:00.000Z';
-            const legacyPayload = 'PREV' + 'e1' + 'inst1' + 'Alice' + 'DEBIT' + legacyAmt + 'USD' + ts;
+            const legacyPayload =
+                'PREV' + 'e1' + 'inst1' + 'Alice' + 'DEBIT' + legacyAmt + 'USD' + ts;
             const legacyHash = sha256(legacyPayload);
 
             const entry = {
@@ -1205,7 +1505,7 @@ describe('Fusion Operations Intelligence — Phase AI-1A Evidence Suite', () => 
                 currency: 'USD',
                 prev_hash: 'PREV',
                 hash: legacyHash, // Stored hash matches legacy format
-                timestamp: ts
+                timestamp: ts,
             };
 
             const result = computePayloadHash(entry, ts);

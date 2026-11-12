@@ -51,9 +51,10 @@ const validateMonetaryAmount = (value, helpers) => {
 
     const parent = helpers.state.ancestors[0];
     const currency = parent ? parent.currency : null;
-    const maxDecimals = (currency && ASSET_PRECISION && ASSET_PRECISION[currency] !== undefined)
-        ? ASSET_PRECISION[currency]
-        : LIMITS.MAX_DECIMAL_PLACES;
+    const maxDecimals =
+        currency && ASSET_PRECISION && ASSET_PRECISION[currency] !== undefined
+            ? ASSET_PRECISION[currency]
+            : LIMITS.MAX_DECIMAL_PLACES;
 
     if (fracPart.length > maxDecimals) {
         return helpers.message(
@@ -65,9 +66,10 @@ const validateMonetaryAmount = (value, helpers) => {
         return helpers.message(`Amount cannot exceed ${LIMITS.MAX_TRANSACTION_AMOUNT}`);
     }
 
-    const minAmount = (currency && ASSET_MIN_AMOUNT && ASSET_MIN_AMOUNT[currency])
-        ? ASSET_MIN_AMOUNT[currency]
-        : LIMITS.MIN_TRANSACTION_AMOUNT;
+    const minAmount =
+        currency && ASSET_MIN_AMOUNT && ASSET_MIN_AMOUNT[currency]
+            ? ASSET_MIN_AMOUNT[currency]
+            : LIMITS.MIN_TRANSACTION_AMOUNT;
     if (decimalCompare(trimmed, minAmount, currency) < 0) {
         return helpers.message(`Amount must be at least ${minAmount}`);
     }
@@ -76,12 +78,9 @@ const validateMonetaryAmount = (value, helpers) => {
 };
 
 const instructionInitiateSchema = Joi.object({
-    amount: Joi.any()
-        .custom(validateMonetaryAmount)
-        .required()
-        .messages({
-            'any.required': 'Amount is required',
-        }),
+    amount: Joi.any().custom(validateMonetaryAmount).required().messages({
+        'any.required': 'Amount is required',
+    }),
 
     currency: Joi.string()
         .valid(...CURRENCIES.ALL)
@@ -139,7 +138,9 @@ const adapterExecuteSchema = Joi.object({
             'ADAPTER_MOCK_HFT'
         )
         .optional()
-        .description('Deprecated: Adapter routing is determined authoritatively by instruction currency and policy'),
+        .description(
+            'Deprecated: Adapter routing is determined authoritatively by instruction currency and policy'
+        ),
 });
 
 module.exports = {

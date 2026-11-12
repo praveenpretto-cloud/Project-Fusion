@@ -84,7 +84,9 @@ async function executeRazorpayRail(instruction) {
         const { toCanonicalMinorUnits } = require('../core/orchestrator/financialDecimal');
         const minorUnitsBigInt = toCanonicalMinorUnits(amount, 'INR');
         if (minorUnitsBigInt <= 0n) {
-            throw new Error(`Invalid Razorpay amount: '${amount}'. Amount must be strictly greater than zero.`);
+            throw new Error(
+                `Invalid Razorpay amount: '${amount}'. Amount must be strictly greater than zero.`
+            );
         }
         if (minorUnitsBigInt > BigInt(Number.MAX_SAFE_INTEGER)) {
             throw new RangeError(`Razorpay amount '${amount}' exceeds safe integer representation`);
@@ -139,14 +141,14 @@ async function queryStatus(intentId) {
         const res = await fetch(`https://api.razorpay.com/v1/payouts/${intentId}`, {
             method: 'GET',
             headers: { Authorization: auth },
-            signal: controller.signal
+            signal: controller.signal,
         });
         clearTimeout(timeoutId);
         let payout = await res.json();
         // Map 'processed' to 'succeeded' for the unified reconciler
         return {
-            status: payout.status === 'processed' ? 'succeeded' : (payout.status || 'UNKNOWN'),
-            utr: payout.utr || null
+            status: payout.status === 'processed' ? 'succeeded' : payout.status || 'UNKNOWN',
+            utr: payout.utr || null,
         };
     } catch {
         clearTimeout(timeoutId);
@@ -296,16 +298,24 @@ async function fetchBalancePage(skip, count, authHeader, timeoutMs) {
         const text = await res.text();
 
         if (res.status === 401) {
-            throw new Error('RazorpayX authentication failed: Invalid or expired API credentials (HTTP 401)');
+            throw new Error(
+                'RazorpayX authentication failed: Invalid or expired API credentials (HTTP 401)'
+            );
         }
         if (res.status === 403) {
-            throw new Error('RazorpayX permission denied: Banking balance feature or account access not provisioned (HTTP 403)');
+            throw new Error(
+                'RazorpayX permission denied: Banking balance feature or account access not provisioned (HTTP 403)'
+            );
         }
         if (res.status === 404) {
-            throw new Error('RazorpayX endpoint unavailable: Banking balance route not found (HTTP 404)');
+            throw new Error(
+                'RazorpayX endpoint unavailable: Banking balance route not found (HTTP 404)'
+            );
         }
         if (!res.ok) {
-            throw new Error(`RazorpayX API HTTP error: ${res.status} ${res.statusText || ''}`.trim());
+            throw new Error(
+                `RazorpayX API HTTP error: ${res.status} ${res.statusText || ''}`.trim()
+            );
         }
 
         let data;
@@ -315,8 +325,15 @@ async function fetchBalancePage(skip, count, authHeader, timeoutMs) {
             throw new Error('RazorpayX API returned malformed JSON response');
         }
 
-        if (!data || typeof data !== 'object' || data.entity !== 'collection' || !Array.isArray(data.items)) {
-            throw new Error("RazorpayX API returned malformed collection response: expected entity 'collection' with items array");
+        if (
+            !data ||
+            typeof data !== 'object' ||
+            data.entity !== 'collection' ||
+            !Array.isArray(data.items)
+        ) {
+            throw new Error(
+                "RazorpayX API returned malformed collection response: expected entity 'collection' with items array"
+            );
         }
 
         return data;
@@ -332,7 +349,7 @@ async function fetchBalancePage(skip, count, authHeader, timeoutMs) {
 
 /**
  * Fetches real-time RazorpayX account balance for the configured business account via official banking_balances API.
- * 
+ *
  * NOTE: Successful balance retrieval reflects provider account liquidity only and does NOT guarantee
  * that a subsequent payout instruction will succeed or bypass KYC/AML/anti-fraud checks.
  *
@@ -350,11 +367,15 @@ async function getRazorpayBalance() {
     }
 
     if (keyId.startsWith('rzp_live_')) {
-        throw new Error("FATAL: Live mode credentials ('rzp_live_') are strictly prohibited in sandbox balance inquiry");
+        throw new Error(
+            "FATAL: Live mode credentials ('rzp_live_') are strictly prohibited in sandbox balance inquiry"
+        );
     }
 
     if (!keyId.startsWith('rzp_test_')) {
-        throw new Error("FATAL: Razorpay adapter requires a valid sandbox credential starting with 'rzp_test_'");
+        throw new Error(
+            "FATAL: Razorpay adapter requires a valid sandbox credential starting with 'rzp_test_'"
+        );
     }
 
     const configuredAccount = process.env.RAZORPAYX_ACCOUNT_NUMBER;
@@ -376,15 +397,21 @@ async function getRazorpayBalance() {
             pageData = await fetchBalancePage(skip, PAGE_SIZE, authHeader, timeoutMs);
         } catch (pageErr) {
             if (skip > 0) {
-                logger.error(`[RAZORPAY BALANCE ERROR] Incomplete pagination at skip=${skip}: ${pageErr.message}`);
-                throw new Error(`Incomplete pagination during RazorpayX balance fetch at skip=${skip}: ${pageErr.message}`);
+                logger.error(
+                    `[RAZORPAY BALANCE ERROR] Incomplete pagination at skip=${skip}: ${pageErr.message}`
+                );
+                throw new Error(
+                    `Incomplete pagination during RazorpayX balance fetch at skip=${skip}: ${pageErr.message}`
+                );
             }
             logger.error(`[RAZORPAY BALANCE ERROR] ${pageErr.message}`);
             throw pageErr;
         }
 
         const items = pageData.items;
-        const match = items.find(it => it && String(it.account_number) === String(configuredAccount));
+        const match = items.find(
+            (it) => it && String(it.account_number) === String(configuredAccount)
+        );
         if (match) {
             matchedItem = match;
             break;
@@ -399,7 +426,9 @@ async function getRazorpayBalance() {
     }
 
     if (!matchedItem) {
-        logger.warn('[RAZORPAY BALANCE] Configured account was not found in banking_balances collection after complete search');
+        logger.warn(
+            '[RAZORPAY BALANCE] Configured account was not found in banking_balances collection after complete search'
+        );
         return {
             status: 'ACCOUNT_NOT_FOUND',
             account_type: null,

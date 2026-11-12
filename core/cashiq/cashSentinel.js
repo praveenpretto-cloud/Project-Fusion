@@ -22,9 +22,7 @@ async function runSentinelSweep(pool) {
     logger.info('[CASHSENTINEL] Starting alert sweep...');
 
     try {
-        const businesses = await pool.query(
-            `SELECT b.business_id, b.name FROM businesses b`
-        );
+        const businesses = await pool.query(`SELECT b.business_id, b.name FROM businesses b`);
 
         let totalFired = 0;
 
@@ -52,7 +50,12 @@ async function evaluateBusinessAlerts(pool, businessId, businessName) {
         try {
             const alert = await evaluateRule(pool, businessId, rule);
             if (alert) {
-                const wasCooledDown = await isInCooldown(pool, businessId, rule.rule_id, ALERT_COOLDOWN_MINUTES);
+                const wasCooledDown = await isInCooldown(
+                    pool,
+                    businessId,
+                    rule.rule_id,
+                    ALERT_COOLDOWN_MINUTES
+                );
                 if (!wasCooledDown) {
                     await writeAlertEvent(pool, businessId, rule.rule_id, alert);
                     await deliverAlert(businessName, alert); // WhatsApp stub
@@ -71,7 +74,6 @@ async function evaluateRule(pool, businessId, rule) {
     const { rule_type, threshold_value, threshold_days } = rule;
 
     switch (rule_type) {
-
         case 'LOW_BALANCE': {
             // Check aggregate balance across all accounts
             const r = await pool.query(
@@ -245,13 +247,21 @@ function fmt(n) {
  */
 function startSentinel(pool) {
     // Run immediately on startup
-    runSentinelSweep(pool).catch(e => logger.error(`[CASHSENTINEL] Startup sweep failed: ${e.message}`));
-    runScheduledPaymentsSweep(pool).catch(e => logger.error(`[SCHEDULER] Startup payment sweep failed: ${e.message}`));
+    runSentinelSweep(pool).catch((e) =>
+        logger.error(`[CASHSENTINEL] Startup sweep failed: ${e.message}`)
+    );
+    runScheduledPaymentsSweep(pool).catch((e) =>
+        logger.error(`[SCHEDULER] Startup payment sweep failed: ${e.message}`)
+    );
 
     // Then every hour
     cron.schedule('0 * * * *', () => {
-        runSentinelSweep(pool).catch(e => logger.error(`[CASHSENTINEL] Scheduled sweep failed: ${e.message}`));
-        runScheduledPaymentsSweep(pool).catch(e => logger.error(`[SCHEDULER] Scheduled payment sweep failed: ${e.message}`));
+        runSentinelSweep(pool).catch((e) =>
+            logger.error(`[CASHSENTINEL] Scheduled sweep failed: ${e.message}`)
+        );
+        runScheduledPaymentsSweep(pool).catch((e) =>
+            logger.error(`[SCHEDULER] Scheduled payment sweep failed: ${e.message}`)
+        );
     });
 
     logger.info('[CASHSENTINEL] ✅ Alert sentinel and Payment Scheduler started.');

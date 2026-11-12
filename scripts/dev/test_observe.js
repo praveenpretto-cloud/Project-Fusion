@@ -6,8 +6,8 @@ const options = {
     path: '/api/observe?limit=10',
     method: 'GET',
     headers: {
-        'x-api-key': 'fusion_bank_secret_key_2025'
-    }
+        'x-api-key': 'fusion_bank_secret_key_2025',
+    },
 };
 
 const req = http.request(options, (res) => {

@@ -5,10 +5,10 @@
  * PROJECT FUSION — RELIABILITY R2C.1
  * ARBITRAGE PRECISION & NUMERICAL INTEGRITY TEST SUITE
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Verifies the numerical precision, intermediate fidelity, and governance
  * corrections specified in Reliability R2C.1 Task 6:
- * 
+ *
  * 1. The exact Scenario 1 fixture (reconciling to 91.3002 raw / 91.30 rounded, 7.58% ROI).
  * 2. Scenario 2 with negative net P&L.
  * 3. Very small unit prices and large quantities.
@@ -33,7 +33,7 @@ const {
     decimalRound,
     trimTrailingZeros,
     parseDecimalParts,
-    toCanonicalDecimal
+    toCanonicalDecimal,
 } = require('../../core/orchestrator/financialDecimal');
 const {
     calculateArbitragePnl,
@@ -42,7 +42,7 @@ const {
     calculateEstimatedFee,
     FEE_REGISTRY,
     DISCLAIMER_TEXT,
-    DATA_PROVENANCE
+    DATA_PROVENANCE,
 } = require('../../core/treasury/arbitrage');
 const arbitrageRouter = require('../../routes/arbitrageRouter');
 
@@ -57,7 +57,7 @@ function invokeRouterHandler(routePath, method, body, query = {}) {
             url: routePath,
             body: body || {},
             query: query || {},
-            headers: { 'content-type': 'application/json' }
+            headers: { 'content-type': 'application/json' },
         };
         const res = {
             statusCode: 200,
@@ -69,7 +69,7 @@ function invokeRouterHandler(routePath, method, body, query = {}) {
                 this.body = data;
                 resolve({ statusCode: this.statusCode, body: this.body });
                 return this;
-            }
+            },
         };
 
         const layer = arbitrageRouter.stack.find((l) => {
@@ -105,7 +105,7 @@ describe('Project Fusion — R2C.1: Financial Decimal Utility Extensions', () =>
         expect(decimalDivide('10', '3', 2)).toBe('3.33');
         expect(decimalDivide('2', '3', 2)).toBe('0.67');
         expect(decimalDivide('1', '8', 2)).toBe('0.13'); // 0.125 -> 0.13
-        expect(decimalDivide('1', '4', 1)).toBe('0.3');  // 0.25 -> 0.3
+        expect(decimalDivide('1', '4', 1)).toBe('0.3'); // 0.25 -> 0.3
         expect(decimalDivide('-10', '4', 2)).toBe('-2.50');
         expect(() => decimalDivide('10', '0', 2)).toThrow(/Division by zero/);
     });
@@ -130,7 +130,6 @@ describe('Project Fusion — R2C.1: Financial Decimal Utility Extensions', () =>
 });
 
 describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity (12 Scenarios)', () => {
-
     // SCENARIO 1: The exact Scenario 1 fixture from R2C.1 Task 1
     test('Scenario 1: Exact Scenario 1 fixture reconciles precisely to documented intermediate and final values', () => {
         const input = {
@@ -147,7 +146,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         };
 
         const result = calculateArbitragePnl(input);
@@ -205,7 +204,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.30',
             networkFee: '0.10',
             transferFee: '0.05',
-            settlementFee: '0.05'
+            settlementFee: '0.05',
         });
 
         expect(result.status).toBe('SUCCESS');
@@ -231,12 +230,12 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '1.00',
             networkFee: '0.50',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(result.status).toBe('SUCCESS');
         expect(parseFloat(result.adjustedBuyPrice)).toBeGreaterThan(0.00001234);
-        expect(parseFloat(result.adjustedSellPrice)).toBeLessThan(0.00001290);
+        expect(parseFloat(result.adjustedSellPrice)).toBeLessThan(0.0000129);
         expect(parseFloat(result.buyNotional)).toBeGreaterThan(0);
         expect(parseFloat(result.estimatedNetPnL)).toBeGreaterThan(0);
     });
@@ -259,7 +258,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(result.adjustedBuyPrice).toBe('0.12012');
@@ -284,7 +283,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(result.status).toBe('SUCCESS');
@@ -323,7 +322,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         };
 
         const result = calculateArbitragePnl(input);
@@ -347,7 +346,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(result.status).toBe('INVALID_NUMERIC_VALUE');
@@ -370,7 +369,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(result.status).toBe('SUCCESS');
@@ -395,7 +394,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
         expect(atTenThousand.status).toBe('INVALID_SLIPPAGE_BPS');
         expect(atTenThousand.error).toMatch(/cannot equal or exceed 10,000 basis points/i);
@@ -413,7 +412,7 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
         expect(aboveTenThousand.status).toBe('INVALID_SLIPPAGE_BPS');
     });
@@ -434,7 +433,9 @@ describe('Project Fusion — R2C.1: Arbitrage Precision and Numerical Integrity 
     test('Scenario 12: Baseline fee registry explicitly categorizes entries as SIMULATED_ASSUMPTION', () => {
         expect(FEE_REGISTRY.STANDARD_FIAT_USD.category).toBe('SIMULATED_ASSUMPTION');
         expect(FEE_REGISTRY.STANDARD_FIAT_USD.isSimulatedAssumption).toBe(true);
-        expect(FEE_REGISTRY.STANDARD_FIAT_USD.disclaimer).toMatch(/Illustrative scenario assumption/i);
+        expect(FEE_REGISTRY.STANDARD_FIAT_USD.disclaimer).toMatch(
+            /Illustrative scenario assumption/i
+        );
 
         expect(FEE_REGISTRY.STANDARD_FIAT_INR.category).toBe('SIMULATED_ASSUMPTION');
         expect(FEE_REGISTRY.STANDARD_FIAT_INR.isSimulatedAssumption).toBe(true);
@@ -461,7 +462,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('SUCCESS');
@@ -488,7 +489,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('SUCCESS');
@@ -515,7 +516,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('SUCCESS');
@@ -542,7 +543,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('INVALID_INPUT_TYPE');
@@ -566,7 +567,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('SUCCESS');
@@ -590,11 +591,13 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(excessiveDecimals.status).toBe('EXCESSIVE_PRECISION');
-        expect(excessiveDecimals.error).toMatch(/exceeds maximum supported precision of 18 decimal places/i);
+        expect(excessiveDecimals.error).toMatch(
+            /exceeds maximum supported precision of 18 decimal places/i
+        );
 
         // Exceeds 50 characters length
         const longString = '1000000000000000000000000000000000000000000000000000'; // 52 chars
@@ -610,11 +613,13 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(excessiveLength.status).toBe('EXCESSIVE_PRECISION');
-        expect(excessiveLength.error).toMatch(/exceeds maximum allowed input length of 50 characters/i);
+        expect(excessiveLength.error).toMatch(
+            /exceeds maximum allowed input length of 50 characters/i
+        );
     });
 
     // 7. Exact notional and fee calculations after dynamic precision adjustment
@@ -633,7 +638,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.status).toBe('SUCCESS');
@@ -676,7 +681,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.50',
             networkFee: '0.10',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
         expect(resNumeric.status).toBe('SUCCESS');
 
@@ -694,7 +699,7 @@ describe('Project Fusion — R2C.2: Precision Boundary and Input Contract Verifi
             sellFeeFixed: '0.50',
             networkFee: '0.10',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
         expect(resString.status).toBe('SUCCESS');
         expect(resNumeric.estimatedNetPnL).toBe(resString.estimatedNetPnL);
@@ -717,7 +722,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.statusCode).toBe(200);
@@ -741,7 +746,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.statusCode).toBe(400);
@@ -755,7 +760,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             asset: 'XLM',
             quoteCurrency: 'USD',
             buyPrice: '0.1200',
-            sellPrice: '0.1300'
+            sellPrice: '0.1300',
             // required fees omitted
         });
 
@@ -778,7 +783,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             sellFeeFixed: '0.50',
             networkFee: '0.20',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.statusCode).toBe(400);
@@ -787,7 +792,12 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
 
     // RESTORED HTTP ROUTER TEST 3: Simulation defaults
     test('GET /treasury/arbitrage/simulation-defaults returns 200 and explicit defaults', async () => {
-        const res = await invokeRouterHandler('/treasury/arbitrage/simulation-defaults', 'GET', null, { currency: 'USD' });
+        const res = await invokeRouterHandler(
+            '/treasury/arbitrage/simulation-defaults',
+            'GET',
+            null,
+            { currency: 'USD' }
+        );
 
         expect(res.statusCode).toBe(200);
         expect(res.body.status).toBe('SUCCESS');
@@ -799,7 +809,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
     test('POST /treasury/arbitrage/report returns comparative simulation without hardcoded 2.9%', async () => {
         const res = await invokeRouterHandler('/treasury/arbitrage/report', 'POST', {
             amount: '10000.00',
-            currency: 'USD'
+            currency: 'USD',
         });
 
         expect(res.statusCode).toBe(200);
@@ -821,7 +831,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.statusCode).toBe(400);
@@ -842,7 +852,7 @@ describe('Project Fusion — R2C.1 & R2C.2: HTTP Router Endpoints', () => {
             sellFeeFixed: '0.00',
             networkFee: '0.00',
             transferFee: '0.00',
-            settlementFee: '0.00'
+            settlementFee: '0.00',
         });
 
         expect(res.statusCode).toBe(400);

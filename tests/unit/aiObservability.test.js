@@ -62,8 +62,8 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
 
         const spans = telemetry.localExporter.getFinishedSpans();
         expect(spans.length).toBe(2);
-        const child = spans.find(s => s.name === 'child-operation');
-        const parent = spans.find(s => s.name === 'parent-root');
+        const child = spans.find((s) => s.name === 'child-operation');
+        const parent = spans.find((s) => s.name === 'parent-root');
         expect(child.parentSpanId).toBe(parent.spanContext().spanId);
         expect(child.spanContext().traceId).toBe(parent.spanContext().traceId);
     });
@@ -75,11 +75,11 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         await mockProvider.chat({
             model: 'mock-llama-3.2',
             messages: [{ role: 'user', content: 'test question' }],
-            generationConfig: { temperature: 0.1, maxTokens: 1024 }
+            generationConfig: { temperature: 0.1, maxTokens: 1024 },
         });
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const modelSpan = spans.find(s => s.name === SPAN_NAMES.LLM_INFERENCE);
+        const modelSpan = spans.find((s) => s.name === SPAN_NAMES.LLM_INFERENCE);
         expect(modelSpan).toBeDefined();
         expect(modelSpan.attributes[GEN_AI_ATTRIBUTES.SYSTEM]).toBe('mock');
         expect(modelSpan.attributes[GEN_AI_ATTRIBUTES.REQUEST_MODEL]).toBe('mock-llama-3.2');
@@ -95,9 +95,11 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         await registry.executeTool('get_transaction_timeline', {}, syntheticCase);
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const toolSpan = spans.find(s => s.name === SPAN_NAMES.TOOL_EXECUTION);
+        const toolSpan = spans.find((s) => s.name === SPAN_NAMES.TOOL_EXECUTION);
         expect(toolSpan).toBeDefined();
-        expect(toolSpan.attributes[FUSION_AI_ATTRIBUTES.TOOL_NAME]).toBe('get_transaction_timeline');
+        expect(toolSpan.attributes[FUSION_AI_ATTRIBUTES.TOOL_NAME]).toBe(
+            'get_transaction_timeline'
+        );
         expect(toolSpan.attributes[FUSION_AI_ATTRIBUTES.TOOL_STATUS]).toBeDefined();
         expect(toolSpan.attributes[FUSION_AI_ATTRIBUTES.TOOL_RESULT_BYTES]).toBeGreaterThan(0);
         // Sensitive data must never be an attribute
@@ -108,7 +110,12 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
     test('6. RAG retrieval, BM25, and dense search spans record query metrics without raw query text', async () => {
         const embedProvider = new MockEmbeddingProvider();
         const chunks = [
-            { chunk_id: 'c1', content: 'Stripe balance_insufficient error guide', provider: 'STRIPE', error_codes: ['balance_insufficient'] }
+            {
+                chunk_id: 'c1',
+                content: 'Stripe balance_insufficient error guide',
+                provider: 'STRIPE',
+                error_codes: ['balance_insufficient'],
+            },
         ];
         const bm25 = new BM25Retriever(chunks);
         const vectorTable = new Map();
@@ -119,9 +126,9 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         await ranker.search('balance_insufficient', { provider: 'STRIPE' });
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const ragSpan = spans.find(s => s.name === SPAN_NAMES.RAG_RETRIEVAL);
-        const bm25Span = spans.find(s => s.name === SPAN_NAMES.RAG_BM25_SEARCH);
-        const denseSpan = spans.find(s => s.name === SPAN_NAMES.RAG_DENSE_SEARCH);
+        const ragSpan = spans.find((s) => s.name === SPAN_NAMES.RAG_RETRIEVAL);
+        const bm25Span = spans.find((s) => s.name === SPAN_NAMES.RAG_BM25_SEARCH);
+        const denseSpan = spans.find((s) => s.name === SPAN_NAMES.RAG_DENSE_SEARCH);
 
         expect(ragSpan).toBeDefined();
         expect(bm25Span).toBeDefined();
@@ -137,9 +144,11 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         await provider.getEmbedding('sample text');
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const embedSpan = spans.find(s => s.name === SPAN_NAMES.RAG_EMBEDDING);
+        const embedSpan = spans.find((s) => s.name === SPAN_NAMES.RAG_EMBEDDING);
         expect(embedSpan).toBeDefined();
-        expect(embedSpan.attributes[FUSION_AI_ATTRIBUTES.RAG_EMBEDDING_MODEL]).toBe('test-embed-384');
+        expect(embedSpan.attributes[FUSION_AI_ATTRIBUTES.RAG_EMBEDDING_MODEL]).toBe(
+            'test-embed-384'
+        );
         expect(embedSpan.attributes[FUSION_AI_ATTRIBUTES.RAG_EMBEDDING_DIMENSION]).toBe(384);
     });
 
@@ -159,15 +168,15 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
             model_metadata: {
                 provider: 'mock',
                 model: 'mock-model',
-                latency_ms: 10
-            }
+                latency_ms: 10,
+            },
         };
 
         const res = EvidenceCitationValidator.validate({ report, availableEvidenceKeys: [] });
         expect(res.valid).toBe(true);
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const valSpan = spans.find(s => s.name === SPAN_NAMES.EVIDENCE_CITATION_VALIDATION);
+        const valSpan = spans.find((s) => s.name === SPAN_NAMES.EVIDENCE_CITATION_VALIDATION);
         expect(valSpan).toBeDefined();
         expect(valSpan.attributes[FUSION_AI_ATTRIBUTES.VALIDATION_PASSED]).toBe(true);
         expect(valSpan.attributes[FUSION_AI_ATTRIBUTES.VALIDATION_VIOLATION_COUNT]).toBe(0);
@@ -194,10 +203,18 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
     });
 
     test('11. Safe exception classification sanitizes error messages', () => {
-        expect(classifyError(new Error('Model timeout after 30000ms'))).toBe(ERROR_CLASSIFICATIONS.MODEL_TIMEOUT);
-        expect(classifyError(new Error('connect ECONNREFUSED 127.0.0.1:11434'))).toBe(ERROR_CLASSIFICATIONS.MODEL_UNAVAILABLE);
-        expect(classifyError(new Error('Embedding dimension mismatch'))).toBe(ERROR_CLASSIFICATIONS.EMBEDDING_DIMENSION_MISMATCH);
-        expect(classifyError(new Error('Prohibited financial mutation requested'))).toBe(ERROR_CLASSIFICATIONS.PROHIBITED_MUTATION_REFUSAL);
+        expect(classifyError(new Error('Model timeout after 30000ms'))).toBe(
+            ERROR_CLASSIFICATIONS.MODEL_TIMEOUT
+        );
+        expect(classifyError(new Error('connect ECONNREFUSED 127.0.0.1:11434'))).toBe(
+            ERROR_CLASSIFICATIONS.MODEL_UNAVAILABLE
+        );
+        expect(classifyError(new Error('Embedding dimension mismatch'))).toBe(
+            ERROR_CLASSIFICATIONS.EMBEDDING_DIMENSION_MISMATCH
+        );
+        expect(classifyError(new Error('Prohibited financial mutation requested'))).toBe(
+            ERROR_CLASSIFICATIONS.PROHIBITED_MUTATION_REFUSAL
+        );
     });
 
     test('12. Loopback exporter guard rejects non-local addresses', () => {
@@ -210,11 +227,11 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
     test('13. Attribute sanitizer strips PII, tokens, and prompt bodies', () => {
         const sanitized = telemetry.sanitizeAttributes({
             'gen_ai.request.model': 'llama3.1:latest',
-            'prompt': 'SECRET SYSTEM INSTRUCTION WITH SENSITIVE DATA',
+            prompt: 'SECRET SYSTEM INSTRUCTION WITH SENSITIVE DATA',
             'user.email': 'customer@bank.com',
-            'customer_name': 'John Doe',
-            'account_number': '123456789',
-            'fusion.ai.case_id': 'CASE-01'
+            customer_name: 'John Doe',
+            account_number: '123456789',
+            'fusion.ai.case_id': 'CASE-01',
         });
 
         expect(sanitized['gen_ai.request.model']).toBe('llama3.1:latest');
@@ -227,17 +244,17 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
 
     test('13b. Negative security assertion: sensitive LLM, PII, and raw argument keys are strictly excluded from span serialization', () => {
         const sensitiveInput = {
-            'messages': [{ role: 'user', content: 'Transfer $50,000 to card 4111222233334444' }],
-            'prompt_tokens_raw': 'System instruction...',
-            'completion_text': 'Confirmed transfer',
+            messages: [{ role: 'user', content: 'Transfer $50,000 to card 4111222233334444' }],
+            prompt_tokens_raw: 'System instruction...',
+            completion_text: 'Confirmed transfer',
             'tool.arguments': { account: '12345', pin: '9999' },
-            'raw_exception': 'Database password postgres_secret failed',
+            raw_exception: 'Database password postgres_secret failed',
             'customer.pan': 'ABCDE1234F',
             'customer.iban': 'GB82WEST12345698765432',
-            'api_secret_key': 'fusion_bank_secret_key_2025',
+            api_secret_key: 'fusion_bank_secret_key_2025',
             'gen_ai.system': 'mock',
             'fusion.ai.case_id': 'CASE-01',
-            'fusion.ai.tool.name': 'get_transaction_timeline'
+            'fusion.ai.tool.name': 'get_transaction_timeline',
         };
 
         const sanitized = telemetry.sanitizeAttributes(sensitiveInput);
@@ -264,11 +281,13 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         mockProvider.setMockChatResponses([
             {
                 role: 'assistant',
-                tool_calls: [{
-                    id: 'call_1',
-                    type: 'function',
-                    function: { name: 'get_transaction_timeline', arguments: {} }
-                }]
+                tool_calls: [
+                    {
+                        id: 'call_1',
+                        type: 'function',
+                        function: { name: 'get_transaction_timeline', arguments: {} },
+                    },
+                ],
             },
             {
                 role: 'assistant',
@@ -278,34 +297,36 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
                     intent: c.intent,
                     status: 'COMPLETED',
                     summary: 'Completed successfully.',
-                    confirmed_findings: [{
-                        claim: 'Recorded status.',
-                        evidence_references: ['get_transaction_timeline'],
-                        source_field: 'getTransactionTimeline.status'
-                    }],
+                    confirmed_findings: [
+                        {
+                            claim: 'Recorded status.',
+                            evidence_references: ['get_transaction_timeline'],
+                            source_field: 'getTransactionTimeline.status',
+                        },
+                    ],
                     hypotheses: [],
                     missing_information: [],
                     recommended_checks: ['VERIFY_PROVIDER_STATUS'],
                     evidence_references: ['get_transaction_timeline'],
-                    limitations: ['Synthetic test']
-                })
-            }
+                    limitations: ['Synthetic test'],
+                }),
+            },
         ]);
 
         const loop = new AgentLoop({
             toolRegistry: new ToolRegistry(),
-            modelProvider: mockProvider
+            modelProvider: mockProvider,
         });
 
         await loop.run({ syntheticCase: c });
 
         const spans = telemetry.localExporter.getFinishedSpans();
-        const root = spans.find(s => s.name === SPAN_NAMES.AGENT_ORCHESTRATION);
+        const root = spans.find((s) => s.name === SPAN_NAMES.AGENT_ORCHESTRATION);
         expect(root).toBeDefined();
 
-        const children = spans.filter(s => s !== root);
+        const children = spans.filter((s) => s !== root);
         expect(children.length).toBeGreaterThan(0);
-        children.forEach(child => {
+        children.forEach((child) => {
             expect(child.parentSpanId).toBe(root.spanContext().spanId);
             expect(child.spanContext().traceId).toBe(root.spanContext().traceId);
         });
@@ -317,19 +338,23 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         mockProvider.setMockChatResponses([
             {
                 role: 'assistant',
-                tool_calls: [{
-                    id: 'c1',
-                    type: 'function',
-                    function: { name: 'get_transaction_timeline', arguments: {} }
-                }]
+                tool_calls: [
+                    {
+                        id: 'c1',
+                        type: 'function',
+                        function: { name: 'get_transaction_timeline', arguments: {} },
+                    },
+                ],
             },
             {
                 role: 'assistant',
-                tool_calls: [{
-                    id: 'c2',
-                    type: 'function',
-                    function: { name: 'get_transaction_timeline', arguments: {} } // identical repeated call
-                }]
+                tool_calls: [
+                    {
+                        id: 'c2',
+                        type: 'function',
+                        function: { name: 'get_transaction_timeline', arguments: {} }, // identical repeated call
+                    },
+                ],
             },
             {
                 role: 'assistant',
@@ -341,14 +366,14 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
                     missing_information: [],
                     recommended_checks: ['VERIFY_PROVIDER_STATUS'],
                     evidence_references: ['get_transaction_timeline'],
-                    limitations: []
-                })
-            }
+                    limitations: [],
+                }),
+            },
         ]);
 
         const loop = new AgentLoop({
             toolRegistry: new ToolRegistry(),
-            modelProvider: mockProvider
+            modelProvider: mockProvider,
         });
 
         await loop.run({ syntheticCase: c });
@@ -363,7 +388,7 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         reg.registerTool({
             name: 'unsafe_custom_tool',
             description: 'Unsafe tool without validator',
-            execute: async () => ({ success: true })
+            execute: async () => ({ success: true }),
         });
 
         const res = await reg.executeTool('unsafe_custom_tool', {}, c);
@@ -376,7 +401,11 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
     test('17. Tool execution validates arguments and rejects malformed inputs', async () => {
         const c = syntheticStore.getCaseById('CASE-01');
         const reg = new ToolRegistry();
-        const res = await reg.executeTool('get_transaction_timeline', { format: 'invalid_format' }, c);
+        const res = await reg.executeTool(
+            'get_transaction_timeline',
+            { format: 'invalid_format' },
+            c
+        );
         expect(res.success).toBe(false);
         expect(res.status).toBe('INVALID_ARGUMENTS');
         expect(res.error).toBe('INVALID_ARGUMENTS');
@@ -390,7 +419,7 @@ describe('AI-3.4: AI Observability, Tracing & Performance Telemetry', () => {
         expect(summary.rag).toBeDefined();
         expect(summary.agent).toBeDefined();
         expect(summary.dlp).toBeDefined();
-        
+
         // Assert no raw transaction IDs or customer names in metrics labels
         const serialized = JSON.stringify(summary);
         expect(serialized).not.toContain('TX-');

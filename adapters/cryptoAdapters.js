@@ -35,18 +35,25 @@ async function executeCryptoRail(instruction) {
         // 4. Ensure Source Account Exists AND has sufficient reserve for the REQUESTED amount
         let sourceAccount;
         const requiredAmount = parseFloat(amount) + 2.0; // Amount + safe reserve
-        
+
         try {
             sourceAccount = await server.loadAccount(sourcePublicKey);
-            let balanceXLM = parseFloat(sourceAccount.balances.find(b => b.asset_type === 'native').balance);
-            
+            let balanceXLM = parseFloat(
+                sourceAccount.balances.find((b) => b.asset_type === 'native').balance
+            );
+
             let refillCount = 0;
-            while (balanceXLM < requiredAmount && refillCount < 3) { // Reduced retries for speed
-                logger.info(`[STELLAR] Balance (${balanceXLM} XLM) insufficient for ${amount} XLM request. Refilling... (${refillCount+1}/3)`);
+            while (balanceXLM < requiredAmount && refillCount < 3) {
+                // Reduced retries for speed
+                logger.info(
+                    `[STELLAR] Balance (${balanceXLM} XLM) insufficient for ${amount} XLM request. Refilling... (${refillCount + 1}/3)`
+                );
                 await fetch(`https://friendbot.stellar.org?addr=${sourcePublicKey}`);
                 await new Promise((r) => setTimeout(r, 4000));
                 sourceAccount = await server.loadAccount(sourcePublicKey);
-                balanceXLM = parseFloat(sourceAccount.balances.find(b => b.asset_type === 'native').balance);
+                balanceXLM = parseFloat(
+                    sourceAccount.balances.find((b) => b.asset_type === 'native').balance
+                );
                 refillCount++;
             }
         } catch {
@@ -144,7 +151,9 @@ async function getCryptoBalance(address) {
             account = await server.loadAccount(address);
         } catch (err) {
             if (err.response && err.response.status === 404) {
-                logger.info(`[STELLAR] Syncing NEW account: ${address}. Provisioning via Friendbot...`);
+                logger.info(
+                    `[STELLAR] Syncing NEW account: ${address}. Provisioning via Friendbot...`
+                );
                 await fetch(`https://friendbot.stellar.org?addr=${address}`);
                 await new Promise((r) => setTimeout(r, 6000));
                 account = await server.loadAccount(address);
@@ -152,7 +161,7 @@ async function getCryptoBalance(address) {
                 throw err;
             }
         }
-        
+
         const nativeBalance = account.balances.find((b) => b.asset_type === 'native');
         return nativeBalance ? parseFloat(nativeBalance.balance) : 0;
     } catch (err) {

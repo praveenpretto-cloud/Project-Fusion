@@ -133,9 +133,12 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
         app.post('/api/saga/exporter-fx', authenticateClient, async (req, res) => {
             try {
                 const { instructionId } = req.body || {};
-                if (!instructionId) return res.status(400).json({ error: 'instructionId required' });
+                if (!instructionId)
+                    return res.status(400).json({ error: 'instructionId required' });
 
-                mockLogger.warn(`[EXPORTER_FX_SAGA] Request for ${instructionId} rejected: FCSS rail adapter is not implemented in this release.`);
+                mockLogger.warn(
+                    `[EXPORTER_FX_SAGA] Request for ${instructionId} rejected: FCSS rail adapter is not implemented in this release.`
+                );
                 return res.status(501).json({
                     error: 'FEATURE_NOT_IMPLEMENTED',
                     detail: 'FCSS (Foreign Currency Settlement System) rail adapter is not implemented in this release',
@@ -227,7 +230,7 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
     describe('2. P1-A: Express Socket Binding & Host Isolation', () => {
         test('binds explicitly to 127.0.0.1 when LOCAL_ONLY=true', () => {
             const isLocalOnly = true;
-            const listenHost = isLocalOnly ? '127.0.0.1' : (process.env.HOST || '0.0.0.0');
+            const listenHost = isLocalOnly ? '127.0.0.1' : process.env.HOST || '0.0.0.0';
 
             expect(listenHost).toBe('127.0.0.1');
             expect(listenHost).not.toBe('0.0.0.0');
@@ -237,9 +240,9 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
         test('non-local deployment mode does not inherit 127.0.0.1 by default', () => {
             const isLocalOnly = false;
             const customHost = '10.0.1.50';
-            const listenHostWithEnv = isLocalOnly ? '127.0.0.1' : (customHost || '0.0.0.0');
+            const listenHostWithEnv = isLocalOnly ? '127.0.0.1' : customHost || '0.0.0.0';
             let fallbackHost;
-            const listenHostDefault = isLocalOnly ? '127.0.0.1' : (fallbackHost || '0.0.0.0');
+            const listenHostDefault = isLocalOnly ? '127.0.0.1' : fallbackHost || '0.0.0.0';
 
             expect(listenHostWithEnv).toBe('10.0.1.50');
             expect(listenHostDefault).toBe('0.0.0.0');
@@ -258,7 +261,12 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             };
             const mockNotarize = jest.fn();
 
-            const res = await compensateRollback('FCSS-REF-TEST-999', mockTxn, mockNotarize, mockLogger);
+            const res = await compensateRollback(
+                'FCSS-REF-TEST-999',
+                mockTxn,
+                mockNotarize,
+                mockLogger
+            );
 
             expect(res).toBeDefined();
             expect(res.status).toBe('FAILED');
@@ -274,16 +282,42 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedCompensate;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('CCIL IFSC: invalid transaction reference or account frozen')),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('CCIL IFSC: invalid transaction reference or account frozen')),
-                }), { virtual: true });
-                isolatedCompensate = require('../../core/saga/exporterFxManagement').compensateRollback;
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'CCIL IFSC: invalid transaction reference or account frozen'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'CCIL IFSC: invalid transaction reference or account frozen'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                isolatedCompensate =
+                    require('../../core/saga/exporterFxManagement').compensateRollback;
             });
 
-            const res = await isolatedCompensate('FCSS-REF-REJECT-01', { instruction_id: 'inst-rej' }, jest.fn(), mockLogger);
+            const res = await isolatedCompensate(
+                'FCSS-REF-REJECT-01',
+                { instruction_id: 'inst-rej' },
+                jest.fn(),
+                mockLogger
+            );
 
             expect(res.status).toBe('FAILED');
             expect(res.reason).toBe('ROLLBACK_REJECTED');
@@ -294,16 +328,42 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedCompensate;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Gateway timeout (HTTP 504) connecting to CCIL IFSC after 30000ms: ETIMEDOUT')),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Gateway timeout (HTTP 504) connecting to CCIL IFSC after 30000ms: ETIMEDOUT')),
-                }), { virtual: true });
-                isolatedCompensate = require('../../core/saga/exporterFxManagement').compensateRollback;
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'Gateway timeout (HTTP 504) connecting to CCIL IFSC after 30000ms: ETIMEDOUT'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'Gateway timeout (HTTP 504) connecting to CCIL IFSC after 30000ms: ETIMEDOUT'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                isolatedCompensate =
+                    require('../../core/saga/exporterFxManagement').compensateRollback;
             });
 
-            const res = await isolatedCompensate('FCSS-REF-TIMEOUT-01', { instruction_id: 'inst-timeout' }, jest.fn(), mockLogger);
+            const res = await isolatedCompensate(
+                'FCSS-REF-TIMEOUT-01',
+                { instruction_id: 'inst-timeout' },
+                jest.fn(),
+                mockLogger
+            );
 
             expect(res.status).toBe('UNKNOWN');
             expect(res.reason).toBe('AMBIGUOUS_ROLLBACK_DISPATCH');
@@ -317,16 +377,42 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedCompensate;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Authentication failed for Bearer secret_live_key_999888777 at gateway')),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Authentication failed for Bearer secret_live_key_999888777 at gateway')),
-                }), { virtual: true });
-                isolatedCompensate = require('../../core/saga/exporterFxManagement').compensateRollback;
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'Authentication failed for Bearer secret_live_key_999888777 at gateway'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error(
+                                    'Authentication failed for Bearer secret_live_key_999888777 at gateway'
+                                )
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                isolatedCompensate =
+                    require('../../core/saga/exporterFxManagement').compensateRollback;
             });
 
-            const res = await isolatedCompensate('FCSS-REF-LEAK', { instruction_id: 'inst-leak' }, jest.fn(), mockLogger);
+            const res = await isolatedCompensate(
+                'FCSS-REF-LEAK',
+                { instruction_id: 'inst-leak' },
+                jest.fn(),
+                mockLogger
+            );
 
             expect(res.error).not.toContain('secret_live_key_999888777');
             expect(res.error).toContain('[REDACTED]');
@@ -407,20 +493,28 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedSaga;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({
-                        status: 'SUCCESS',
-                        reversalRef: 'REV-CCIL-IFSC-001',
-                        timestamp: new Date().toISOString(),
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({
+                            status: 'SUCCESS',
+                            reversalRef: 'REV-CCIL-IFSC-001',
+                            timestamp: new Date().toISOString(),
+                        }),
                     }),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({
-                        status: 'SUCCESS',
-                        reversalRef: 'REV-CCIL-IFSC-001',
-                        timestamp: new Date().toISOString(),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({
+                            status: 'SUCCESS',
+                            reversalRef: 'REV-CCIL-IFSC-001',
+                            timestamp: new Date().toISOString(),
+                        }),
                     }),
-                }), { virtual: true });
+                    { virtual: true }
+                );
                 isolatedSaga = require('../../core/saga/exporterFxManagement').runExporterFxSaga;
             });
 
@@ -485,18 +579,26 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedSaga;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({
-                        status: 'SUCCESS',
-                        reversalRef: 'REV-CCIL-IFSC-002',
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({
+                            status: 'SUCCESS',
+                            reversalRef: 'REV-CCIL-IFSC-002',
+                        }),
                     }),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({
-                        status: 'SUCCESS',
-                        reversalRef: 'REV-CCIL-IFSC-002',
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({
+                            status: 'SUCCESS',
+                            reversalRef: 'REV-CCIL-IFSC-002',
+                        }),
                     }),
-                }), { virtual: true });
+                    { virtual: true }
+                );
                 isolatedSaga = require('../../core/saga/exporterFxManagement').runExporterFxSaga;
             });
 
@@ -552,7 +654,9 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             expect(result.inrFailed).toHaveLength(1);
             expect(result.reversalResult.status).toBe('SUCCESS');
 
-            const manualCheckUpdate = executedUpdates.find((u) => u.params && u.params[0] === 'MANUAL_CHECK');
+            const manualCheckUpdate = executedUpdates.find(
+                (u) => u.params && u.params[0] === 'MANUAL_CHECK'
+            );
             expect(manualCheckUpdate).toBeDefined();
         });
 
@@ -560,17 +664,36 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             let isolatedSaga;
             jest.isolateModules(() => {
                 jest.resetModules();
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Socket hang up after 15000ms: ECONNRESET')),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockRejectedValue(new Error('Socket hang up after 15000ms: ECONNRESET')),
-                }), { virtual: true });
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error('Socket hang up after 15000ms: ECONNRESET')
+                            ),
+                    }),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest
+                            .fn()
+                            .mockRejectedValue(
+                                new Error('Socket hang up after 15000ms: ECONNRESET')
+                            ),
+                    }),
+                    { virtual: true }
+                );
                 isolatedSaga = require('../../core/saga/exporterFxManagement').runExporterFxSaga;
             });
 
             mockLogger.info.mockImplementation((msg) => {
-                if (typeof msg === 'string' && msg.includes('INR disbursed to RECIPIENT_FAIL_TIMEOUT')) {
+                if (
+                    typeof msg === 'string' &&
+                    msg.includes('INR disbursed to RECIPIENT_FAIL_TIMEOUT')
+                ) {
                     throw new Error('Payout rejected');
                 }
             });
@@ -621,12 +744,20 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
         test('database persistence failure during rollback propagates without claiming success', async () => {
             let isolatedSaga;
             jest.isolateModules(() => {
-                jest.doMock('../../core/adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({ status: 'SUCCESS' }),
-                }), { virtual: true });
-                jest.doMock('../adapters/fcssAdapter', () => ({
-                    rollbackFcssRail: jest.fn().mockResolvedValue({ status: 'SUCCESS' }),
-                }), { virtual: true });
+                jest.doMock(
+                    '../../core/adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({ status: 'SUCCESS' }),
+                    }),
+                    { virtual: true }
+                );
+                jest.doMock(
+                    '../adapters/fcssAdapter',
+                    () => ({
+                        rollbackFcssRail: jest.fn().mockResolvedValue({ status: 'SUCCESS' }),
+                    }),
+                    { virtual: true }
+                );
                 isolatedSaga = require('../../core/saga/exporterFxManagement').runExporterFxSaga;
             });
 
@@ -645,7 +776,9 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
                     lastStep: 'FCSS_SETTLED',
                     fcssResult: { fcssRef: 'FCSS-CCIL-REF-DB' },
                     batchPlan: {
-                        inrConversions: [{ recipient: 'RECIPIENT_DB_FAIL', amount: 50000, currency: 'INR' }],
+                        inrConversions: [
+                            { recipient: 'RECIPIENT_DB_FAIL', amount: 50000, currency: 'INR' },
+                        ],
                     },
                 }),
             };
@@ -735,7 +868,11 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
                 }
 
                 const isExporterFxWorkflow = Boolean(
-                    sagaMeta && (sagaMeta.lastStep || sagaMeta.batchPlan || sagaMeta.fcssResult || sagaMeta.femaResult)
+                    sagaMeta &&
+                    (sagaMeta.lastStep ||
+                        sagaMeta.batchPlan ||
+                        sagaMeta.fcssResult ||
+                        sagaMeta.femaResult)
                 );
 
                 if (isExporterFxWorkflow) {
@@ -746,12 +883,21 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
                             'SELECT state, saga_state FROM instructions WHERE instruction_id = $1 FOR UPDATE',
                             [id]
                         );
-                        if (lockRes.rows.length > 0 && ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(lockRes.rows[0].state)) {
+                        if (
+                            lockRes.rows.length > 0 &&
+                            ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(
+                                lockRes.rows[0].state
+                            )
+                        ) {
                             const curSaga = JSON.parse(lockRes.rows[0].saga_state);
                             curSaga.reconciledAt = new Date().toISOString();
                             await client.query(
                                 "UPDATE instructions SET state = 'MANUAL_CHECK', saga_state = $1, error_message = $2, updated_at = NOW() WHERE instruction_id = $3",
-                                [JSON.stringify(curSaga), 'Exporter FX stale execution: escalated to MANUAL_CHECK for manual review', id]
+                                [
+                                    JSON.stringify(curSaga),
+                                    'Exporter FX stale execution: escalated to MANUAL_CHECK for manual review',
+                                    id,
+                                ]
                             );
                             await client.query('COMMIT');
                         } else {
@@ -787,7 +933,9 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             };
 
             // In DB, instruction concurrently changed to SETTLED
-            const lockedRows = [{ instruction_id: 'inst-fcss-already-settled', state: 'SETTLED', saga_state: '{}' }];
+            const lockedRows = [
+                { instruction_id: 'inst-fcss-already-settled', state: 'SETTLED', saga_state: '{}' },
+            ];
             const executedQueries = [];
 
             const mockClient = {
@@ -809,7 +957,10 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             );
 
             // Reconciler guard check
-            if (lockRes.rows.length > 0 && ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(lockRes.rows[0].state)) {
+            if (
+                lockRes.rows.length > 0 &&
+                ['PENDING_EXECUTION', 'PENDING_SETTLEMENT'].includes(lockRes.rows[0].state)
+            ) {
                 await client.query("UPDATE instructions SET state = 'MANUAL_CHECK'");
                 await client.query('COMMIT');
             } else {
@@ -817,7 +968,9 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             }
 
             // Must NOT have issued an update
-            const updateQuery = executedQueries.find((q) => q.sql && q.sql.includes('UPDATE instructions SET'));
+            const updateQuery = executedQueries.find(
+                (q) => q.sql && q.sql.includes('UPDATE instructions SET')
+            );
             expect(updateQuery).toBeUndefined();
 
             // Must have rolled back to preserve legitimate SETTLED state
@@ -837,11 +990,43 @@ describe('FCSS SAGA Endpoint, Compensation & Runtime Safety (P1 Repairs)', () =>
             if (fromState === 'VOIDED' || fromState === 'REJECTED') return false; // Terminal
 
             const allowlist = {
-                INITIATED: ['INITIATED', 'PENDING_APPROVAL', 'LOCKED', 'FAILED', 'CANCELLED', 'VOIDED'],
-                PENDING_APPROVAL: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'INITIATED', 'CANCELLED', 'VOIDED'],
-                APPROVED: ['APPROVED', 'LOCKED', 'PENDING_EXECUTION', 'EXECUTED', 'SETTLED', 'SIMULATED', 'FAILED', 'MANUAL_CHECK', 'VOIDED'],
+                INITIATED: [
+                    'INITIATED',
+                    'PENDING_APPROVAL',
+                    'LOCKED',
+                    'FAILED',
+                    'CANCELLED',
+                    'VOIDED',
+                ],
+                PENDING_APPROVAL: [
+                    'PENDING_APPROVAL',
+                    'APPROVED',
+                    'REJECTED',
+                    'INITIATED',
+                    'CANCELLED',
+                    'VOIDED',
+                ],
+                APPROVED: [
+                    'APPROVED',
+                    'LOCKED',
+                    'PENDING_EXECUTION',
+                    'EXECUTED',
+                    'SETTLED',
+                    'SIMULATED',
+                    'FAILED',
+                    'MANUAL_CHECK',
+                    'VOIDED',
+                ],
                 LOCKED: ['LOCKED', 'PENDING_EXECUTION', 'FAILED', 'MANUAL_CHECK'],
-                PENDING_EXECUTION: ['PENDING_EXECUTION', 'EXECUTED', 'SETTLED', 'PENDING_SETTLEMENT', 'SIMULATED', 'FAILED', 'MANUAL_CHECK'],
+                PENDING_EXECUTION: [
+                    'PENDING_EXECUTION',
+                    'EXECUTED',
+                    'SETTLED',
+                    'PENDING_SETTLEMENT',
+                    'SIMULATED',
+                    'FAILED',
+                    'MANUAL_CHECK',
+                ],
                 EXECUTED: ['EXECUTED', 'SETTLED', 'PENDING_SETTLEMENT', 'FAILED', 'MANUAL_CHECK'],
                 PENDING_SETTLEMENT: ['PENDING_SETTLEMENT', 'SETTLED', 'FAILED', 'MANUAL_CHECK'],
                 MANUAL_CHECK: ['MANUAL_CHECK', 'SETTLED', 'FAILED'],

@@ -1,6 +1,10 @@
 'use strict';
 
-const { validateEnvironment, STELLAR_TESTNET_HORIZON, STELLAR_TESTNET_PASSPHRASE } = require('../../core/configValidator');
+const {
+    validateEnvironment,
+    STELLAR_TESTNET_HORIZON,
+    STELLAR_TESTNET_PASSPHRASE,
+} = require('../../core/configValidator');
 const vaultProvider = require('../../vaultProvider');
 
 describe('Task 1 & 4: Testnet Environment & Credential Enforcement', () => {
@@ -25,7 +29,12 @@ describe('Task 1 & 4: Testnet Environment & Credential Enforcement', () => {
         });
 
         test('strictly rejects live/production Stripe key (sk_live_*)', () => {
-            const env = { ...validTestEnv, STRIPE_TEST_SECRET_KEY: ['sk', 'live', '51ProdKeyBypassingSandbox00000000000'].join('_') };
+            const env = {
+                ...validTestEnv,
+                STRIPE_TEST_SECRET_KEY: ['sk', 'live', '51ProdKeyBypassingSandbox00000000000'].join(
+                    '_'
+                ),
+            };
             expect(() => validateEnvironment(env)).toThrow(/sk_live_/);
         });
 
@@ -70,18 +79,28 @@ describe('Task 1 & 4: Testnet Environment & Credential Enforcement', () => {
         });
 
         test('strictly rejects non-testnet Stellar Passphrase', () => {
-            const env = { ...validTestEnv, STELLAR_NETWORK_PASSPHRASE: 'Public Global Stellar Network ; September 2015' };
+            const env = {
+                ...validTestEnv,
+                STELLAR_NETWORK_PASSPHRASE: 'Public Global Stellar Network ; September 2015',
+            };
             expect(() => validateEnvironment(env)).toThrow(/Prohibited Stellar Network Passphrase/);
         });
 
         test('strictly rejects STRIPE_WEBHOOK_SECRET not starting with whsec_', () => {
             const env = { ...validTestEnv, STRIPE_WEBHOOK_SECRET: 'invalid_prefix_secret' };
-            expect(() => validateEnvironment(env)).toThrow(/Invalid STRIPE_WEBHOOK_SECRET: Must start with test secret prefix 'whsec_'/);
+            expect(() => validateEnvironment(env)).toThrow(
+                /Invalid STRIPE_WEBHOOK_SECRET: Must start with test secret prefix 'whsec_'/
+            );
         });
 
         test('strictly rejects RAZORPAYX_WEBHOOK_SECRET matching RAZORPAY_KEY_SECRET', () => {
-            const env = { ...validTestEnv, RAZORPAYX_WEBHOOK_SECRET: validTestEnv.RAZORPAY_KEY_SECRET };
-            expect(() => validateEnvironment(env)).toThrow(/RAZORPAYX_WEBHOOK_SECRET must NOT match RAZORPAY_KEY_SECRET/);
+            const env = {
+                ...validTestEnv,
+                RAZORPAYX_WEBHOOK_SECRET: validTestEnv.RAZORPAY_KEY_SECRET,
+            };
+            expect(() => validateEnvironment(env)).toThrow(
+                /RAZORPAYX_WEBHOOK_SECRET must NOT match RAZORPAY_KEY_SECRET/
+            );
         });
     });
 
@@ -98,7 +117,9 @@ describe('Task 1 & 4: Testnet Environment & Credential Enforcement', () => {
 
         test('rejects STRIPE_KEY retrieval if unset in environment (no hardcoded fallback)', () => {
             delete process.env.STRIPE_TEST_SECRET_KEY;
-            expect(() => vaultProvider.getAdapterCredential('STRIPE_KEY')).toThrow(/not set in environment/);
+            expect(() => vaultProvider.getAdapterCredential('STRIPE_KEY')).toThrow(
+                /not set in environment/
+            );
         });
 
         test('rejects STRIPE_KEY retrieval if key is live', () => {
@@ -108,30 +129,37 @@ describe('Task 1 & 4: Testnet Environment & Credential Enforcement', () => {
 
         test('rejects RAZORPAY_KEY_ID retrieval if key is live', () => {
             process.env.RAZORPAY_KEY_ID = 'rzp_live_1234567890abcdef';
-            expect(() => vaultProvider.getAdapterCredential('RAZORPAY_KEY_ID')).toThrow(/rzp_live_/);
+            expect(() => vaultProvider.getAdapterCredential('RAZORPAY_KEY_ID')).toThrow(
+                /rzp_live_/
+            );
         });
 
         test('rejects signStellarTransaction when VAULT_MASTER_SECRET is unset', async () => {
             delete process.env.VAULT_MASTER_SECRET;
-            await expect(vaultProvider.signStellarTransaction('TEST_SENDER', {}))
-                .rejects.toThrow(/VAULT_MASTER_SECRET not configured/);
+            await expect(vaultProvider.signStellarTransaction('TEST_SENDER', {})).rejects.toThrow(
+                /VAULT_MASTER_SECRET not configured/
+            );
         });
 
         test('rejects getStellarPublicKey when VAULT_MASTER_SECRET is unset', async () => {
             delete process.env.VAULT_MASTER_SECRET;
-            await expect(vaultProvider.getStellarPublicKey('TEST_SENDER'))
-                .rejects.toThrow(/VAULT_MASTER_SECRET not configured/);
+            await expect(vaultProvider.getStellarPublicKey('TEST_SENDER')).rejects.toThrow(
+                /VAULT_MASTER_SECRET not configured/
+            );
         });
 
         test('rejects encryptClientKey when VAULT_MASTER_SECRET is unset', () => {
             delete process.env.VAULT_MASTER_SECRET;
-            expect(() => vaultProvider.encryptClientKey('plain_api_key')).toThrow(/VAULT_MASTER_SECRET not configured/);
+            expect(() => vaultProvider.encryptClientKey('plain_api_key')).toThrow(
+                /VAULT_MASTER_SECRET not configured/
+            );
         });
 
         test('rejects decryptClientKey when VAULT_MASTER_SECRET is unset', () => {
             delete process.env.VAULT_MASTER_SECRET;
-            expect(() => vaultProvider.decryptClientKey({ encrypted_key: 'aa', iv: 'bb', auth_tag: 'cc' }))
-                .toThrow(/VAULT_MASTER_SECRET not configured/);
+            expect(() =>
+                vaultProvider.decryptClientKey({ encrypted_key: 'aa', iv: 'bb', auth_tag: 'cc' })
+            ).toThrow(/VAULT_MASTER_SECRET not configured/);
         });
 
         test('software key derivation deterministically derives valid public key when secret is configured', async () => {

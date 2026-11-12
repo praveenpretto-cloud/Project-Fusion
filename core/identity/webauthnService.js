@@ -58,7 +58,10 @@ function pemToCose(pemOrCose) {
         return new Uint8Array(pemOrCose);
     }
     if (typeof pemOrCose === 'string') {
-        if (!pemOrCose.includes('BEGIN PUBLIC KEY') && !pemOrCose.includes('BEGIN RSA PUBLIC KEY')) {
+        if (
+            !pemOrCose.includes('BEGIN PUBLIC KEY') &&
+            !pemOrCose.includes('BEGIN RSA PUBLIC KEY')
+        ) {
             return new Uint8Array(base64UrlDecode(pemOrCose));
         }
         const pub = crypto.createPublicKey(pemOrCose);
@@ -67,21 +70,21 @@ function pemToCose(pemOrCose) {
             const x = new Uint8Array(base64UrlDecode(jwk.x));
             const y = new Uint8Array(base64UrlDecode(jwk.y));
             const coseMap = new Map([
-                [1, 2],       // kty: EC2
-                [3, -7],      // alg: ES256
-                [-1, 1],      // crv: P-256
-                [-2, x],      // x coord (32 bytes)
-                [-3, y],      // y coord (32 bytes)
+                [1, 2], // kty: EC2
+                [3, -7], // alg: ES256
+                [-1, 1], // crv: P-256
+                [-2, x], // x coord (32 bytes)
+                [-3, y], // y coord (32 bytes)
             ]);
             return new Uint8Array(encodeCBOR(coseMap));
         } else if (jwk.kty === 'RSA') {
             const n = new Uint8Array(base64UrlDecode(jwk.n));
             const e = new Uint8Array(base64UrlDecode(jwk.e));
             const coseMap = new Map([
-                [1, 3],       // kty: RSA
-                [3, -257],    // alg: RS256
-                [-1, n],      // n
-                [-2, e],      // e
+                [1, 3], // kty: RSA
+                [3, -257], // alg: RS256
+                [-1, n], // n
+                [-2, e], // e
             ]);
             return new Uint8Array(encodeCBOR(coseMap));
         }
@@ -110,19 +113,34 @@ function computePaymentContextDigest(context = {}) {
     }
 
     // 1. approvalId: non-empty string
-    if (!context.approvalId || typeof context.approvalId !== 'string' || !context.approvalId.trim()) {
+    if (
+        !context.approvalId ||
+        typeof context.approvalId !== 'string' ||
+        !context.approvalId.trim()
+    ) {
         throw new Error('Missing or invalid required payment context field: "approvalId"');
     }
 
     // 2. instructionId: non-empty string
-    if (!context.instructionId || typeof context.instructionId !== 'string' || !context.instructionId.trim()) {
+    if (
+        !context.instructionId ||
+        typeof context.instructionId !== 'string' ||
+        !context.instructionId.trim()
+    ) {
         throw new Error('Missing or invalid required payment context field: "instructionId"');
     }
 
     // 3. version: positive integer >= 1
     const versionNum = Number(context.version);
-    if (context.version === undefined || context.version === null || !Number.isInteger(versionNum) || versionNum < 1) {
-        throw new Error('Missing or invalid required payment context field: "version" (must be integer >= 1)');
+    if (
+        context.version === undefined ||
+        context.version === null ||
+        !Number.isInteger(versionNum) ||
+        versionNum < 1
+    ) {
+        throw new Error(
+            'Missing or invalid required payment context field: "version" (must be integer >= 1)'
+        );
     }
 
     // 4. currency: non-empty string in ASSET_PRECISION
@@ -131,27 +149,45 @@ function computePaymentContextDigest(context = {}) {
     }
     const normCurrency = context.currency.toUpperCase().trim();
     if (!Object.prototype.hasOwnProperty.call(ASSET_PRECISION, normCurrency)) {
-        throw new Error(`Missing or invalid required payment context field: "currency" (unsupported asset "${normCurrency}")`);
+        throw new Error(
+            `Missing or invalid required payment context field: "currency" (unsupported asset "${normCurrency}")`
+        );
     }
 
     // 5. amount: exact decimal string, never JS float formatting, currency-specific precision
-    if (context.amount === undefined || context.amount === null || (typeof context.amount === 'string' && !context.amount.trim())) {
+    if (
+        context.amount === undefined ||
+        context.amount === null ||
+        (typeof context.amount === 'string' && !context.amount.trim())
+    ) {
         throw new Error('Missing or invalid required payment context field: "amount"');
     }
     if (typeof context.amount === 'number') {
-        throw new Error('Missing or invalid required payment context field: "amount" (JavaScript Number inputs are rejected to prevent IEEE 754 precision loss; provide an exact decimal string)');
+        throw new Error(
+            'Missing or invalid required payment context field: "amount" (JavaScript Number inputs are rejected to prevent IEEE 754 precision loss; provide an exact decimal string)'
+        );
     }
     if (typeof context.amount !== 'string') {
-        throw new Error('Missing or invalid required payment context field: "amount" (must be an exact decimal string)');
+        throw new Error(
+            'Missing or invalid required payment context field: "amount" (must be an exact decimal string)'
+        );
     }
     let canonicalAmount;
     try {
         canonicalAmount = toCanonicalDecimal(context.amount, normCurrency);
     } catch (e) {
-        throw new Error(`Missing or invalid required payment context field: "amount" (${e.message})`);
+        throw new Error(
+            `Missing or invalid required payment context field: "amount" (${e.message})`
+        );
     }
-    if (canonicalAmount.startsWith('-') || canonicalAmount === '0' || /^0+(\.0+)?$/.test(canonicalAmount)) {
-        throw new Error('Missing or invalid required payment context field: "amount" (must be positive)');
+    if (
+        canonicalAmount.startsWith('-') ||
+        canonicalAmount === '0' ||
+        /^0+(\.0+)?$/.test(canonicalAmount)
+    ) {
+        throw new Error(
+            'Missing or invalid required payment context field: "amount" (must be positive)'
+        );
     }
 
     // 6. beneficiary: non-empty string
@@ -172,7 +208,11 @@ function computePaymentContextDigest(context = {}) {
     }
 
     // 9. environment: non-empty string
-    if (!context.environment || typeof context.environment !== 'string' || !context.environment.trim()) {
+    if (
+        !context.environment ||
+        typeof context.environment !== 'string' ||
+        !context.environment.trim()
+    ) {
         throw new Error('Missing or invalid required payment context field: "environment"');
     }
 
@@ -182,11 +222,17 @@ function computePaymentContextDigest(context = {}) {
     }
     const normAction = String(context.action).toUpperCase().trim();
     if (!ALLOWED_PAYMENT_CONTEXT_ACTIONS.includes(normAction)) {
-        throw new Error(`Missing or invalid required payment context field: "action" (action must be one of: ${ALLOWED_PAYMENT_CONTEXT_ACTIONS.join(', ')})`);
+        throw new Error(
+            `Missing or invalid required payment context field: "action" (action must be one of: ${ALLOWED_PAYMENT_CONTEXT_ACTIONS.join(', ')})`
+        );
     }
 
     // 11. checkerOperatorId: non-empty string
-    if (!context.checkerOperatorId || typeof context.checkerOperatorId !== 'string' || !context.checkerOperatorId.trim()) {
+    if (
+        !context.checkerOperatorId ||
+        typeof context.checkerOperatorId !== 'string' ||
+        !context.checkerOperatorId.trim()
+    ) {
         throw new Error('Missing or invalid required payment context field: "checkerOperatorId"');
     }
 
@@ -223,7 +269,7 @@ class WebAuthnService {
 
         // In-memory stores for unit testing / development without live DB
         this.inMemoryCredentials = new Map(); // credentialId -> { operatorId, publicKey, cosePublicKey, counter, aaguid, createdAt }
-        this.inMemoryChallenges = new Map();  // challenge -> { challengeId, operatorId, ceremonyType, expiresAt, consumedAt }
+        this.inMemoryChallenges = new Map(); // challenge -> { challengeId, operatorId, ceremonyType, expiresAt, consumedAt }
     }
 
     /**
@@ -236,7 +282,12 @@ class WebAuthnService {
      * @param {object} [options.pool] - PostgreSQL Pool
      * @returns {Promise<{ challenge: string, challengeId: string, rpId: string, expiresAt: Date, contextDigest?: string }>}
      */
-    async generateChallenge({ operatorId, ceremonyType = 'authentication', paymentContext = null, pool = null } = {}) {
+    async generateChallenge({
+        operatorId,
+        ceremonyType = 'authentication',
+        paymentContext = null,
+        pool = null,
+    } = {}) {
         if (!operatorId) {
             throw new Error('operatorId is required to generate a WebAuthn challenge');
         }
@@ -261,7 +312,16 @@ class WebAuthnService {
                 `INSERT INTO identity.webauthn_challenges (
                     challenge_id, operator_id, challenge, ceremony_type, expires_at, context_digest, context_data, instruction_id
                  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [challengeId, operatorId, challenge, ceremonyType, expiresAt, contextDigest, contextDataJson, instructionId]
+                [
+                    challengeId,
+                    operatorId,
+                    challenge,
+                    ceremonyType,
+                    expiresAt,
+                    contextDigest,
+                    contextDataJson,
+                    instructionId,
+                ]
             );
         } else {
             this.inMemoryChallenges.set(challenge, {
@@ -319,7 +379,9 @@ class WebAuthnService {
                 if (checkRes.rows.length > 0) {
                     const row = checkRes.rows[0];
                     if (row.consumed_at !== null) {
-                        const err = new Error('WebAuthn challenge has already been consumed (replay blocked)');
+                        const err = new Error(
+                            'WebAuthn challenge has already been consumed (replay blocked)'
+                        );
                         err.statusCode = 400;
                         err.code = 'CHALLENGE_REPLAY';
                         throw err;
@@ -337,13 +399,17 @@ class WebAuthnService {
                         throw err;
                     }
                     if (row.ceremony_type !== expectedCeremony) {
-                        const err = new Error(`WebAuthn ceremony mismatch: expected ${expectedCeremony}, got ${row.ceremony_type}`);
+                        const err = new Error(
+                            `WebAuthn ceremony mismatch: expected ${expectedCeremony}, got ${row.ceremony_type}`
+                        );
                         err.statusCode = 400;
                         err.code = 'CEREMONY_MISMATCH';
                         throw err;
                     }
                 }
-                const err = new Error('WebAuthn challenge is invalid, expired, or already consumed');
+                const err = new Error(
+                    'WebAuthn challenge is invalid, expired, or already consumed'
+                );
                 err.statusCode = 400;
                 err.code = 'INVALID_CHALLENGE';
                 throw err;
@@ -358,7 +424,9 @@ class WebAuthnService {
                 throw err;
             }
             if (record.consumedAt !== null) {
-                const err = new Error('WebAuthn challenge has already been consumed (replay blocked)');
+                const err = new Error(
+                    'WebAuthn challenge has already been consumed (replay blocked)'
+                );
                 err.statusCode = 400;
                 err.code = 'CHALLENGE_REPLAY';
                 throw err;
@@ -370,7 +438,9 @@ class WebAuthnService {
                 throw err;
             }
             if (record.ceremonyType !== expectedCeremony) {
-                const err = new Error(`WebAuthn ceremony mismatch: expected ${expectedCeremony}, got ${record.ceremonyType}`);
+                const err = new Error(
+                    `WebAuthn ceremony mismatch: expected ${expectedCeremony}, got ${record.ceremonyType}`
+                );
                 err.statusCode = 400;
                 err.code = 'CEREMONY_MISMATCH';
                 throw err;
@@ -389,7 +459,14 @@ class WebAuthnService {
     /**
      * Registers a WebAuthn public key credential for an operator.
      */
-    async registerCredential({ operatorId, credentialId, publicKeyPem, challenge, clientDataJSON, pool = null } = {}) {
+    async registerCredential({
+        operatorId,
+        credentialId,
+        publicKeyPem,
+        challenge,
+        clientDataJSON,
+        pool = null,
+    } = {}) {
         if (!operatorId || !credentialId || !publicKeyPem || !challenge) {
             throw new Error('Missing required fields for credential registration');
         }
@@ -400,7 +477,9 @@ class WebAuthnService {
         // Verify clientDataJSON if provided
         if (clientDataJSON) {
             const clientData = JSON.parse(
-                Buffer.isBuffer(clientDataJSON) ? clientDataJSON.toString('utf8') : base64UrlDecode(clientDataJSON).toString('utf8')
+                Buffer.isBuffer(clientDataJSON)
+                    ? clientDataJSON.toString('utf8')
+                    : base64UrlDecode(clientDataJSON).toString('utf8')
             );
             if (clientData.type !== 'webauthn.create') {
                 throw new Error(`Invalid clientData type for registration: "${clientData.type}"`);
@@ -411,9 +490,12 @@ class WebAuthnService {
         }
 
         const coseBytes = pemToCose(publicKeyPem);
-        const storedPublicKey = Buffer.isBuffer(publicKeyPem) || typeof publicKeyPem !== 'string' || !publicKeyPem.includes('BEGIN')
-            ? Buffer.from(coseBytes).toString('base64url')
-            : publicKeyPem;
+        const storedPublicKey =
+            Buffer.isBuffer(publicKeyPem) ||
+            typeof publicKeyPem !== 'string' ||
+            !publicKeyPem.includes('BEGIN')
+                ? Buffer.from(coseBytes).toString('base64url')
+                : publicKeyPem;
 
         if (pool) {
             await pool.query(
@@ -434,7 +516,9 @@ class WebAuthnService {
             });
         }
 
-        logger.info(`[WEBAUTHN] Registered new FIDO2 credential ${credentialId} for operator ${operatorId}`);
+        logger.info(
+            `[WEBAUTHN] Registered new FIDO2 credential ${credentialId} for operator ${operatorId}`
+        );
         return { success: true, credentialId, operatorId };
     }
 
@@ -463,20 +547,20 @@ class WebAuthnService {
         const signature = inner.signature;
 
         if (!clientDataJSON || !authenticatorData || !signature) {
-            const err = new Error('Malformed assertionResponse: clientDataJSON, authenticatorData, and signature are required');
+            const err = new Error(
+                'Malformed assertionResponse: clientDataJSON, authenticatorData, and signature are required'
+            );
             err.statusCode = 400;
             throw err;
         }
 
-        const clientDataStr = typeof clientDataJSON === 'string'
-            ? clientDataJSON
-            : base64UrlEncode(clientDataJSON);
-        const authDataStr = typeof authenticatorData === 'string'
-            ? authenticatorData
-            : base64UrlEncode(authenticatorData);
-        const sigStr = typeof signature === 'string'
-            ? signature
-            : base64UrlEncode(signature);
+        const clientDataStr =
+            typeof clientDataJSON === 'string' ? clientDataJSON : base64UrlEncode(clientDataJSON);
+        const authDataStr =
+            typeof authenticatorData === 'string'
+                ? authenticatorData
+                : base64UrlEncode(authenticatorData);
+        const sigStr = typeof signature === 'string' ? signature : base64UrlEncode(signature);
 
         // Parse clientDataJSON
         const clientDataBuf = base64UrlDecode(clientDataStr);
@@ -491,15 +575,25 @@ class WebAuthnService {
 
         // Origin check
         const originToCheck = expectedOrigin || this.origin;
-        if (clientData.origin !== originToCheck && !this.allowedOrigins.includes(clientData.origin)) {
-            const err = new Error(`Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`);
+        if (
+            clientData.origin !== originToCheck &&
+            !this.allowedOrigins.includes(clientData.origin)
+        ) {
+            const err = new Error(
+                `Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`
+            );
             err.statusCode = 400;
             err.code = 'INVALID_ORIGIN';
             throw err;
         }
 
         // Atomically consume challenge
-        const consumedChallenge = await this._consumeChallenge(clientData.challenge, operatorId, 'authentication', pool);
+        const consumedChallenge = await this._consumeChallenge(
+            clientData.challenge,
+            operatorId,
+            'authentication',
+            pool
+        );
 
         // Validate payment context binding if challenge was context-bound
         const storedDigest = consumedChallenge.context_digest || consumedChallenge.contextDigest;
@@ -513,13 +607,18 @@ class WebAuthnService {
 
             const expectedDigest = computePaymentContextDigest(expectedPaymentContext);
             if (expectedDigest !== storedDigest) {
-                const err = new Error('WebAuthn payment context mismatch: approval details have been altered or mismatched');
+                const err = new Error(
+                    'WebAuthn payment context mismatch: approval details have been altered or mismatched'
+                );
                 err.statusCode = 403;
                 err.code = 'PAYMENT_CONTEXT_MISMATCH';
                 throw err;
             }
 
-            if (expectedPaymentContext.checkerOperatorId && expectedPaymentContext.checkerOperatorId !== operatorId) {
+            if (
+                expectedPaymentContext.checkerOperatorId &&
+                expectedPaymentContext.checkerOperatorId !== operatorId
+            ) {
                 const err = new Error('WebAuthn checker operator mismatch with payment context');
                 err.statusCode = 403;
                 err.code = 'OPERATOR_MISMATCH';
@@ -535,7 +634,9 @@ class WebAuthnService {
                 [credentialId, operatorId]
             );
             if (res.rows.length === 0) {
-                const err = new Error(`WebAuthn credential "${credentialId}" not found for operator`);
+                const err = new Error(
+                    `WebAuthn credential "${credentialId}" not found for operator`
+                );
                 err.statusCode = 404;
                 throw err;
             }
@@ -543,13 +644,16 @@ class WebAuthnService {
         } else {
             storedCred = this.inMemoryCredentials.get(credentialId);
             if (!storedCred || storedCred.operatorId !== operatorId) {
-                const err = new Error(`WebAuthn credential "${credentialId}" not found for operator`);
+                const err = new Error(
+                    `WebAuthn credential "${credentialId}" not found for operator`
+                );
                 err.statusCode = 404;
                 throw err;
             }
         }
 
-        const cosePublicKey = storedCred.cosePublicKey || pemToCose(storedCred.public_key || storedCred.publicKey);
+        const cosePublicKey =
+            storedCred.cosePublicKey || pemToCose(storedCred.public_key || storedCred.publicKey);
         const storedCounter = Number(storedCred.counter || 0);
 
         // Verify assertion with @simplewebauthn/server
@@ -582,13 +686,20 @@ class WebAuthnService {
         } catch (err) {
             const lowerMsg = (err.message || '').toLowerCase();
             if (lowerMsg.includes('counter') || lowerMsg.includes('lower than expected')) {
-                const mappedErr = new Error('WebAuthn authenticator counter regression (possible cloned token)');
+                const mappedErr = new Error(
+                    'WebAuthn authenticator counter regression (possible cloned token)'
+                );
                 mappedErr.statusCode = 403;
                 mappedErr.code = 'COUNTER_REGRESSION';
                 throw mappedErr;
             }
-            if (lowerMsg.includes('user verification') || lowerMsg.includes('user could not be verified')) {
-                const mappedErr = new Error('User verification (UV) flag required but not satisfied in assertion');
+            if (
+                lowerMsg.includes('user verification') ||
+                lowerMsg.includes('user could not be verified')
+            ) {
+                const mappedErr = new Error(
+                    'User verification (UV) flag required but not satisfied in assertion'
+                );
                 mappedErr.statusCode = 403;
                 mappedErr.code = 'USER_VERIFICATION_REQUIRED';
                 throw mappedErr;
@@ -600,13 +711,17 @@ class WebAuthnService {
                 throw mappedErr;
             }
             if (lowerMsg.includes('rp id') || lowerMsg.includes('rpid')) {
-                const mappedErr = new Error(`rpIdHash mismatch: assertion not bound to rpId "${this.rpId}"`);
+                const mappedErr = new Error(
+                    `rpIdHash mismatch: assertion not bound to rpId "${this.rpId}"`
+                );
                 mappedErr.statusCode = 400;
                 mappedErr.code = 'RPID_MISMATCH';
                 throw mappedErr;
             }
             if (lowerMsg.includes('origin')) {
-                const mappedErr = new Error(`Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`);
+                const mappedErr = new Error(
+                    `Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`
+                );
                 mappedErr.statusCode = 400;
                 mappedErr.code = 'INVALID_ORIGIN';
                 throw mappedErr;
@@ -642,7 +757,11 @@ class WebAuthnService {
 
             const challengeUuid = consumedChallenge.challenge_id || consumedChallenge.challengeId;
             if (challengeUuid && signatureHash) {
-                const contextDigest = storedDigest || (expectedPaymentContext ? computePaymentContextDigest(expectedPaymentContext) : '0'.repeat(64));
+                const contextDigest =
+                    storedDigest ||
+                    (expectedPaymentContext
+                        ? computePaymentContextDigest(expectedPaymentContext)
+                        : '0'.repeat(64));
                 try {
                     const { getVerifierDbConfig } = require('./verifierSecretBoundary');
                     const { Pool } = require('pg');
@@ -656,7 +775,9 @@ class WebAuthnService {
                         await verifierPool.end();
                     }
                 } catch (recErr) {
-                    logger.warn(`[WEBAUTHN] Verifier pool assertion recording failed, falling back to connection pool: ${recErr.message}`);
+                    logger.warn(
+                        `[WEBAUTHN] Verifier pool assertion recording failed, falling back to connection pool: ${recErr.message}`
+                    );
                     await pool.query(
                         `SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5)`,
                         [challengeUuid, operatorId, credentialId, signatureHash, contextDigest]
@@ -668,7 +789,9 @@ class WebAuthnService {
             storedCred.lastUsedAt = new Date();
         }
 
-        logger.info(`[WEBAUTHN] ✅ Successfully verified WebAuthn assertion for operator ${operatorId} (counter: ${newCounter})`);
+        logger.info(
+            `[WEBAUTHN] ✅ Successfully verified WebAuthn assertion for operator ${operatorId} (counter: ${newCounter})`
+        );
         return {
             verified: true,
             operatorId,

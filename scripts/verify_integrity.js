@@ -291,7 +291,9 @@ async function verifyChain(options = {}) {
         // 1. Reconstruct DAG chain
         const reconstruction = reconstructChain(rows);
         if (!reconstruction.success) {
-            console.error(`❌ LEDGER STRUCTURE DEFECT: [${reconstruction.error}] ${reconstruction.message}`);
+            console.error(
+                `❌ LEDGER STRUCTURE DEFECT: [${reconstruction.error}] ${reconstruction.message}`
+            );
             return {
                 verified: false,
                 verifiedCount: 0,
@@ -316,14 +318,22 @@ async function verifyChain(options = {}) {
                 if (entry.prev_hash !== 'GENESIS_HASH') {
                     const msg = `Invalid genesis prev_hash: expected GENESIS_HASH, got ${entry.prev_hash}`;
                     console.error(`❌ BROKEN GENESIS at ${entry.entry_id}: ${msg}`);
-                    violations.push({ type: 'BROKEN_GENESIS', entryId: entry.entry_id, message: msg });
+                    violations.push({
+                        type: 'BROKEN_GENESIS',
+                        entryId: entry.entry_id,
+                        message: msg,
+                    });
                 }
             } else {
                 const prev = chain[i - 1];
                 if (entry.prev_hash !== prev.hash) {
                     const msg = `Chain linkage broken. Expected prev: ${prev.hash}, Actual: ${entry.prev_hash}`;
                     console.error(`❌ BROKEN CHAIN at ${entry.entry_id}: ${msg}`);
-                    violations.push({ type: 'BROKEN_CHAIN', entryId: entry.entry_id, message: msg });
+                    violations.push({
+                        type: 'BROKEN_CHAIN',
+                        entryId: entry.entry_id,
+                        message: msg,
+                    });
                 }
             }
 
@@ -348,7 +358,11 @@ async function verifyChain(options = {}) {
                 if (lastSequenceId !== null && currentSeq <= lastSequenceId) {
                     const msg = `Non-monotonic sequence_id detected: current ${currentSeq} <= previous ${lastSequenceId}`;
                     console.error(`❌ SEQUENCE ORDER ANOMALY at ${entry.entry_id}: ${msg}`);
-                    violations.push({ type: 'NON_MONOTONIC_SEQUENCE', entryId: entry.entry_id, message: msg });
+                    violations.push({
+                        type: 'NON_MONOTONIC_SEQUENCE',
+                        entryId: entry.entry_id,
+                        message: msg,
+                    });
                 }
                 lastSequenceId = currentSeq;
             }
@@ -359,7 +373,9 @@ async function verifyChain(options = {}) {
             console.log('   No tampering detected. Cryptographic DAG linkage is unbroken.');
             return { verified: true, verifiedCount, errors: [] };
         } else {
-            console.error(`\n❌ VERIFICATION FAILED: ${violations.length} integrity violations found.`);
+            console.error(
+                `\n❌ VERIFICATION FAILED: ${violations.length} integrity violations found.`
+            );
             return { verified: false, verifiedCount, errors: violations };
         }
     } finally {

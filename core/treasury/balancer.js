@@ -26,7 +26,7 @@ const logger = require('../../logger');
  * @param {Array<Object>} pendingInstructions - The batch being submitted
  */
 async function ensureStellarLiquidity(pendingInstructions) {
-    const stellarInstructions = pendingInstructions.filter(i =>
+    const stellarInstructions = pendingInstructions.filter((i) =>
         ['XLM', 'USDC'].includes(i.currency)
     );
 
@@ -36,9 +36,13 @@ async function ensureStellarLiquidity(pendingInstructions) {
     logger.info(`[LIQUIDITY_BALANCER] Analyzing batch. Required: ${totalRequired} XLM (est).`);
 
     if (totalRequired > 50000) {
-        logger.warn(`[LIQUIDITY_BALANCER] 🚨 High-Value Batch Detected: ${totalRequired}. Rebalancing logic engaged.`);
+        logger.warn(
+            `[LIQUIDITY_BALANCER] 🚨 High-Value Batch Detected: ${totalRequired}. Rebalancing logic engaged.`
+        );
     } else {
-        logger.info(`[LIQUIDITY_BALANCER] ✅ Liquidity projected as sufficient for master Stellar account.`);
+        logger.info(
+            `[LIQUIDITY_BALANCER] ✅ Liquidity projected as sufficient for master Stellar account.`
+        );
     }
 }
 

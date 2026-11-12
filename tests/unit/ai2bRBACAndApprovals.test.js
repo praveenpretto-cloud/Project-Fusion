@@ -28,14 +28,8 @@ const {
     MakerCheckerService,
     APPROVAL_STATUS,
 } = require('../../core/approvals/makerCheckerService');
-const {
-    requirePermission,
-    requireAnyRole,
-} = require('../../core/identity/authMiddleware');
-const {
-    OidcClient,
-    rfc6749FormUrlEncode,
-} = require('../../core/identity/oidcClient');
+const { requirePermission, requireAnyRole } = require('../../core/identity/authMiddleware');
+const { OidcClient, rfc6749FormUrlEncode } = require('../../core/identity/oidcClient');
 const {
     validateEnvironment,
     assertPermittedProvider,
@@ -47,7 +41,6 @@ const {
 } = require('../../core/configValidator');
 
 describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () => {
-
     // =========================================================================
     // 1. PREFLIGHT CORRECTIONS (AI-2A.2 Gaps)
     // =========================================================================
@@ -207,7 +200,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     roleKey: ROLES.TREASURY_ANALYST,
                     assignedBy: adminId, // Self-elevation attempt
                 })
-            ).rejects.toThrow(/Self-elevation prohibited: operators cannot grant roles to themselves/);
+            ).rejects.toThrow(
+                /Self-elevation prohibited: operators cannot grant roles to themselves/
+            );
         });
 
         test('assignRoleToOperator and revokeRoleFromOperator record before-and-after snapshots in audit logs', async () => {
@@ -245,11 +240,13 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
         test('assertPermission fails closed with 403 when permission is missing', async () => {
             const opId = '00000000-0000-4000-8000-000000000002'; // OPS_OPERATOR
-            await expect(
-                rbac.assertPermission(opId, PERMISSIONS.PAYMENT_APPROVE)
-            ).rejects.toThrow(/Access denied: operator lacks required permission/);
+            await expect(rbac.assertPermission(opId, PERMISSIONS.PAYMENT_APPROVE)).rejects.toThrow(
+                /Access denied: operator lacks required permission/
+            );
 
-            const denialAudit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'PERMISSION_DENIED');
+            const denialAudit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'PERMISSION_DENIED'
+            );
             expect(denialAudit).toBeDefined();
             expect(denialAudit.metadata.attemptedPermission).toBe(PERMISSIONS.PAYMENT_APPROVE);
         });
@@ -266,7 +263,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
         });
 
         test('requirePermission returns 401 when operator is not authenticated', async () => {
-            const middleware = requirePermission(PERMISSIONS.PAYMENT_INITIATE, { rbacService: rbac });
+            const middleware = requirePermission(PERMISSIONS.PAYMENT_INITIATE, {
+                rbacService: rbac,
+            });
             const req = { path: '/api/payout', method: 'POST' };
             const res = {
                 status: jest.fn().mockReturnThis(),
@@ -280,7 +279,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
         });
 
         test('requirePermission allows request when operator possesses permission', async () => {
-            const middleware = requirePermission(PERMISSIONS.PAYMENT_INITIATE, { rbacService: rbac });
+            const middleware = requirePermission(PERMISSIONS.PAYMENT_INITIATE, {
+                rbacService: rbac,
+            });
             const req = {
                 path: '/api/payout',
                 method: 'POST',
@@ -298,7 +299,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
         });
 
         test('requirePermission returns 403 Forbidden when operator lacks permission', async () => {
-            const middleware = requirePermission(PERMISSIONS.PAYMENT_APPROVE, { rbacService: rbac });
+            const middleware = requirePermission(PERMISSIONS.PAYMENT_APPROVE, {
+                rbacService: rbac,
+            });
             const req = {
                 path: '/api/approvals/approve',
                 method: 'POST',
@@ -312,14 +315,14 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             await middleware(req, res, next);
             expect(res.status).toHaveBeenCalledWith(403);
-            expect(res.json).toHaveBeenCalledWith(
-                expect.objectContaining({ error: 'Forbidden' })
-            );
+            expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Forbidden' }));
             expect(next).not.toHaveBeenCalled();
         });
 
         test('requireAnyRole permits matching role and blocks non-matching role', async () => {
-            const middleware = requireAnyRole([ROLES.COMPLIANCE_OFFICER, ROLES.SYSTEM_ADMIN], { rbacService: rbac });
+            const middleware = requireAnyRole([ROLES.COMPLIANCE_OFFICER, ROLES.SYSTEM_ADMIN], {
+                rbacService: rbac,
+            });
             const opReq = {
                 path: '/api/compliance/logs',
                 method: 'GET',
@@ -584,10 +587,10 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
         let makerChecker;
         let testKeyPair;
 
-        const makerId = '00000000-0000-4000-8000-000000000002';       // OPS_OPERATOR
-        const checkerId = '00000000-0000-4000-8000-000000000001';     // TREASURY_ANALYST (Checker)
-        const complianceId = '00000000-0000-4000-8000-000000000004';  // COMPLIANCE_OFFICER
-        const auditorId = '00000000-0000-4000-8000-000000000003';     // AUDITOR
+        const makerId = '00000000-0000-4000-8000-000000000002'; // OPS_OPERATOR
+        const checkerId = '00000000-0000-4000-8000-000000000001'; // TREASURY_ANALYST (Checker)
+        const complianceId = '00000000-0000-4000-8000-000000000004'; // COMPLIANCE_OFFICER
+        const auditorId = '00000000-0000-4000-8000-000000000003'; // AUDITOR
         const credentialId = 'cred_treasury_fido2';
 
         beforeAll(() => {
@@ -645,7 +648,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     amount: 50000,
                     currency: 'INR',
                 })
-            ).rejects.toThrow(/Access denied: operator lacks required permission "payment:initiate"/);
+            ).rejects.toThrow(
+                /Access denied: operator lacks required permission "payment:initiate"/
+            );
         });
 
         test('CRITICAL FOUR-EYES INVARIANT: Maker CANNOT approve their own payment instruction', async () => {
@@ -669,10 +674,14 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     checkerOperatorId: makerId, // Self-approval attempt
                     requireStepUp: false,
                 })
-            ).rejects.toThrow(/Maker-Checker violation: An operator cannot approve their own payment instruction/);
+            ).rejects.toThrow(
+                /Maker-Checker violation: An operator cannot approve their own payment instruction/
+            );
 
             // Verify security audit log captured the violation attempt
-            const violationAudit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'MAKER_CHECKER_VIOLATION_BLOCKED');
+            const violationAudit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'MAKER_CHECKER_VIOLATION_BLOCKED'
+            );
             expect(violationAudit).toBeDefined();
             expect(violationAudit.operatorId).toBe(makerId);
         });
@@ -693,7 +702,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     checkerOperatorId: unauthChecker,
                     requireStepUp: false,
                 })
-            ).rejects.toThrow(/Access denied: operator lacks required permission "payment:approve"/);
+            ).rejects.toThrow(
+                /Access denied: operator lacks required permission "payment:approve"/
+            );
         });
 
         test('Compliance hold blocks payment approval until released by compliance officer', async () => {
@@ -720,7 +731,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     checkerOperatorId: checkerId,
                     requireStepUp: false,
                 })
-            ).rejects.toThrow(/Payment instruction is under compliance hold and cannot be approved until released/);
+            ).rejects.toThrow(
+                /Payment instruction is under compliance hold and cannot be approved until released/
+            );
 
             // 3. Operator without compliance:release cannot release hold
             await expect(
@@ -729,7 +742,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     officerOperatorId: makerId, // OPS_OPERATOR lacks release
                     notes: 'Self release attempt',
                 })
-            ).rejects.toThrow(/Access denied: operator lacks required permission "compliance:release"/);
+            ).rejects.toThrow(
+                /Access denied: operator lacks required permission "compliance:release"/
+            );
 
             // 4. Compliance officer releases hold
             const releaseRecord = await makerChecker.releaseHold({
@@ -845,7 +860,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             expect(() => {
                 rbac.assertAiBoundary(aiPrincipal);
-            }).toThrow(/AI operations intelligence is strictly read-only. Payment initiation and approval are prohibited./);
+            }).toThrow(
+                /AI operations intelligence is strictly read-only. Payment initiation and approval are prohibited./
+            );
         });
 
         test('AI evidence module exports only read-only evidence retrieval functions', () => {
@@ -854,7 +871,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             // Must only contain query/evidence/verification functions, zero mutating actions
             for (const key of exportedKeys) {
-                expect(key).not.toMatch(/^(initiate|approve|execute|transfer|payout|create|update|delete|insert)/i);
+                expect(key).not.toMatch(
+                    /^(initiate|approve|execute|transfer|payout|create|update|delete|insert)/i
+                );
             }
         });
     });
@@ -928,25 +947,54 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             const baseDigest = computePaymentContextDigest(basePaymentContext);
 
             // Alter amount
-            expect(computePaymentContextDigest({ ...basePaymentContext, amount: '50001.00' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({ ...basePaymentContext, amount: '50001.00' })
+            ).not.toBe(baseDigest);
             // Alter currency
-            expect(computePaymentContextDigest({ ...basePaymentContext, currency: 'EUR' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({ ...basePaymentContext, currency: 'EUR' })
+            ).not.toBe(baseDigest);
             // Alter beneficiary
-            expect(computePaymentContextDigest({ ...basePaymentContext, beneficiary: 'vendor_acct_99' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({
+                    ...basePaymentContext,
+                    beneficiary: 'vendor_acct_99',
+                })
+            ).not.toBe(baseDigest);
             // Alter destination_account
-            expect(computePaymentContextDigest({ ...basePaymentContext, destination_account: 'dest_acc_hacked_001' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({
+                    ...basePaymentContext,
+                    destination_account: 'dest_acc_hacked_001',
+                })
+            ).not.toBe(baseDigest);
             // Alter provider
-            expect(computePaymentContextDigest({ ...basePaymentContext, provider: 'RAZORPAYX_TEST' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({ ...basePaymentContext, provider: 'RAZORPAYX_TEST' })
+            ).not.toBe(baseDigest);
             // Alter environment
-            expect(computePaymentContextDigest({ ...basePaymentContext, environment: 'testnet' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({ ...basePaymentContext, environment: 'testnet' })
+            ).not.toBe(baseDigest);
             // Alter instructionId
-            expect(computePaymentContextDigest({ ...basePaymentContext, instructionId: 'other_inst' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({ ...basePaymentContext, instructionId: 'other_inst' })
+            ).not.toBe(baseDigest);
             // Alter version
-            expect(computePaymentContextDigest({ ...basePaymentContext, version: 2 })).not.toBe(baseDigest);
+            expect(computePaymentContextDigest({ ...basePaymentContext, version: 2 })).not.toBe(
+                baseDigest
+            );
             // Alter checkerOperatorId
-            expect(computePaymentContextDigest({ ...basePaymentContext, checkerOperatorId: '00000000-0000-4000-8000-000000000099' })).not.toBe(baseDigest);
+            expect(
+                computePaymentContextDigest({
+                    ...basePaymentContext,
+                    checkerOperatorId: '00000000-0000-4000-8000-000000000099',
+                })
+            ).not.toBe(baseDigest);
             // Alter action (VOID is also an allowed action)
-            expect(computePaymentContextDigest({ ...basePaymentContext, action: 'VOID' })).not.toBe(baseDigest);
+            expect(computePaymentContextDigest({ ...basePaymentContext, action: 'VOID' })).not.toBe(
+                baseDigest
+            );
         });
 
         test('generateChallenge with paymentContext stores contextDigest and returns it', async () => {
@@ -958,7 +1006,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             expect(challengeData.challenge).toBeDefined();
             expect(challengeData.contextDigest).toBeDefined();
-            expect(challengeData.contextDigest).toBe(computePaymentContextDigest(basePaymentContext));
+            expect(challengeData.contextDigest).toBe(
+                computePaymentContextDigest(basePaymentContext)
+            );
         });
 
         test('verifyAuthenticationAssertion succeeds when exact matching payment context is provided', async () => {
@@ -1011,7 +1061,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     assertionResponse: assertion,
                     expectedPaymentContext: alteredContext,
                 })
-            ).rejects.toThrow(/WebAuthn payment context mismatch: approval details have been altered or mismatched/);
+            ).rejects.toThrow(
+                /WebAuthn payment context mismatch: approval details have been altered or mismatched/
+            );
         });
 
         test('verifyAuthenticationAssertion rejects JavaScript Number amounts to prevent float precision errors', async () => {
@@ -1037,7 +1089,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     assertionResponse: assertion,
                     expectedPaymentContext: numericContext,
                 })
-            ).rejects.toThrow(/JavaScript Number inputs are rejected to prevent IEEE 754 precision loss/);
+            ).rejects.toThrow(
+                /JavaScript Number inputs are rejected to prevent IEEE 754 precision loss/
+            );
         });
 
         test('verifyAuthenticationAssertion rejects with PAYMENT_CONTEXT_MISMATCH if submitted against different instructionId', async () => {
@@ -1054,7 +1108,10 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                 counter: 1,
             });
 
-            const differentInstructionContext = { ...basePaymentContext, instructionId: 'inst_hijacked_002' };
+            const differentInstructionContext = {
+                ...basePaymentContext,
+                instructionId: 'inst_hijacked_002',
+            };
 
             await expect(
                 webauthn.verifyAuthenticationAssertion({
@@ -1104,7 +1161,10 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                 counter: 1,
             });
 
-            const alteredContext = { ...basePaymentContext, destination_account: 'dest_acc_tampered_attacker_iban' };
+            const alteredContext = {
+                ...basePaymentContext,
+                destination_account: 'dest_acc_tampered_attacker_iban',
+            };
 
             await expect(
                 webauthn.verifyAuthenticationAssertion({
@@ -1130,7 +1190,10 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                 counter: 1,
             });
 
-            const alteredContext = { ...basePaymentContext, beneficiary: 'fraudulent_syndicate_entity' };
+            const alteredContext = {
+                ...basePaymentContext,
+                beneficiary: 'fraudulent_syndicate_entity',
+            };
 
             await expect(
                 webauthn.verifyAuthenticationAssertion({
@@ -1277,91 +1340,127 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             // Missing destination_account
             const noDest = { ...basePaymentContext };
             delete noDest.destination_account;
-            expect(() => computePaymentContextDigest(noDest)).toThrow(/Missing or invalid required payment context field: "destination_account"/);
+            expect(() => computePaymentContextDigest(noDest)).toThrow(
+                /Missing or invalid required payment context field: "destination_account"/
+            );
 
             // Missing beneficiary
             const noBeneficiary = { ...basePaymentContext };
             delete noBeneficiary.beneficiary;
-            expect(() => computePaymentContextDigest(noBeneficiary)).toThrow(/Missing or invalid required payment context field: "beneficiary"/);
+            expect(() => computePaymentContextDigest(noBeneficiary)).toThrow(
+                /Missing or invalid required payment context field: "beneficiary"/
+            );
 
             // Missing amount
             const noAmount = { ...basePaymentContext };
             delete noAmount.amount;
-            expect(() => computePaymentContextDigest(noAmount)).toThrow(/Missing or invalid required payment context field: "amount"/);
+            expect(() => computePaymentContextDigest(noAmount)).toThrow(
+                /Missing or invalid required payment context field: "amount"/
+            );
 
             // Missing currency
             const noCurrency = { ...basePaymentContext };
             delete noCurrency.currency;
-            expect(() => computePaymentContextDigest(noCurrency)).toThrow(/Missing or invalid required payment context field: "currency"/);
+            expect(() => computePaymentContextDigest(noCurrency)).toThrow(
+                /Missing or invalid required payment context field: "currency"/
+            );
 
             // Missing provider
             const noProvider = { ...basePaymentContext };
             delete noProvider.provider;
-            expect(() => computePaymentContextDigest(noProvider)).toThrow(/Missing or invalid required payment context field: "provider"/);
+            expect(() => computePaymentContextDigest(noProvider)).toThrow(
+                /Missing or invalid required payment context field: "provider"/
+            );
 
             // Missing environment
             const noEnv = { ...basePaymentContext };
             delete noEnv.environment;
-            expect(() => computePaymentContextDigest(noEnv)).toThrow(/Missing or invalid required payment context field: "environment"/);
+            expect(() => computePaymentContextDigest(noEnv)).toThrow(
+                /Missing or invalid required payment context field: "environment"/
+            );
 
             // Missing version
             const noVersion = { ...basePaymentContext };
             delete noVersion.version;
-            expect(() => computePaymentContextDigest(noVersion)).toThrow(/Missing or invalid required payment context field: "version"/);
+            expect(() => computePaymentContextDigest(noVersion)).toThrow(
+                /Missing or invalid required payment context field: "version"/
+            );
 
             // Missing approvalId
             const noApproval = { ...basePaymentContext };
             delete noApproval.approvalId;
-            expect(() => computePaymentContextDigest(noApproval)).toThrow(/Missing or invalid required payment context field: "approvalId"/);
+            expect(() => computePaymentContextDigest(noApproval)).toThrow(
+                /Missing or invalid required payment context field: "approvalId"/
+            );
 
             // Missing instructionId
             const noInstruction = { ...basePaymentContext };
             delete noInstruction.instructionId;
-            expect(() => computePaymentContextDigest(noInstruction)).toThrow(/Missing or invalid required payment context field: "instructionId"/);
+            expect(() => computePaymentContextDigest(noInstruction)).toThrow(
+                /Missing or invalid required payment context field: "instructionId"/
+            );
 
             // Missing action
             const noAction = { ...basePaymentContext };
             delete noAction.action;
-            expect(() => computePaymentContextDigest(noAction)).toThrow(/Missing or invalid required payment context field: "action"/);
+            expect(() => computePaymentContextDigest(noAction)).toThrow(
+                /Missing or invalid required payment context field: "action"/
+            );
 
             // Missing checkerOperatorId
             const noChecker = { ...basePaymentContext };
             delete noChecker.checkerOperatorId;
-            expect(() => computePaymentContextDigest(noChecker)).toThrow(/Missing or invalid required payment context field: "checkerOperatorId"/);
+            expect(() => computePaymentContextDigest(noChecker)).toThrow(
+                /Missing or invalid required payment context field: "checkerOperatorId"/
+            );
 
             // Malformed currency
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, currency: 'MONOPOLY_BUCKS' })).toThrow(/unsupported asset/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, currency: 'MONOPOLY_BUCKS' })
+            ).toThrow(/unsupported asset/);
 
             // Rejection of JavaScript Number inputs (Finding 4)
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: 50000 })).toThrow(
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: 50000 })
+            ).toThrow(
                 /JavaScript Number inputs are rejected to prevent IEEE 754 precision loss; provide an exact decimal string/
             );
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: 100.5 })).toThrow(
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: 100.5 })
+            ).toThrow(
                 /JavaScript Number inputs are rejected to prevent IEEE 754 precision loss; provide an exact decimal string/
             );
 
             // Negative amount
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: '-500.00' })).toThrow(/must be positive/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: '-500.00' })
+            ).toThrow(/must be positive/);
 
             // Zero amount
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: '0.00' })).toThrow(/must be positive/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: '0.00' })
+            ).toThrow(/must be positive/);
 
             // Scientific notation rejection
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: '1e5' })).toThrow(/Invalid financial numeric value/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: '1e5' })
+            ).toThrow(/Invalid financial numeric value/);
 
             // Over-precision (3 decimal places for USD which requires scale 2)
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, amount: '500.125' })).toThrow(/exceeds maximum precision of 2 decimal places/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, amount: '500.125' })
+            ).toThrow(/exceeds maximum precision of 2 decimal places/);
 
             // Action substitution rejection (only APPROVE and VOID are allowed)
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, action: 'EXECUTE' })).toThrow(
-                /action must be one of: APPROVE, VOID/
-            );
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, action: 'CANCEL' })).toThrow(
-                /action must be one of: APPROVE, VOID/
-            );
-            expect(() => computePaymentContextDigest({ ...basePaymentContext, action: 'REJECT' })).toThrow(
-                /action must be one of: APPROVE, VOID/
-            );
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, action: 'EXECUTE' })
+            ).toThrow(/action must be one of: APPROVE, VOID/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, action: 'CANCEL' })
+            ).toThrow(/action must be one of: APPROVE, VOID/);
+            expect(() =>
+                computePaymentContextDigest({ ...basePaymentContext, action: 'REJECT' })
+            ).toThrow(/action must be one of: APPROVE, VOID/);
         });
 
         test('computePaymentContextDigest normalizes financial amounts with exact currency precision without float loss', () => {
@@ -1373,15 +1472,23 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             // XLM scale 7 exact normalization
             const xlmContext1 = { ...basePaymentContext, currency: 'XLM', amount: '100.5' };
             const xlmContext2 = { ...basePaymentContext, currency: 'XLM', amount: '100.5000000' };
-            expect(computePaymentContextDigest(xlmContext1)).toBe(computePaymentContextDigest(xlmContext2));
+            expect(computePaymentContextDigest(xlmContext1)).toBe(
+                computePaymentContextDigest(xlmContext2)
+            );
 
             // BTC scale 8 exact normalization
             const btcContext1 = { ...basePaymentContext, currency: 'BTC', amount: '1.25' };
             const btcContext2 = { ...basePaymentContext, currency: 'BTC', amount: '1.25000000' };
-            expect(computePaymentContextDigest(btcContext1)).toBe(computePaymentContextDigest(btcContext2));
+            expect(computePaymentContextDigest(btcContext1)).toBe(
+                computePaymentContextDigest(btcContext2)
+            );
 
             // ETH scale 18 exact precision representation
-            const ethContext = { ...basePaymentContext, currency: 'ETH', amount: '1.000000000000000001' };
+            const ethContext = {
+                ...basePaymentContext,
+                currency: 'ETH',
+                amount: '1.000000000000000001',
+            };
             const ethDigest = computePaymentContextDigest(ethContext);
             expect(ethDigest).toMatch(/^[a-f0-9]{64}$/);
         });
@@ -1560,7 +1667,7 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
     describe('9. Dual Control for Sensitive Privileged Role Assignments', () => {
         let rbac;
         const adminRequester = '00000000-0000-4000-8000-000000000005'; // SYSTEM_ADMIN
-        const adminApprover = '00000000-0000-4000-8000-000000000099';  // Secondary SYSTEM_ADMIN
+        const adminApprover = '00000000-0000-4000-8000-000000000099'; // Secondary SYSTEM_ADMIN
         const targetOperator = '00000000-0000-4000-8000-000000000010';
 
         beforeEach(() => {
@@ -1612,7 +1719,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     action: 'ASSIGN',
                     reason: 'Self-elevation attempt',
                 })
-            ).rejects.toThrow(/Self-elevation prohibited: operators cannot submit role change requests for themselves/);
+            ).rejects.toThrow(
+                /Self-elevation prohibited: operators cannot submit role change requests for themselves/
+            );
         });
 
         test('requestRoleChange records pending request and logs audit event', async () => {
@@ -1627,7 +1736,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             expect(req.requestId).toBeDefined();
             expect(req.status).toBe('PENDING');
 
-            const audit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'ROLE_CHANGE_REQUESTED');
+            const audit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'ROLE_CHANGE_REQUESTED'
+            );
             expect(audit).toBeDefined();
             expect(audit.metadata.roleKey).toBe(ROLES.TREASURY_ANALYST);
         });
@@ -1646,7 +1757,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     requestId: req.requestId,
                     approvingOperatorId: adminRequester, // Same operator attempting self-approval!
                 })
-            ).rejects.toThrow(/Dual control violation: An operator cannot approve their own role change request/);
+            ).rejects.toThrow(
+                /Dual control violation: An operator cannot approve their own role change request/
+            );
         });
 
         test('approveRoleChange enforces self-elevation prohibition: target cannot approve own elevation', async () => {
@@ -1666,7 +1779,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     requestId: req.requestId,
                     approvingOperatorId: targetOperator, // Target attempting approval!
                 })
-            ).rejects.toThrow(/Self-elevation prohibited: An operator cannot approve their own role change/);
+            ).rejects.toThrow(
+                /Self-elevation prohibited: An operator cannot approve their own role change/
+            );
         });
 
         test('independent approver approves role change, applying sensitive role and updating status', async () => {
@@ -1689,7 +1804,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             const targetRoles = await rbac.getOperatorRoles(targetOperator);
             expect(targetRoles).toContain(ROLES.TREASURY_ANALYST);
 
-            const audit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'ROLE_CHANGE_APPROVED');
+            const audit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'ROLE_CHANGE_APPROVED'
+            );
             expect(audit).toBeDefined();
         });
 
@@ -1714,7 +1831,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             const targetRoles = await rbac.getOperatorRoles(targetOperator);
             expect(targetRoles).not.toContain(ROLES.TREASURY_ANALYST);
 
-            const audit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'ROLE_CHANGE_REJECTED');
+            const audit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'ROLE_CHANGE_REJECTED'
+            );
             expect(audit).toBeDefined();
         });
     });
@@ -1731,7 +1850,10 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
         beforeEach(async () => {
             rbac = new RbacService();
-            const webauthn = new WebAuthnService({ rpId: 'localhost', origin: 'http://localhost:3000' });
+            const webauthn = new WebAuthnService({
+                rpId: 'localhost',
+                origin: 'http://localhost:3000',
+            });
             makerChecker = new MakerCheckerService({
                 rbacService: rbac,
                 webauthnService: webauthn,
@@ -1867,7 +1989,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     operatorId: checkerId,
                     reason: 'Unauthorized single-operator void',
                 })
-            ).rejects.toThrow(/Dual control violation: Independent requester and approver identities are required/);
+            ).rejects.toThrow(
+                /Dual control violation: Independent requester and approver identities are required/
+            );
 
             // 3. Unauthorized role (Compliance Officer) cannot request void
             const complianceId = '00000000-0000-4000-8000-000000000004';
@@ -1877,7 +2001,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     requesterOperatorId: complianceId,
                     reason: 'Compliance officer attempting unauthorized void request',
                 })
-            ).rejects.toThrow(/Access denied: operator lacks required permission "payment:void_request"/);
+            ).rejects.toThrow(
+                /Access denied: operator lacks required permission "payment:void_request"/
+            );
 
             // 4. Authorized operator (OPS_OPERATOR) requests void
             const voidReq = await makerChecker.requestPaymentVoid({
@@ -1895,7 +2021,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     voidRequestId: voidReq.voidRequestId,
                     approverOperatorId: makerId,
                 })
-            ).rejects.toThrow(/Access denied: operator lacks required permission "payment:void_approve"/);
+            ).rejects.toThrow(
+                /Access denied: operator lacks required permission "payment:void_approve"/
+            );
 
             // 6. Dual Control: A Treasury Analyst (possessing payment:void_approve) cannot approve their OWN void request
             const secondInstId = 'inst_treasury_dual_test';
@@ -1922,7 +2050,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     approverOperatorId: checkerId,
                     requireStepUp: false,
                 })
-            ).rejects.toThrow(/Dual control violation: Requester cannot approve their own void request/);
+            ).rejects.toThrow(
+                /Dual control violation: Requester cannot approve their own void request/
+            );
 
             // 7. Generate void challenge bound to action: 'VOID'
             expect(ALLOWED_PAYMENT_CONTEXT_ACTIONS).toEqual(['APPROVE', 'VOID']);
@@ -1948,13 +2078,17 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             const details = await makerChecker.getApprovalDetails({ instructionId });
             expect(details.status).toBe(APPROVAL_STATUS.VOIDED);
-            expect(details.rejectionReason).toBe('Vendor duplicate billing discovered post-approval');
+            expect(details.rejectionReason).toBe(
+                'Vendor duplicate billing discovered post-approval'
+            );
             // Material terms preserved
             expect(Number(details.amount)).toBe(50000);
             expect(details.currency).toBe('USD');
 
             // Audit log recorded with requester, approver, and contextDigest
-            const audit = rbac.inMemoryAuditLogs.find((l) => l.eventType === 'PAYMENT_VOID_APPROVED');
+            const audit = rbac.inMemoryAuditLogs.find(
+                (l) => l.eventType === 'PAYMENT_VOID_APPROVED'
+            );
             expect(audit).toBeDefined();
             expect(audit.metadata.instructionId).toBe(instructionId);
             expect(audit.metadata.requesterOperatorId).toBe(makerId);
@@ -2013,7 +2147,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     ...validTestnetEnv,
                     STRIPE_TEST_SECRET_KEY: 'sk_live_production_key_detected',
                 });
-            }).toThrow(/Production Stripe key \(sk_live_\*.*\) detected! Project Fusion strictly prohibits live card credentials/);
+            }).toThrow(
+                /Production Stripe key \(sk_live_\*.*\) detected! Project Fusion strictly prohibits live card credentials/
+            );
         });
 
         test('validateEnvironment fails closed on live Razorpay key (rzp_live_*)', () => {
@@ -2022,7 +2158,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     ...validTestnetEnv,
                     RAZORPAY_KEY_ID: 'rzp_live_production_payout_key',
                 });
-            }).toThrow(/Production Razorpay key \(rzp_live_\*\) detected! Project Fusion strictly prohibits live payout credentials/);
+            }).toThrow(
+                /Production Razorpay key \(rzp_live_\*\) detected! Project Fusion strictly prohibits live payout credentials/
+            );
         });
 
         test('validateEnvironment fails closed on non-testnet Stellar Horizon URL', () => {
@@ -2040,7 +2178,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     ...validTestnetEnv,
                     STELLAR_NETWORK_PASSPHRASE: 'Public Global Stellar Network ; September 2015', // Mainnet passphrase
                 });
-            }).toThrow(/Prohibited Stellar Network Passphrase: Only Testnet passphrase is permitted/);
+            }).toThrow(
+                /Prohibited Stellar Network Passphrase: Only Testnet passphrase is permitted/
+            );
         });
 
         test('assertPermittedProvider accepts allowlisted providers and rejects unknown providers', () => {
@@ -2049,21 +2189,41 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             expect(assertPermittedProvider('STELLAR_TESTNET')).toBe('STELLAR_TESTNET');
             expect(assertPermittedProvider('core_stellar')).toBe('core_stellar');
 
-            expect(() => assertPermittedProvider('UNKNOWN_ROGUE_PROVIDER')).toThrow(/Unrecognized or unauthorized provider identifier/);
-            expect(() => assertPermittedProvider('')).toThrow(/Provider identifier must be an explicit non-empty string/);
-            expect(() => assertPermittedProvider(null)).toThrow(/Provider identifier must be an explicit non-empty string/);
+            expect(() => assertPermittedProvider('UNKNOWN_ROGUE_PROVIDER')).toThrow(
+                /Unrecognized or unauthorized provider identifier/
+            );
+            expect(() => assertPermittedProvider('')).toThrow(
+                /Provider identifier must be an explicit non-empty string/
+            );
+            expect(() => assertPermittedProvider(null)).toThrow(
+                /Provider identifier must be an explicit non-empty string/
+            );
         });
 
         test('assertPermittedEndpoint validates permitted sandbox endpoints and rejects mainnet URLs', () => {
-            expect(assertPermittedEndpoint('https://api.stripe.com/v1/payment_intents')).toBe('https://api.stripe.com/v1/payment_intents');
-            expect(assertPermittedEndpoint('https://api.razorpay.com/v1/payouts')).toBe('https://api.razorpay.com/v1/payouts');
-            expect(assertPermittedEndpoint('https://horizon-testnet.stellar.org')).toBe('https://horizon-testnet.stellar.org');
-            expect(assertPermittedEndpoint('https://friendbot.stellar.org')).toBe('https://friendbot.stellar.org');
+            expect(assertPermittedEndpoint('https://api.stripe.com/v1/payment_intents')).toBe(
+                'https://api.stripe.com/v1/payment_intents'
+            );
+            expect(assertPermittedEndpoint('https://api.razorpay.com/v1/payouts')).toBe(
+                'https://api.razorpay.com/v1/payouts'
+            );
+            expect(assertPermittedEndpoint('https://horizon-testnet.stellar.org')).toBe(
+                'https://horizon-testnet.stellar.org'
+            );
+            expect(assertPermittedEndpoint('https://friendbot.stellar.org')).toBe(
+                'https://friendbot.stellar.org'
+            );
 
             // Rejects mainnet
-            expect(() => assertPermittedEndpoint('https://horizon.stellar.org')).toThrow(/Prohibited mainnet\/production endpoint rejected/);
-            expect(() => assertPermittedEndpoint('https://mainnet.infura.io/v3/secret')).toThrow(/Prohibited mainnet\/production endpoint rejected/);
-            expect(() => assertPermittedEndpoint('https://api.untrusted-hft-gateway.com')).toThrow(/Unrecognized endpoint URL/);
+            expect(() => assertPermittedEndpoint('https://horizon.stellar.org')).toThrow(
+                /Prohibited mainnet\/production endpoint rejected/
+            );
+            expect(() => assertPermittedEndpoint('https://mainnet.infura.io/v3/secret')).toThrow(
+                /Prohibited mainnet\/production endpoint rejected/
+            );
+            expect(() => assertPermittedEndpoint('https://api.untrusted-hft-gateway.com')).toThrow(
+                /Unrecognized endpoint URL/
+            );
         });
 
         test('assertPermittedNetwork requires explicit classification and rejects unknown or mainnet networks', () => {
@@ -2074,28 +2234,46 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             // Missing network must NOT default silently to sandbox (must fail closed)
             expect(() => assertPermittedNetwork('')).toThrow(/Missing network classification/);
             expect(() => assertPermittedNetwork(null)).toThrow(/Missing network classification/);
-            expect(() => assertPermittedNetwork(undefined)).toThrow(/Missing network classification/);
+            expect(() => assertPermittedNetwork(undefined)).toThrow(
+                /Missing network classification/
+            );
 
             // Rejects mainnet networks
-            expect(() => assertPermittedNetwork('ethereum_mainnet')).toThrow(/Prohibited or unrecognized blockchain network/);
-            expect(() => assertPermittedNetwork('bitcoin_mainnet')).toThrow(/Prohibited or unrecognized blockchain network/);
+            expect(() => assertPermittedNetwork('ethereum_mainnet')).toThrow(
+                /Prohibited or unrecognized blockchain network/
+            );
+            expect(() => assertPermittedNetwork('bitcoin_mainnet')).toThrow(
+                /Prohibited or unrecognized blockchain network/
+            );
         });
 
         test('validateSimulationAdapter ensures BTC and ETH simulation cannot resolve external RPC endpoints', () => {
             // Valid zero-network simulation
-            expect(validateSimulationAdapter({ asset: 'BTC', network: 'simulated_btc_testnet' })).toBe(true);
-            expect(validateSimulationAdapter({ asset: 'ETH', network: 'simulated_eth_sepolia' })).toBe(true);
+            expect(
+                validateSimulationAdapter({ asset: 'BTC', network: 'simulated_btc_testnet' })
+            ).toBe(true);
+            expect(
+                validateSimulationAdapter({ asset: 'ETH', network: 'simulated_eth_sepolia' })
+            ).toBe(true);
 
             // Rejects any attempt to specify external RPC for simulated assets
-            expect(() => validateSimulationAdapter({
-                asset: 'ETH',
-                rpcUrl: 'https://mainnet.infura.io/v3/12345',
-            })).toThrow(/Simulation adapter for ETH cannot resolve or connect to external RPC endpoints/);
+            expect(() =>
+                validateSimulationAdapter({
+                    asset: 'ETH',
+                    rpcUrl: 'https://mainnet.infura.io/v3/12345',
+                })
+            ).toThrow(
+                /Simulation adapter for ETH cannot resolve or connect to external RPC endpoints/
+            );
 
-            expect(() => validateSimulationAdapter({
-                asset: 'BTC',
-                rpcUrl: 'https://blockstream.info/api',
-            })).toThrow(/Simulation adapter for BTC cannot resolve or connect to external RPC endpoints/);
+            expect(() =>
+                validateSimulationAdapter({
+                    asset: 'BTC',
+                    rpcUrl: 'https://blockstream.info/api',
+                })
+            ).toThrow(
+                /Simulation adapter for BTC cannot resolve or connect to external RPC endpoints/
+            );
         });
 
         test('validateEnvironment fails closed on simulation RPC or live network environment configuration', () => {
@@ -2104,7 +2282,9 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
                     ...validTestnetEnv,
                     ETH_RPC_URL: 'https://sepolia.infura.io/v3/dummy',
                 });
-            }).toThrow(/ETH_RPC_URL configured in environment. ETH is strictly simulated with zero RPC network resolution/);
+            }).toThrow(
+                /ETH_RPC_URL configured in environment. ETH is strictly simulated with zero RPC network resolution/
+            );
 
             expect(() => {
                 validateEnvironment({
@@ -2116,76 +2296,98 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
         test('validateProviderCredentialMode enforces strict test-mode credentials and rejects live keys', () => {
             // Valid Stripe test credentials (sk_test_ and rk_test_)
-            expect(validateProviderCredentialMode({
-                provider: 'core_stripe',
-                credential: 'sk_test_51MockStripeKey123',
-                environment: 'sandbox',
-                endpoint: 'https://api.stripe.com',
-            }).mode).toBe('SANDBOX_VERIFIED');
+            expect(
+                validateProviderCredentialMode({
+                    provider: 'core_stripe',
+                    credential: 'sk_test_51MockStripeKey123',
+                    environment: 'sandbox',
+                    endpoint: 'https://api.stripe.com',
+                }).mode
+            ).toBe('SANDBOX_VERIFIED');
 
-            expect(validateProviderCredentialMode({
-                provider: 'STRIPE_TEST',
-                credential: 'rk_test_51RestrictedKey123',
-                environment: 'sandbox',
-                endpoint: 'https://api.stripe.com',
-            }).mode).toBe('SANDBOX_VERIFIED');
+            expect(
+                validateProviderCredentialMode({
+                    provider: 'STRIPE_TEST',
+                    credential: 'rk_test_51RestrictedKey123',
+                    environment: 'sandbox',
+                    endpoint: 'https://api.stripe.com',
+                }).mode
+            ).toBe('SANDBOX_VERIFIED');
 
             // Rejects live Stripe credentials (sk_live_ and rk_live_)
-            expect(() => validateProviderCredentialMode({
-                provider: 'core_stripe',
-                credential: 'sk_live_production_key_detected',
-                environment: 'sandbox',
-            })).toThrow(/Live-mode Stripe credential.*Live credentials are strictly prohibited/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'core_stripe',
+                    credential: 'sk_live_production_key_detected',
+                    environment: 'sandbox',
+                })
+            ).toThrow(/Live-mode Stripe credential.*Live credentials are strictly prohibited/);
 
-            expect(() => validateProviderCredentialMode({
-                provider: 'STRIPE_TEST',
-                credential: 'rk_live_restricted_production',
-                environment: 'sandbox',
-            })).toThrow(/Live-mode Stripe credential.*Live credentials are strictly prohibited/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'STRIPE_TEST',
+                    credential: 'rk_live_restricted_production',
+                    environment: 'sandbox',
+                })
+            ).toThrow(/Live-mode Stripe credential.*Live credentials are strictly prohibited/);
 
             // Rejects non-test Stripe prefixes
-            expect(() => validateProviderCredentialMode({
-                provider: 'core_stripe',
-                credential: 'invalid_prefix_stripe_key',
-                environment: 'sandbox',
-            })).toThrow(/must start with test prefix/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'core_stripe',
+                    credential: 'invalid_prefix_stripe_key',
+                    environment: 'sandbox',
+                })
+            ).toThrow(/must start with test prefix/);
 
             // Valid RazorpayX test credentials
-            expect(validateProviderCredentialMode({
-                provider: 'core_razorpay',
-                keyId: 'rzp_test_123456789',
-                keySecret: 'secret_12345',
-                environment: 'sandbox',
-                endpoint: 'https://api.razorpay.com',
-            }).mode).toBe('SANDBOX_VERIFIED');
+            expect(
+                validateProviderCredentialMode({
+                    provider: 'core_razorpay',
+                    keyId: 'rzp_test_123456789',
+                    keySecret: 'secret_12345',
+                    environment: 'sandbox',
+                    endpoint: 'https://api.razorpay.com',
+                }).mode
+            ).toBe('SANDBOX_VERIFIED');
 
             // Rejects live Razorpay credentials (rzp_live_)
-            expect(() => validateProviderCredentialMode({
-                provider: 'core_razorpay',
-                keyId: 'rzp_live_production_payout',
-                keySecret: 'secret_12345',
-                environment: 'sandbox',
-            })).toThrow(/Live-mode Razorpay key identifier.*Live credentials are strictly prohibited/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'core_razorpay',
+                    keyId: 'rzp_live_production_payout',
+                    keySecret: 'secret_12345',
+                    environment: 'sandbox',
+                })
+            ).toThrow(
+                /Live-mode Razorpay key identifier.*Live credentials are strictly prohibited/
+            );
 
             // Rejects non-test Razorpay key prefixes
-            expect(() => validateProviderCredentialMode({
-                provider: 'RAZORPAYX_TEST',
-                keyId: 'rzp_custom_invalid',
-                environment: 'sandbox',
-            })).toThrow(/must start with test prefix/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'RAZORPAYX_TEST',
+                    keyId: 'rzp_custom_invalid',
+                    environment: 'sandbox',
+                })
+            ).toThrow(/must start with test prefix/);
 
             // Generic provider identifier cannot bypass credential validation
-            expect(() => validateProviderCredentialMode({
-                provider: 'core_stripe',
-                credential: '', // Missing
-                environment: 'sandbox',
-            })).toThrow(/Missing mandatory Stripe credential/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'core_stripe',
+                    credential: '', // Missing
+                    environment: 'sandbox',
+                })
+            ).toThrow(/Missing mandatory Stripe credential/);
 
-            expect(() => validateProviderCredentialMode({
-                provider: 'core_razorpay',
-                keyId: '', // Missing
-                environment: 'sandbox',
-            })).toThrow(/Missing mandatory Razorpay Key ID/);
+            expect(() =>
+                validateProviderCredentialMode({
+                    provider: 'core_razorpay',
+                    keyId: '', // Missing
+                    environment: 'sandbox',
+                })
+            ).toThrow(/Missing mandatory Razorpay Key ID/);
         });
 
         test('assertPermittedEnvironment rejects missing, unknown, and production classifications', () => {
@@ -2195,26 +2397,46 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             expect(assertPermittedEnvironment('test')).toBe('test');
 
             // Missing / empty classifications fail closed
-            expect(() => assertPermittedEnvironment('')).toThrow(/Missing environment classification/);
-            expect(() => assertPermittedEnvironment(null)).toThrow(/Missing environment classification/);
-            expect(() => assertPermittedEnvironment(undefined)).toThrow(/Missing environment classification/);
+            expect(() => assertPermittedEnvironment('')).toThrow(
+                /Missing environment classification/
+            );
+            expect(() => assertPermittedEnvironment(null)).toThrow(
+                /Missing environment classification/
+            );
+            expect(() => assertPermittedEnvironment(undefined)).toThrow(
+                /Missing environment classification/
+            );
 
             // Production classifications rejected
-            expect(() => assertPermittedEnvironment('production')).toThrow(/Prohibited production environment 'production' rejected/);
-            expect(() => assertPermittedEnvironment('live')).toThrow(/Prohibited production environment 'live' rejected/);
-            expect(() => assertPermittedEnvironment('mainnet')).toThrow(/Prohibited production environment 'mainnet' rejected/);
+            expect(() => assertPermittedEnvironment('production')).toThrow(
+                /Prohibited production environment 'production' rejected/
+            );
+            expect(() => assertPermittedEnvironment('live')).toThrow(
+                /Prohibited production environment 'live' rejected/
+            );
+            expect(() => assertPermittedEnvironment('mainnet')).toThrow(
+                /Prohibited production environment 'mainnet' rejected/
+            );
 
             // Unknown classifications rejected
-            expect(() => assertPermittedEnvironment('staging_external')).toThrow(/Unrecognized environment classification/);
+            expect(() => assertPermittedEnvironment('staging_external')).toThrow(
+                /Unrecognized environment classification/
+            );
         });
 
         test('assertPermittedEndpoint rejects insecure HTTP endpoints and unallowlisted hosts', () => {
             // Rejects insecure HTTP protocol
-            expect(() => assertPermittedEndpoint('http://api.stripe.com')).toThrow(/Insecure or invalid endpoint protocol/);
-            expect(() => assertPermittedEndpoint('http://api.razorpay.com')).toThrow(/Insecure or invalid endpoint protocol/);
+            expect(() => assertPermittedEndpoint('http://api.stripe.com')).toThrow(
+                /Insecure or invalid endpoint protocol/
+            );
+            expect(() => assertPermittedEndpoint('http://api.razorpay.com')).toThrow(
+                /Insecure or invalid endpoint protocol/
+            );
 
             // Rejects unallowlisted hosts
-            expect(() => assertPermittedEndpoint('https://api.untrusted-payment-rail.com')).toThrow(/Unrecognized endpoint URL/);
+            expect(() => assertPermittedEndpoint('https://api.untrusted-payment-rail.com')).toThrow(
+                /Unrecognized endpoint URL/
+            );
         });
     });
 
@@ -2281,8 +2503,12 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
         test('PostgreSQL connection error (e.g. ECONNREFUSED) fails closed with 503 DATABASE_UNAVAILABLE', async () => {
             const brokenPool = {
-                connect: jest.fn().mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
-                query: jest.fn().mockResolvedValue({ rows: [{ permission_key: 'payment:void_request' }] }),
+                connect: jest
+                    .fn()
+                    .mockRejectedValue(new Error('connect ECONNREFUSED 127.0.0.1:5432')),
+                query: jest
+                    .fn()
+                    .mockResolvedValue({ rows: [{ permission_key: 'payment:void_request' }] }),
             };
 
             await expect(
@@ -2300,16 +2526,36 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
         test('Database transaction rollback on query error ensures no approval state returned', async () => {
             const mockClient = {
-                query: jest.fn()
+                query: jest
+                    .fn()
                     .mockResolvedValueOnce({ rows: [] }) // BEGIN
-                    .mockResolvedValueOnce({ rows: [{ instruction_id: 'inst_tx_01', state: 'APPROVED', currency: 'USD', amount: '500.00' }] }) // SELECT instructions FOR UPDATE
-                    .mockResolvedValueOnce({ rows: [{ void_request_id: 'vr_01', requester_operator_id: '00000000-0000-4000-8000-000000000002', reason: 'Fraudulent transaction' }] }) // SELECT void request
+                    .mockResolvedValueOnce({
+                        rows: [
+                            {
+                                instruction_id: 'inst_tx_01',
+                                state: 'APPROVED',
+                                currency: 'USD',
+                                amount: '500.00',
+                            },
+                        ],
+                    }) // SELECT instructions FOR UPDATE
+                    .mockResolvedValueOnce({
+                        rows: [
+                            {
+                                void_request_id: 'vr_01',
+                                requester_operator_id: '00000000-0000-4000-8000-000000000002',
+                                reason: 'Fraudulent transaction',
+                            },
+                        ],
+                    }) // SELECT void request
                     .mockRejectedValueOnce(new Error('Deadlock detected / DB constraint failure')), // Failure
                 release: jest.fn(),
             };
             const mockPool = {
                 connect: jest.fn().mockResolvedValue(mockClient),
-                query: jest.fn().mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
+                query: jest
+                    .fn()
+                    .mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
             };
 
             await expect(
@@ -2357,12 +2603,17 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             };
             const mockPool = {
                 connect: jest.fn().mockResolvedValue(mockDb),
-                query: jest.fn().mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
+                query: jest
+                    .fn()
+                    .mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
             };
 
             // Instance A requested void and shut down.
             // Instance B starts up and queries the request from DB:
-            const instanceB = new MakerCheckerService({ rbacService: rbac, webauthnService: webauthn });
+            const instanceB = new MakerCheckerService({
+                rbacService: rbac,
+                webauthnService: webauthn,
+            });
             const challenge = await instanceB.generateVoidApprovalChallenge({
                 instructionId: 'inst_restart_test',
                 voidRequestId: 'vr_restart_test',
@@ -2379,10 +2630,29 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
             const mockClient1 = {
                 query: jest.fn((sql) => {
                     if (sql.includes('instructions') && sql.includes('FOR UPDATE')) {
-                        return Promise.resolve({ rows: [{ instruction_id: 'inst_conc', state: 'APPROVED', currency: 'USD', amount: '100.00', recipient: 'vendor_corp_acct', destination_account: 'acc_us_bank_999' }] });
+                        return Promise.resolve({
+                            rows: [
+                                {
+                                    instruction_id: 'inst_conc',
+                                    state: 'APPROVED',
+                                    currency: 'USD',
+                                    amount: '100.00',
+                                    recipient: 'vendor_corp_acct',
+                                    destination_account: 'acc_us_bank_999',
+                                },
+                            ],
+                        });
                     }
                     if (sql.includes('payment_void_requests')) {
-                        return Promise.resolve({ rows: [{ void_request_id: 'vr_conc', requester_operator_id: '00000000-0000-4000-8000-000000000002', challenge_id: '00000000-0000-4000-8000-000000000077' }] });
+                        return Promise.resolve({
+                            rows: [
+                                {
+                                    void_request_id: 'vr_conc',
+                                    requester_operator_id: '00000000-0000-4000-8000-000000000002',
+                                    challenge_id: '00000000-0000-4000-8000-000000000077',
+                                },
+                            ],
+                        });
                     }
                     if (sql.includes('identity.fn_approve_payment_void')) {
                         return Promise.resolve({ rows: [{ result: { status: 'APPROVED' } }] });
@@ -2394,10 +2664,15 @@ describe('Project Fusion — Phase AI-2B: Enterprise RBAC & Maker-Checker', () =
 
             const mockPool1 = {
                 connect: jest.fn().mockResolvedValue(mockClient1),
-                query: jest.fn().mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
+                query: jest
+                    .fn()
+                    .mockResolvedValue({ rows: [{ permission_key: 'payment:void_approve' }] }),
             };
 
-            const instance1 = new MakerCheckerService({ rbacService: rbac, webauthnService: webauthn });
+            const instance1 = new MakerCheckerService({
+                rbacService: rbac,
+                webauthnService: webauthn,
+            });
             const result1 = await instance1.approvePaymentVoid({
                 instructionId: 'inst_conc',
                 voidRequestId: 'vr_conc',

@@ -21,7 +21,12 @@ const logger = require('../../logger');
 function isLoopbackIp(ip) {
     if (!ip) return false;
     const clean = ip.trim().toLowerCase();
-    return clean === '127.0.0.1' || clean === '::1' || clean === '::ffff:127.0.0.1' || clean === 'localhost';
+    return (
+        clean === '127.0.0.1' ||
+        clean === '::1' ||
+        clean === '::ffff:127.0.0.1' ||
+        clean === 'localhost'
+    );
 }
 
 // Explicit Fail-Closed Production & Environment Guard
@@ -108,7 +113,12 @@ function verifyTotp(secretBase32, inputCode, timeStep = 30) {
     // Verify across current time window ± 1 step (to tolerate 30s clock drift)
     for (const offset of [0, -timeStep, timeStep]) {
         const expected = generateTotpCode(secretBase32, timeStep, offset);
-        if (crypto.timingSafeEqual(Buffer.from(normalizedInput, 'utf8'), Buffer.from(expected, 'utf8'))) {
+        if (
+            crypto.timingSafeEqual(
+                Buffer.from(normalizedInput, 'utf8'),
+                Buffer.from(expected, 'utf8')
+            )
+        ) {
             return true;
         }
     }
@@ -122,8 +132,8 @@ function verifyTotp(secretBase32, inputCode, timeStep = 30) {
 // $argon2id$v=19$m=65536,t=3,p=4$<salt_b64>$<hash_b64>
 function hashPasswordArgon2id(password, salt = crypto.randomBytes(16)) {
     const memoryCost = 65536; // 64 MB
-    const timeCost = 3;       // 3 iterations
-    const parallelism = 4;    // 4 threads
+    const timeCost = 3; // 3 iterations
+    const parallelism = 4; // 4 threads
 
     // Derive 32-byte key using crypto.scrypt with Argon2id parameters
     const derived = crypto.scryptSync(password, salt, 32, {
@@ -167,7 +177,10 @@ function verifyPasswordArgon2id(password, formattedHash) {
     const testHashB64 = testDerived.toString('base64').replace(/=/g, '');
 
     if (testHashB64.length !== expectedHashB64.length) return false;
-    return crypto.timingSafeEqual(Buffer.from(testHashB64, 'utf8'), Buffer.from(expectedHashB64, 'utf8'));
+    return crypto.timingSafeEqual(
+        Buffer.from(testHashB64, 'utf8'),
+        Buffer.from(expectedHashB64, 'utf8')
+    );
 }
 
 // ------------------------------------------------------------------------------
@@ -241,7 +254,9 @@ async function authenticateDevUser({
     assertDevEnvironment({ ipAddress });
 
     if (!email || !password || !totpCode) {
-        const err = new Error('Missing required fields: email, password, and totpCode are required');
+        const err = new Error(
+            'Missing required fields: email, password, and totpCode are required'
+        );
         err.statusCode = 400;
         throw err;
     }
@@ -322,4 +337,3 @@ module.exports = {
     SYNTHETIC_OPERATORS,
     SHARED_DEV_TOTP_SECRET,
 };
-

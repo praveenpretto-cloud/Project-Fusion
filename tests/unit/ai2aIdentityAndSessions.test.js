@@ -62,7 +62,10 @@ const { createAuthRouter } = require('../../routes/authRouter');
 /**
  * In-memory request dispatcher for sandbox-safe Express testing (Zero socket binding)
  */
-function makeRequest(app, { method = 'GET', url = '/', headers = {}, body = null, ip = '127.0.0.1' }) {
+function makeRequest(
+    app,
+    { method = 'GET', url = '/', headers = {}, body = null, ip = '127.0.0.1' }
+) {
     return new Promise((resolve) => {
         let statusCode = 200;
         const responseHeaders = {};
@@ -180,7 +183,6 @@ function makeRequest(app, { method = 'GET', url = '/', headers = {}, body = null
 }
 
 describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Security Verification', () => {
-
     // =========================================================================
     // 1. OIDC FLOW HARDENING & PKCE ENCRYPTION KEY MANAGEMENT
     // =========================================================================
@@ -256,7 +258,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             const tx = client.inMemoryTransactions.get(state);
             tx.expiresAt = new Date(Date.now() - 1000);
 
-            await expect(client.consumeTransaction(state)).rejects.toThrow('invalid, expired, or already used');
+            await expect(client.consumeTransaction(state)).rejects.toThrow(
+                'invalid, expired, or already used'
+            );
         });
 
         test('parseEncryptionKey enforces high-entropy 256-bit requirement and rejects passwords', () => {
@@ -266,8 +270,12 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             expect(parseEncryptionKey(validHex).length).toBe(32);
 
             // Rejects arbitrary passwords
-            expect(() => parseEncryptionKey('password123')).toThrow('Arbitrary human-readable passwords are not permitted');
-            expect(() => parseEncryptionKey('too_short_key')).toThrow('Arbitrary human-readable passwords are not permitted');
+            expect(() => parseEncryptionKey('password123')).toThrow(
+                'Arbitrary human-readable passwords are not permitted'
+            );
+            expect(() => parseEncryptionKey('too_short_key')).toThrow(
+                'Arbitrary human-readable passwords are not permitted'
+            );
             expect(() => parseEncryptionKey('')).toThrow('is required');
         });
 
@@ -290,7 +298,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             const tamperedCipher = tamperedByte + parts[4].substring(2);
             const tamperedPayload = `${parts[0]}:${parts[1]}:${parts[2]}:${parts[3]}:${tamperedCipher}`;
 
-            expect(() => decryptCodeVerifier(tamperedPayload)).toThrow('Ciphertext decryption failed (possible tampering)');
+            expect(() => decryptCodeVerifier(tamperedPayload)).toThrow(
+                'Ciphertext decryption failed (possible tampering)'
+            );
         });
 
         test('decryptCodeVerifier detects and rejects authentication tag tampering', () => {
@@ -301,14 +311,25 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             const tamperedTag = '00' + parts[3].substring(2);
             const tamperedPayload = `${parts[0]}:${parts[1]}:${parts[2]}:${tamperedTag}:${parts[4]}`;
 
-            expect(() => decryptCodeVerifier(tamperedPayload)).toThrow('Ciphertext decryption failed (possible tampering)');
+            expect(() => decryptCodeVerifier(tamperedPayload)).toThrow(
+                'Ciphertext decryption failed (possible tampering)'
+            );
         });
 
         test('versioned payload supports key rotation and fails closed on unknown keyId', () => {
-            const key1 = Buffer.from('1111111111111111111111111111111111111111111111111111111111111111', 'hex');
-            const key2 = Buffer.from('2222222222222222222222222222222222222222222222222222222222222222', 'hex');
+            const key1 = Buffer.from(
+                '1111111111111111111111111111111111111111111111111111111111111111',
+                'hex'
+            );
+            const key2 = Buffer.from(
+                '2222222222222222222222222222222222222222222222222222222222222222',
+                'hex'
+            );
 
-            const encWithKey1 = encryptCodeVerifier('secret-verifier-1', { key: key1, keyId: 'rot_k1' });
+            const encWithKey1 = encryptCodeVerifier('secret-verifier-1', {
+                key: key1,
+                keyId: 'rot_k1',
+            });
             expect(encWithKey1.startsWith('v1:rot_k1:')).toBe(true);
 
             // Decrypt with key ring containing rot_k1
@@ -381,7 +402,10 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             });
         });
 
-        function makeJwt(payload, { alg = 'RS256', kid = 'k_test', key = keyPair.privateKey } = {}) {
+        function makeJwt(
+            payload,
+            { alg = 'RS256', kid = 'k_test', key = keyPair.privateKey } = {}
+        ) {
             const header = { alg, typ: 'JWT', kid };
             const encH = base64UrlEncode(Buffer.from(JSON.stringify(header)));
             const encP = base64UrlEncode(Buffer.from(JSON.stringify(payload)));
@@ -425,14 +449,24 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
 
         test('rejects ID token with untrusted algorithm "none"', async () => {
             const client = new OidcClient({ issuer: 'https://idp.corporate.com', clientId: 'c1' });
-            const token = makeJwt({ iss: 'https://idp.corporate.com', aud: 'c1', exp: 9999999999, sub: 'u1' }, { alg: 'none' });
-            await expect(client.validateIdToken(token)).rejects.toThrow('Untrusted signing algorithm: none');
+            const token = makeJwt(
+                { iss: 'https://idp.corporate.com', aud: 'c1', exp: 9999999999, sub: 'u1' },
+                { alg: 'none' }
+            );
+            await expect(client.validateIdToken(token)).rejects.toThrow(
+                'Untrusted signing algorithm: none'
+            );
         });
 
         test('rejects ID token with untrusted symmetric algorithm HS256', async () => {
             const client = new OidcClient({ issuer: 'https://idp.corporate.com', clientId: 'c1' });
-            const token = makeJwt({ iss: 'https://idp.corporate.com', aud: 'c1', exp: 9999999999, sub: 'u1' }, { alg: 'HS256' });
-            await expect(client.validateIdToken(token)).rejects.toThrow('Untrusted signing algorithm: HS256');
+            const token = makeJwt(
+                { iss: 'https://idp.corporate.com', aud: 'c1', exp: 9999999999, sub: 'u1' },
+                { alg: 'HS256' }
+            );
+            await expect(client.validateIdToken(token)).rejects.toThrow(
+                'Untrusted signing algorithm: HS256'
+            );
         });
 
         test('rejects ID token with wrong issuer', async () => {
@@ -441,7 +475,12 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 clientId: 'c1',
                 jwksPublicKeys: { k_test: keyPair.publicKey },
             });
-            const token = makeJwt({ iss: 'https://wrong.idp.com', aud: 'c1', exp: 9999999999, sub: 'u1' });
+            const token = makeJwt({
+                iss: 'https://wrong.idp.com',
+                aud: 'c1',
+                exp: 9999999999,
+                sub: 'u1',
+            });
             await expect(client.validateIdToken(token)).rejects.toThrow('Issuer mismatch');
         });
 
@@ -451,7 +490,12 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 clientId: 'fusion_client_01',
                 jwksPublicKeys: { k_test: keyPair.publicKey },
             });
-            const token = makeJwt({ iss: 'https://idp.corporate.com', aud: 'foreign_client', exp: 9999999999, sub: 'u1' });
+            const token = makeJwt({
+                iss: 'https://idp.corporate.com',
+                aud: 'foreign_client',
+                exp: 9999999999,
+                sub: 'u1',
+            });
             await expect(client.validateIdToken(token)).rejects.toThrow('Audience mismatch');
         });
 
@@ -483,7 +527,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 exp: Math.floor(Date.now() / 1000) + 3600,
                 iat: Math.floor(Date.now() / 1000) + 300, // 5 min future
             });
-            await expect(client.validateIdToken(token)).rejects.toThrow('ID token issued in the future');
+            await expect(client.validateIdToken(token)).rejects.toThrow(
+                'ID token issued in the future'
+            );
         });
 
         test('rejects ID token with mismatching nonce', async () => {
@@ -499,7 +545,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 exp: Math.floor(Date.now() / 1000) + 3600,
                 nonce: 'nonce_one',
             });
-            await expect(client.validateIdToken(token, { expectedNonce: 'nonce_two' })).rejects.toThrow('Nonce mismatch');
+            await expect(
+                client.validateIdToken(token, { expectedNonce: 'nonce_two' })
+            ).rejects.toThrow('Nonce mismatch');
         });
 
         test('rejects ID token missing subject (sub) claim', async () => {
@@ -514,7 +562,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 exp: Math.floor(Date.now() / 1000) + 3600,
                 // missing sub
             });
-            await expect(client.validateIdToken(token)).rejects.toThrow('missing subject (sub) claim');
+            await expect(client.validateIdToken(token)).rejects.toThrow(
+                'missing subject (sub) claim'
+            );
         });
 
         test('validates azp requirement when multiple audiences are present', async () => {
@@ -560,7 +610,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 nbf: Math.floor(Date.now() / 1000) + 300,
             });
 
-            await expect(client.validateIdToken(futureNbfToken)).rejects.toThrow('ID token not yet valid');
+            await expect(client.validateIdToken(futureNbfToken)).rejects.toThrow(
+                'ID token not yet valid'
+            );
         });
     });
 
@@ -610,12 +662,16 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             });
 
             // Token signed with newly rotated key k2_rotated
-            const tokenK2 = makeJwtWithKey({
-                iss: 'https://idp.corporate.com',
-                aud: 'c1',
-                sub: 'usr_rot_1',
-                exp: Math.floor(Date.now() / 1000) + 3600,
-            }, keyPair2, 'k2_rotated');
+            const tokenK2 = makeJwtWithKey(
+                {
+                    iss: 'https://idp.corporate.com',
+                    aud: 'c1',
+                    sub: 'usr_rot_1',
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                },
+                keyPair2,
+                'k2_rotated'
+            );
 
             const res = await client.validateIdToken(tokenK2);
             expect(res.subject).toBe('usr_rot_1');
@@ -633,14 +689,20 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 },
             });
 
-            const tokenUnknown = makeJwtWithKey({
-                iss: 'https://idp.corporate.com',
-                aud: 'c1',
-                sub: 'u1',
-                exp: Math.floor(Date.now() / 1000) + 3600,
-            }, keyPair2, 'k_unknown_999');
+            const tokenUnknown = makeJwtWithKey(
+                {
+                    iss: 'https://idp.corporate.com',
+                    aud: 'c1',
+                    sub: 'u1',
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                },
+                keyPair2,
+                'k_unknown_999'
+            );
 
-            await expect(client.validateIdToken(tokenUnknown)).rejects.toThrow('Key unknown even after JWKS refresh');
+            await expect(client.validateIdToken(tokenUnknown)).rejects.toThrow(
+                'Key unknown even after JWKS refresh'
+            );
             expect(fetchCount).toBe(1);
         });
 
@@ -652,14 +714,20 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             });
 
             // Token signed with keyPair2 but claiming kid: k1
-            const tamperedToken = makeJwtWithKey({
-                iss: 'https://idp.corporate.com',
-                aud: 'c1',
-                sub: 'u1',
-                exp: Math.floor(Date.now() / 1000) + 3600,
-            }, keyPair2, 'k1');
+            const tamperedToken = makeJwtWithKey(
+                {
+                    iss: 'https://idp.corporate.com',
+                    aud: 'c1',
+                    sub: 'u1',
+                    exp: Math.floor(Date.now() / 1000) + 3600,
+                },
+                keyPair2,
+                'k1'
+            );
 
-            await expect(client.validateIdToken(tamperedToken)).rejects.toThrow('Cryptographic signature verification failed');
+            await expect(client.validateIdToken(tamperedToken)).rejects.toThrow(
+                'Cryptographic signature verification failed'
+            );
         });
 
         test('rejects malicious JWKS endpoint where host does not match issuer', async () => {
@@ -669,7 +737,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 jwksUri: 'https://attacker.evil.com/keys',
             });
 
-            await expect(client.fetchJwks({ force: true })).rejects.toThrow('Untrusted JWKS endpoint: host "attacker.evil.com" does not match issuer');
+            await expect(client.fetchJwks({ force: true })).rejects.toThrow(
+                'Untrusted JWKS endpoint: host "attacker.evil.com" does not match issuer'
+            );
         });
 
         test('prevents JWKS refresh storm by enforcing minimum refresh interval (cooldown)', async () => {
@@ -916,19 +986,25 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         test('assertDevEnvironment fails closed in production environment', () => {
             process.env.NODE_ENV = 'production';
             process.env.ALLOW_DEV_AUTH = 'true';
-            expect(() => assertDevEnvironment()).toThrow('strictly disabled in production/unknown environments');
+            expect(() => assertDevEnvironment()).toThrow(
+                'strictly disabled in production/unknown environments'
+            );
         });
 
         test('assertDevEnvironment fails closed in staging environment', () => {
             process.env.NODE_ENV = 'staging';
             process.env.ALLOW_DEV_AUTH = 'true';
-            expect(() => assertDevEnvironment()).toThrow('strictly disabled in production/unknown environments');
+            expect(() => assertDevEnvironment()).toThrow(
+                'strictly disabled in production/unknown environments'
+            );
         });
 
         test('assertDevEnvironment fails closed when NODE_ENV is undefined or empty', () => {
             delete process.env.NODE_ENV;
             process.env.ALLOW_DEV_AUTH = 'true';
-            expect(() => assertDevEnvironment()).toThrow('strictly disabled in production/unknown environments');
+            expect(() => assertDevEnvironment()).toThrow(
+                'strictly disabled in production/unknown environments'
+            );
         });
 
         test('assertDevEnvironment fails closed when ALLOW_DEV_AUTH is not explicitly true', () => {
@@ -951,7 +1027,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         test('assertDevEnvironment fails closed when non-loopback IP attempts dev login', () => {
             process.env.NODE_ENV = 'development';
             process.env.ALLOW_DEV_AUTH = 'true';
-            expect(() => assertDevEnvironment({ ipAddress: '192.168.1.50' })).toThrow('restricted to local loopback access only');
+            expect(() => assertDevEnvironment({ ipAddress: '192.168.1.50' })).toThrow(
+                'restricted to local loopback access only'
+            );
         });
 
         test('verifies RFC 6238 TOTP codes correctly', () => {
@@ -1129,7 +1207,7 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                     'x-role': 'ADMIN',
                     'x-tenant-id': 'foreign_tenant',
                     'x-operator-id': 'fake_op',
-                    'authorization': 'keep_me',
+                    authorization: 'keep_me',
                 },
             };
             stripClientImpersonationHeaders(req, {}, () => {});
@@ -1181,7 +1259,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         });
 
         function createSignedIdToken(payload, kid = 'default') {
-            const h = base64UrlEncode(Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid })));
+            const h = base64UrlEncode(
+                Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid }))
+            );
             const p = base64UrlEncode(Buffer.from(JSON.stringify(payload)));
             const signer = crypto.createSign('RSA-SHA256');
             signer.update(`${h}.${p}`);
@@ -1345,7 +1425,10 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         });
 
         test('POST /api/auth/otp/generate and /otp/verify return 503 permanently disabled', async () => {
-            const genRes = await makeRequest(app, { method: 'POST', url: '/api/auth/otp/generate' });
+            const genRes = await makeRequest(app, {
+                method: 'POST',
+                url: '/api/auth/otp/generate',
+            });
             expect(genRes.statusCode).toBe(503);
             expect(genRes.text).toContain('OTP generation service is permanently disabled');
 
@@ -1368,7 +1451,10 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         });
 
         test('client approve page has zero dummy WebAuthn signatures and approve button is disabled pending AI-2B', () => {
-            const approvePagePath = path.join(__dirname, '../../client/src/app/approve/[instructionId]/page.tsx');
+            const approvePagePath = path.join(
+                __dirname,
+                '../../client/src/app/approve/[instructionId]/page.tsx'
+            );
             const content = fs.readFileSync(approvePagePath, 'utf8');
 
             expect(content).not.toContain('dummy-raw-id');
@@ -1379,7 +1465,10 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
         });
 
         test('Next.js API proxy preserves multiple Set-Cookie headers and forwards origin', () => {
-            const proxyRoutePath = path.join(__dirname, '../../client/src/app/api/[...path]/route.ts');
+            const proxyRoutePath = path.join(
+                __dirname,
+                '../../client/src/app/api/[...path]/route.ts'
+            );
             const content = fs.readFileSync(proxyRoutePath, 'utf8');
 
             expect(content).toContain('getSetCookie');
@@ -1410,7 +1499,7 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 clientId: 'fusion_test_client',
                 clientSecret: 'synthetic_secret_key',
                 allowedRedirectUris: ['http://localhost:3000/api/auth/oidc/callback'],
-                jwksPublicKeys: { 'synthetic_k1': syntheticKey.publicKey },
+                jwksPublicKeys: { synthetic_k1: syntheticKey.publicKey },
             });
 
             const router = createAuthRouter({ oidcClient, sessionManager });
@@ -1452,16 +1541,22 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
                 expect(clientId).toBe('fusion_test_client');
 
                 // Generate signed ID token
-                const h = base64UrlEncode(Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: 'synthetic_k1' })));
-                const p = base64UrlEncode(Buffer.from(JSON.stringify({
-                    iss: 'https://synthetic.idp.local',
-                    sub: 'synthetic_operator_42',
-                    aud: 'fusion_test_client',
-                    nonce: tx.nonce,
-                    exp: Math.floor(Date.now() / 1000) + 3600,
-                    email: 'operator42@fusion.internal',
-                    name: 'Operator 42',
-                })));
+                const h = base64UrlEncode(
+                    Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: 'synthetic_k1' }))
+                );
+                const p = base64UrlEncode(
+                    Buffer.from(
+                        JSON.stringify({
+                            iss: 'https://synthetic.idp.local',
+                            sub: 'synthetic_operator_42',
+                            aud: 'fusion_test_client',
+                            nonce: tx.nonce,
+                            exp: Math.floor(Date.now() / 1000) + 3600,
+                            email: 'operator42@fusion.internal',
+                            name: 'Operator 42',
+                        })
+                    )
+                );
                 const signer = crypto.createSign('RSA-SHA256');
                 signer.update(`${h}.${p}`);
                 const s = base64UrlEncode(signer.sign(syntheticKey.privateKey));
@@ -1469,12 +1564,15 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             };
 
             // Register federated identity
-            sessionManager.setInMemoryOperator('https://synthetic.idp.local:synthetic_operator_42', {
-                operatorId: 'op_synth_42',
-                email: 'operator42@fusion.internal',
-                fullName: 'Operator 42',
-                isActive: true,
-            });
+            sessionManager.setInMemoryOperator(
+                'https://synthetic.idp.local:synthetic_operator_42',
+                {
+                    operatorId: 'op_synth_42',
+                    email: 'operator42@fusion.internal',
+                    fullName: 'Operator 42',
+                    isActive: true,
+                }
+            );
 
             // STEP 6: Exchange authorization code server-side
             // STEP 7: Verify ID token cryptographically
@@ -1494,7 +1592,9 @@ describe('Project Fusion — Phase AI-2A.2: Identity Integration Closure & Secur
             // Extract cookies
             const setCookieArray = step5to10.headers['set-cookie'];
             expect(setCookieArray).toBeDefined();
-            const rawSessionCookie = setCookieArray.find(c => c.startsWith('__Host-Fusion-Session='));
+            const rawSessionCookie = setCookieArray.find((c) =>
+                c.startsWith('__Host-Fusion-Session=')
+            );
             expect(rawSessionCookie).toBeDefined();
             expect(rawSessionCookie).toContain('HttpOnly');
             expect(rawSessionCookie).toContain('Secure');

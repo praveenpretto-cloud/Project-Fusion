@@ -28,7 +28,10 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 const { RbacService, PERMISSIONS, ROLES } = require('../../core/identity/rbacService');
 const { WebAuthnService } = require('../../core/identity/webauthnService');
-const { MakerCheckerService, APPROVAL_STATUS } = require('../../core/approvals/makerCheckerService');
+const {
+    MakerCheckerService,
+    APPROVAL_STATUS,
+} = require('../../core/approvals/makerCheckerService');
 
 const TEST_DB_CONFIG = {
     user: process.env.DB_USER || 'praveen',
@@ -47,11 +50,11 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
     let webauthnService;
     let makerCheckerService;
 
-    const opMaker = '00000000-0000-4000-8000-000000000002';       // dev-ops (OPS_OPERATOR)
-    const opChecker = '00000000-0000-4000-8000-000000000001';     // dev-cfo (TREASURY_ANALYST - Checker)
-    const opCompliance = '00000000-0000-4000-8000-000000000004';  // dev-compliance (COMPLIANCE_OFFICER)
-    const opAdmin = '00000000-0000-4000-8000-000000000005';       // dev-admin (SYSTEM_ADMIN)
-    const opAuditor = '00000000-0000-4000-8000-000000000003';     // dev-auditor (AUDITOR)
+    const opMaker = '00000000-0000-4000-8000-000000000002'; // dev-ops (OPS_OPERATOR)
+    const opChecker = '00000000-0000-4000-8000-000000000001'; // dev-cfo (TREASURY_ANALYST - Checker)
+    const opCompliance = '00000000-0000-4000-8000-000000000004'; // dev-compliance (COMPLIANCE_OFFICER)
+    const opAdmin = '00000000-0000-4000-8000-000000000005'; // dev-admin (SYSTEM_ADMIN)
+    const opAuditor = '00000000-0000-4000-8000-000000000003'; // dev-auditor (AUDITOR)
     let testInstructionId;
 
     beforeAll(async () => {
@@ -59,7 +62,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         try {
             client = await pool.connect();
             const dbCheckRes = await client.query('SELECT current_database() AS db');
-            console.log(`[AI-2B POSTGRES INTEGRATION] Connected to active test database: ${dbCheckRes.rows[0].db}`);
+            console.log(
+                `[AI-2B POSTGRES INTEGRATION] Connected to active test database: ${dbCheckRes.rows[0].db}`
+            );
             isDbAvailable = true;
             rbacService = new RbacService();
             webauthnService = new WebAuthnService({ rpId: 'localhost' });
@@ -71,7 +76,7 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         } catch (err) {
             console.warn(
                 `[AI-2B.1 POSTGRES INTEGRATION] Live PostgreSQL connection unavailable (${err.message}). ` +
-                'Reporting as NOT VERIFIED. Mocked tests are not substituted.'
+                    'Reporting as NOT VERIFIED. Mocked tests are not substituted.'
             );
             isDbAvailable = false;
         }
@@ -97,51 +102,99 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         await client.query(baseSql);
 
         // 014 Identity Schema
-        const idSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/014_identity_schema.sql'), 'utf8');
+        const idSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/014_identity_schema.sql'),
+            'utf8'
+        );
         await client.query(idSql);
 
         // 015 RBAC Schema
-        const rbacSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/015_rbac_schema.sql'), 'utf8');
+        const rbacSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/015_rbac_schema.sql'),
+            'utf8'
+        );
         await client.query(rbacSql);
 
         // 016 Governance Corrections Schema
-        const govSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/016_rbac_governance_corrections.sql'), 'utf8');
+        const govSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/016_rbac_governance_corrections.sql'),
+            'utf8'
+        );
         await client.query(govSql);
 
         // 017 Approval Security Closure Schema
-        const closureSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/017_approval_security_closure.sql'), 'utf8');
+        const closureSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/017_approval_security_closure.sql'),
+            'utf8'
+        );
         await client.query(closureSql);
 
         // 018 Approved Instruction Immutability Schema
-        const immutabilitySql = fs.readFileSync(path.join(__dirname, '../../db/migrations/018_approved_instruction_immutability.sql'), 'utf8');
+        const immutabilitySql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/018_approved_instruction_immutability.sql'),
+            'utf8'
+        );
         await client.query(immutabilitySql);
 
         // 019 Void Governance & Terminal States Schema
-        const voidGovSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/019_void_governance_and_terminal_states.sql'), 'utf8');
+        const voidGovSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/019_void_governance_and_terminal_states.sql'),
+            'utf8'
+        );
         await client.query(voidGovSql);
 
         // 020 Void Lifecycle & Financial Record Protection Schema
-        const voidLifecycleSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/020_void_lifecycle_and_table_protection.sql'), 'utf8');
+        const voidLifecycleSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/020_void_lifecycle_and_table_protection.sql'),
+            'utf8'
+        );
         await client.query(voidLifecycleSql);
 
         // 021 Privilege & State Mutation Closure Schema
-        const privilegeClosureSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/021_privilege_and_state_closure.sql'), 'utf8');
+        const privilegeClosureSql = fs.readFileSync(
+            path.join(__dirname, '../../db/migrations/021_privilege_and_state_closure.sql'),
+            'utf8'
+        );
         await client.query(privilegeClosureSql);
 
         // 022 WebAuthn Verifier Isolation & Workflow Context Schema
-        const verifierIsolationSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/022_webauthn_verifier_isolation_and_workflow_context.sql'), 'utf8');
+        const verifierIsolationSql = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../db/migrations/022_webauthn_verifier_isolation_and_workflow_context.sql'
+            ),
+            'utf8'
+        );
         await client.query(verifierIsolationSql);
 
         // 023 Workflow Authorization & Verifier Least-Privilege Closure Schema
-        const workflowAuthClosureSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/023_workflow_auth_and_verifier_privilege_closure.sql'), 'utf8');
+        const workflowAuthClosureSql = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../db/migrations/023_workflow_auth_and_verifier_privilege_closure.sql'
+            ),
+            'utf8'
+        );
         await client.query(workflowAuthClosureSql);
 
         // 024 Payment Execution Authorization and Settlement Evidence
-        const executionSettlementAuthSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/024_execution_settlement_authorization_and_evidence.sql'), 'utf8');
+        const executionSettlementAuthSql = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../db/migrations/024_execution_settlement_authorization_and_evidence.sql'
+            ),
+            'utf8'
+        );
         await client.query(executionSettlementAuthSql);
 
         // 025 Payment Execution and Settlement Evidence Hardening
-        const evidenceHardeningSql = fs.readFileSync(path.join(__dirname, '../../db/migrations/025_execution_settlement_evidence_hardening.sql'), 'utf8');
+        const evidenceHardeningSql = fs.readFileSync(
+            path.join(
+                __dirname,
+                '../../db/migrations/025_execution_settlement_evidence_hardening.sql'
+            ),
+            'utf8'
+        );
         await client.query(evidenceHardeningSql);
 
         // Verify tables exist
@@ -331,10 +384,13 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         if (!isDbAvailable) return;
 
         // Ensure at least one audit record exists
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.auth_audit_log (event_type, operator_id, metadata)
             VALUES ('TEST_AUDIT_EVENT', $1, '{"test": true}')
-        `, [opAdmin]);
+        `,
+            [opAdmin]
+        );
 
         // Attempting SQL UPDATE on audit log must be rejected by trigger
         await expect(
@@ -382,7 +438,10 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(holdRes.compliance_held).toBe(true);
 
         // Verify instructions table synchronized
-        const instHold = await client.query('SELECT compliance_held FROM instructions WHERE instruction_id = $1', [testInstructionId]);
+        const instHold = await client.query(
+            'SELECT compliance_held FROM instructions WHERE instruction_id = $1',
+            [testInstructionId]
+        );
         expect(instHold.rows[0].compliance_held).toBe(true);
 
         // 2. Checker approval must be blocked while hold is active
@@ -393,7 +452,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                 requireStepUp: false,
                 pool,
             })
-        ).rejects.toThrow(/Payment instruction is under compliance hold and cannot be approved until released/);
+        ).rejects.toThrow(
+            /Payment instruction is under compliance hold and cannot be approved until released/
+        );
 
         // 3. Compliance officer releases hold
         const releaseRes = await makerCheckerService.releaseHold({
@@ -405,7 +466,10 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(releaseRes.compliance_held).toBe(false);
 
         // Verify instructions table cleared
-        const instClear = await client.query('SELECT compliance_held FROM instructions WHERE instruction_id = $1', [testInstructionId]);
+        const instClear = await client.query(
+            'SELECT compliance_held FROM instructions WHERE instruction_id = $1',
+            [testInstructionId]
+        );
         expect(instClear.rows[0].compliance_held).toBe(false);
     });
 
@@ -675,9 +739,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
     test('14. Statement-level BEFORE TRUNCATE trigger blocks TRUNCATE on identity.auth_audit_log', async () => {
         if (!isDbAvailable) return;
 
-        await expect(
-            client.query('TRUNCATE TABLE identity.auth_audit_log')
-        ).rejects.toThrow(/identity.auth_audit_log cannot be truncated. Audit trail is strictly immutable/);
+        await expect(client.query('TRUNCATE TABLE identity.auth_audit_log')).rejects.toThrow(
+            /identity.auth_audit_log cannot be truncated. Audit trail is strictly immutable/
+        );
     });
 
     test('15. Verifies dedicated audit table owner and role privileges on identity.auth_audit_log', async () => {
@@ -720,7 +784,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                  WHERE instruction_id = $1`,
                 [freezeInstId]
             )
-        ).rejects.toThrow(/Material payment fields.*cannot be altered while in PENDING_APPROVAL or APPROVED without version increment and approval cancellation/);
+        ).rejects.toThrow(
+            /Material payment fields.*cannot be altered while in PENDING_APPROVAL or APPROVED without version increment and approval cancellation/
+        );
 
         // Modification of recipient must also be rejected
         await expect(
@@ -753,11 +819,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // Attempting to insert role change request where requester == approver must violate constraint
         await expect(
-            client.query(`
+            client.query(
+                `
                 INSERT INTO identity.role_change_requests (
                     requesting_operator_id, target_operator_id, role_key, action, reason, status, approving_operator_id
                 ) VALUES ($1, $2, 'TREASURY_ANALYST', 'ASSIGN', 'Self-approval test', 'APPROVED', $1)
-            `, [opAdmin, opMaker])
+            `,
+                [opAdmin, opMaker]
+            )
         ).rejects.toThrow(/chk_dual_control_distinct_operators/);
     });
 
@@ -766,20 +835,28 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // Provision a secondary SYSTEM_ADMIN operator in database
         const secondaryAdminId = '00000000-0000-4000-8000-000000000088';
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.operators (operator_id, email, full_name, is_active)
             VALUES ($1, 'sec-admin@fusion.internal', 'Secondary Admin', TRUE)
             ON CONFLICT (operator_id) DO NOTHING;
-        `, [secondaryAdminId]);
+        `,
+            [secondaryAdminId]
+        );
 
-        const adminRoleRes = await client.query("SELECT role_id FROM identity.roles WHERE role_key = 'SYSTEM_ADMIN'");
+        const adminRoleRes = await client.query(
+            "SELECT role_id FROM identity.roles WHERE role_key = 'SYSTEM_ADMIN'"
+        );
         const adminRoleId = adminRoleRes.rows[0].role_id;
 
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.operator_role_assignments (operator_id, role_id, is_active)
             VALUES ($1, $2, TRUE)
             ON CONFLICT (operator_id, role_id) DO UPDATE SET is_active = TRUE;
-        `, [secondaryAdminId, adminRoleId]);
+        `,
+            [secondaryAdminId, adminRoleId]
+        );
 
         // 1. opAdmin requests role change for opAuditor to become COMPLIANCE_OFFICER
         const req = await rbacService.requestRoleChange({
@@ -801,7 +878,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                 approvingOperatorId: opAdmin,
                 pool,
             })
-        ).rejects.toThrow(/Dual control violation: An operator cannot approve their own role change request/);
+        ).rejects.toThrow(
+            /Dual control violation: An operator cannot approve their own role change request/
+        );
 
         // 3. Independent secondary admin approves request
         const approved = await rbacService.approveRoleChange({
@@ -819,10 +898,13 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(perms.has(PERMISSIONS.COMPLIANCE_RELEASE)).toBe(true);
 
         // Clean up test role assignment to restore opAuditor baseline
-        await client.query(`
+        await client.query(
+            `
             DELETE FROM identity.operator_role_assignments 
             WHERE operator_id = $1 AND role_id = (SELECT role_id FROM identity.roles WHERE role_key = 'COMPLIANCE_OFFICER')
-        `, [opAuditor]);
+        `,
+            [opAuditor]
+        );
     });
 
     test('19. WebAuthn Payment Context Binding verified in PostgreSQL', async () => {
@@ -860,7 +942,10 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         });
 
         // Generate challenge bound to payment context
-        const details = await makerCheckerService.getApprovalDetails({ instructionId: ctxInstId, pool });
+        const details = await makerCheckerService.getApprovalDetails({
+            instructionId: ctxInstId,
+            pool,
+        });
         const paymentContext = {
             approvalId: details.approval_id,
             instructionId: ctxInstId,
@@ -940,7 +1025,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                 requireStepUp: false,
                 pool,
             })
-        ).rejects.toThrow(/Payment instruction is under compliance hold and cannot be approved until released/);
+        ).rejects.toThrow(
+            /Payment instruction is under compliance hold and cannot be approved until released/
+        );
 
         // Release compliance hold
         await makerCheckerService.releaseHold({
@@ -965,20 +1052,26 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         if (!isDbAvailable) return;
 
         // Create a role change request: opAdmin requests role for opAuditor
-        const reqRes = await client.query(`
+        const reqRes = await client.query(
+            `
             INSERT INTO identity.role_change_requests (requesting_operator_id, target_operator_id, role_key, action, reason, status)
             VALUES ($1, $2, 'TREASURY_ANALYST', 'ASSIGN', 'DB dual control test', 'PENDING')
             RETURNING request_id;
-        `, [opAdmin, opAuditor]);
+        `,
+            [opAdmin, opAuditor]
+        );
         const reqId = reqRes.rows[0].request_id;
 
         // Attempting direct SQL update setting approving_operator_id = target_operator_id must violate check constraint
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.role_change_requests
                 SET approving_operator_id = $1, status = 'APPROVED', decided_at = NOW()
                 WHERE request_id = $2
-            `, [opAuditor, reqId])
+            `,
+                [opAuditor, reqId]
+            )
         ).rejects.toThrow(/chk_dual_control_target_distinct/);
 
         // Finding 3: Role change governance records cannot be deleted
@@ -1000,33 +1093,47 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // Attempt 1: Direct SQL update altering amount (even with version increment)
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE instructions
                 SET amount = 300000, version = 2
                 WHERE instruction_id = $1
-            `, [frozenInstId])
+            `,
+                [frozenInstId]
+            )
         ).rejects.toThrow(/Approved payment instructions are strictly immutable/);
 
         // Attempt 2: Direct SQL update attempting to revert state to INITIATED
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE instructions
                 SET state = 'INITIATED', approval_status = 'CANCELLED'
                 WHERE instruction_id = $1
-            `, [frozenInstId])
-        ).rejects.toThrow(/Illegal state transition from APPROVED to INITIATED|Approved payment instruction cannot be returned to/);
+            `,
+                [frozenInstId]
+            )
+        ).rejects.toThrow(
+            /Illegal state transition from APPROVED to INITIATED|Approved payment instruction cannot be returned to/
+        );
 
         // Attempt 3: Altering destination_account
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE instructions
                 SET destination_account = 'acc_hacked_iban_999'
                 WHERE instruction_id = $1
-            `, [frozenInstId])
+            `,
+                [frozenInstId]
+            )
         ).rejects.toThrow(/Approved payment instructions are strictly immutable/);
 
         // Verify material terms in PostgreSQL remain completely untouched
-        const checkRes = await client.query(`SELECT amount, currency, destination_account, state, approval_status, version FROM instructions WHERE instruction_id = $1`, [frozenInstId]);
+        const checkRes = await client.query(
+            `SELECT amount, currency, destination_account, state, approval_status, version FROM instructions WHERE instruction_id = $1`,
+            [frozenInstId]
+        );
         const row = checkRes.rows[0];
         expect(Number(row.amount)).toBe(200000);
         expect(row.destination_account).toBe('acc_frozen_001');
@@ -1090,7 +1197,10 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(voidRes.approverOperatorId).toBe(opChecker);
 
         // Check DB row
-        const rowRes = await client.query(`SELECT state, approval_status, amount, destination_account FROM instructions WHERE instruction_id = $1`, [voidInstId]);
+        const rowRes = await client.query(
+            `SELECT state, approval_status, amount, destination_account FROM instructions WHERE instruction_id = $1`,
+            [voidInstId]
+        );
         const dbRow = rowRes.rows[0];
         expect(dbRow.state).toBe('VOIDED');
         expect(dbRow.approval_status).toBe('VOIDED');
@@ -1098,13 +1208,21 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(dbRow.destination_account).toBe('acc_void_001');
 
         // Check payment_approvals status
-        const appRes = await client.query(`SELECT status, rejection_reason, checker_operator_id FROM identity.payment_approvals WHERE instruction_id = $1`, [voidInstId]);
+        const appRes = await client.query(
+            `SELECT status, rejection_reason, checker_operator_id FROM identity.payment_approvals WHERE instruction_id = $1`,
+            [voidInstId]
+        );
         expect(appRes.rows[0].status).toBe('VOIDED');
-        expect(appRes.rows[0].rejection_reason).toBe('Invoice retracted by counterparty prior to execution');
+        expect(appRes.rows[0].rejection_reason).toBe(
+            'Invoice retracted by counterparty prior to execution'
+        );
         expect(appRes.rows[0].checker_operator_id).toBe(opChecker);
 
         // Check payment_void_requests table
-        const vrRes = await client.query(`SELECT * FROM identity.payment_void_requests WHERE instruction_id = $1`, [voidInstId]);
+        const vrRes = await client.query(
+            `SELECT * FROM identity.payment_void_requests WHERE instruction_id = $1`,
+            [voidInstId]
+        );
         expect(vrRes.rows.length).toBe(1);
         expect(vrRes.rows[0].status).toBe('APPROVED');
         expect(vrRes.rows[0].requester_operator_id).toBe(opMaker);
@@ -1112,11 +1230,15 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // Finding 3: Payment void requests and voided instructions cannot be deleted
         await expect(
-            client.query(`DELETE FROM identity.payment_void_requests WHERE instruction_id = $1`, [voidInstId])
+            client.query(`DELETE FROM identity.payment_void_requests WHERE instruction_id = $1`, [
+                voidInstId,
+            ])
         ).rejects.toThrow(/Deletion of payment void requests is strictly prohibited/);
 
         await expect(
-            client.query(`DELETE FROM identity.payment_approvals WHERE instruction_id = $1`, [voidInstId])
+            client.query(`DELETE FROM identity.payment_approvals WHERE instruction_id = $1`, [
+                voidInstId,
+            ])
         ).rejects.toThrow(/Deletion of payment approval records is strictly prohibited/);
 
         await expect(
@@ -1136,34 +1258,45 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // Inserting void request with requester == approver violates check constraint chk_dual_control_void_distinct
         await expect(
-            client.query(`
+            client.query(
+                `
                 INSERT INTO identity.payment_void_requests (
                     instruction_id, requester_operator_id, approver_operator_id, reason, status, instruction_version
                 ) VALUES ($1, $2, $2, 'Self-approval void attempt', 'APPROVED', 1)
-            `, [instId, opChecker])
+            `,
+                [instId, opChecker]
+            )
         ).rejects.toThrow(/chk_dual_control_void_distinct|check constraint/i);
 
         // Inserting valid pending request, then attempting SQL update to self-approve
-        const vrRes = await client.query(`
+        const vrRes = await client.query(
+            `
             INSERT INTO identity.payment_void_requests (
                 instruction_id, requester_operator_id, reason, status, instruction_version
             ) VALUES ($1, $2, 'Valid pending void', 'PENDING', 1)
             RETURNING void_request_id;
-        `, [instId, opChecker]);
+        `,
+            [instId, opChecker]
+        );
         const vrId = vrRes.rows[0].void_request_id;
 
         // Updating approver to match requester triggers chk_dual_control_void_distinct
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.payment_void_requests
                 SET approver_operator_id = $1, status = 'APPROVED'
                 WHERE void_request_id = $2
-            `, [opChecker, vrId])
+            `,
+                [opChecker, vrId]
+            )
         ).rejects.toThrow(/chk_dual_control_void_distinct|Dual control violation/i);
 
         // Finding 3: Payment void requests cannot be deleted
         await expect(
-            client.query(`DELETE FROM identity.payment_void_requests WHERE instruction_id = $1`, [instId])
+            client.query(`DELETE FROM identity.payment_void_requests WHERE instruction_id = $1`, [
+                instId,
+            ])
         ).rejects.toThrow(/Deletion of payment void requests is strictly prohibited/);
     });
 
@@ -1180,41 +1313,61 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // 1. Prohibit returning to APPROVED
         await expect(
-            client.query(`UPDATE instructions SET state = 'APPROVED', approval_status = 'APPROVED' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(
+                `UPDATE instructions SET state = 'APPROVED', approval_status = 'APPROVED' WHERE instruction_id = $1`,
+                [voidedInstId]
+            )
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 2. Prohibit returning to INITIATED
         await expect(
-            client.query(`UPDATE instructions SET state = 'INITIATED', approval_status = 'CANCELLED' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(
+                `UPDATE instructions SET state = 'INITIATED', approval_status = 'CANCELLED' WHERE instruction_id = $1`,
+                [voidedInstId]
+            )
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 3. Prohibit returning to PENDING_APPROVAL
         await expect(
-            client.query(`UPDATE instructions SET state = 'PENDING_APPROVAL', approval_status = 'PENDING_APPROVAL' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(
+                `UPDATE instructions SET state = 'PENDING_APPROVAL', approval_status = 'PENDING_APPROVAL' WHERE instruction_id = $1`,
+                [voidedInstId]
+            )
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 4. Prohibit moving to EXECUTED / SETTLED
         await expect(
-            client.query(`UPDATE instructions SET state = 'SETTLED' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(`UPDATE instructions SET state = 'SETTLED' WHERE instruction_id = $1`, [
+                voidedInstId,
+            ])
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 5. Prohibit moving to LOCKED
         await expect(
-            client.query(`UPDATE instructions SET state = 'LOCKED' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(`UPDATE instructions SET state = 'LOCKED' WHERE instruction_id = $1`, [
+                voidedInstId,
+            ])
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 6. Prohibit moving to FAILED
         await expect(
-            client.query(`UPDATE instructions SET state = 'FAILED' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(`UPDATE instructions SET state = 'FAILED' WHERE instruction_id = $1`, [
+                voidedInstId,
+            ])
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // 7. Prohibit altering material terms (amount, destination_account, recipient)
         await expect(
-            client.query(`UPDATE instructions SET amount = 999999 WHERE instruction_id = $1`, [voidedInstId])
+            client.query(`UPDATE instructions SET amount = 999999 WHERE instruction_id = $1`, [
+                voidedInstId,
+            ])
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         await expect(
-            client.query(`UPDATE instructions SET destination_account = 'acc_tampered' WHERE instruction_id = $1`, [voidedInstId])
+            client.query(
+                `UPDATE instructions SET destination_account = 'acc_tampered' WHERE instruction_id = $1`,
+                [voidedInstId]
+            )
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified or transitioned/);
 
         // Finding 3 Verification: Attempting to delete VOIDED instruction directly in SQL is blocked
@@ -1236,11 +1389,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // 1. Prohibit inserting a new approval for a VOIDED instruction (prevents reuse of voided instructions)
         await expect(
-            client.query(`
+            client.query(
+                `
                 INSERT INTO identity.payment_approvals (
                     instruction_id, maker_operator_id, status, amount, currency, instruction_version
                 ) VALUES ($1, $2, 'PENDING_APPROVAL', 25000, 'USD', 1)
-            `, [voidedInstId, opMaker])
+            `,
+                [voidedInstId, opMaker]
+            )
         ).rejects.toThrow(/Cannot create approval for VOIDED instruction/);
 
         // 2. Insert valid approval on non-voided instruction, transition to VOIDED, then attempt modifying VOIDED approval
@@ -1251,31 +1407,47 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const activeInstId = activeInstRes.rows[0].instruction_id;
 
-        const appRes = await client.query(`
+        const appRes = await client.query(
+            `
             INSERT INTO identity.payment_approvals (
                 instruction_id, maker_operator_id, status, amount, currency, instruction_version
             ) VALUES ($1, $2, 'PENDING_APPROVAL', 30000, 'USD', 1)
             RETURNING approval_id;
-        `, [activeInstId, opMaker]);
+        `,
+            [activeInstId, opMaker]
+        );
         const appRowId = appRes.rows[0].approval_id;
 
         // Transition approval to VOIDED
         await client.query('SET ROLE fusion_workflow_definer');
-        await client.query(`UPDATE identity.payment_approvals SET status = 'VOIDED' WHERE approval_id = $1`, [appRowId]);
+        await client.query(
+            `UPDATE identity.payment_approvals SET status = 'VOIDED' WHERE approval_id = $1`,
+            [appRowId]
+        );
         await client.query('RESET ROLE');
 
         // Attempting to modify terminal VOIDED approval is rejected
         await expect(
-            client.query(`UPDATE identity.payment_approvals SET status = 'APPROVED' WHERE approval_id = $1`, [appRowId])
-        ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified|Direct update of payment_approvals to APPROVED is prohibited/);
+            client.query(
+                `UPDATE identity.payment_approvals SET status = 'APPROVED' WHERE approval_id = $1`,
+                [appRowId]
+            )
+        ).rejects.toThrow(
+            /is in terminal state VOIDED and cannot be modified|Direct update of payment_approvals to APPROVED is prohibited/
+        );
 
         await expect(
-            client.query(`UPDATE identity.payment_approvals SET approval_notes = 'Tampered notes' WHERE approval_id = $1`, [appRowId])
+            client.query(
+                `UPDATE identity.payment_approvals SET approval_notes = 'Tampered notes' WHERE approval_id = $1`,
+                [appRowId]
+            )
         ).rejects.toThrow(/is in terminal state VOIDED and cannot be modified/);
 
         // Finding 3 Verification: Attempting to delete financial approval records or voided instructions is blocked
         await expect(
-            client.query(`DELETE FROM identity.payment_approvals WHERE instruction_id = $1`, [activeInstId])
+            client.query(`DELETE FROM identity.payment_approvals WHERE instruction_id = $1`, [
+                activeInstId,
+            ])
         ).rejects.toThrow(/Deletion of payment approval records is strictly prohibited/);
 
         await expect(
@@ -1295,50 +1467,65 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         const instructionId = instRes.rows[0].instruction_id;
 
         // 2. Insert a valid PENDING void request
-        const vrRes = await client.query(`
+        const vrRes = await client.query(
+            `
             INSERT INTO identity.payment_void_requests (
                 instruction_id, instruction_version, requester_operator_id, reason, status
             ) VALUES ($1, 1, $2, 'Operational duplicate payment detected', 'PENDING')
             RETURNING void_request_id;
-        `, [instructionId, opMaker]);
+        `,
+            [instructionId, opMaker]
+        );
         const voidRequestId = vrRes.rows[0].void_request_id;
 
         // 3. Create WebAuthn challenge for step-up binding
         const randChallenge = 'mock_fido2_challenge_' + crypto.randomUUID();
-        const chRes = await client.query(`
+        const chRes = await client.query(
+            `
             INSERT INTO identity.webauthn_challenges (
                 operator_id, ceremony_type, challenge, context_digest, instruction_id, expires_at
             ) VALUES ($1, 'authentication', $2, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', $3, NOW() + INTERVAL '5 minutes')
             RETURNING challenge_id;
-        `, [opChecker, randChallenge, instructionId]);
+        `,
+            [opChecker, randChallenge, instructionId]
+        );
         const challengeId = chRes.rows[0].challenge_id;
 
         // 4. Adversarial Check A: Direct UPDATE to APPROVED without approver_operator_id must fail
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.payment_void_requests 
                 SET status = 'APPROVED' 
                 WHERE void_request_id = $1
-            `, [voidRequestId])
+            `,
+                [voidRequestId]
+            )
         ).rejects.toThrow(/approver_operator_id is required|is prohibited/);
 
         // 5. Adversarial Check B: Direct UPDATE to APPROVED without valid context_digest must fail
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.payment_void_requests 
                 SET status = 'APPROVED', approver_operator_id = $2, decided_at = NOW(), challenge_id = $3
                 WHERE void_request_id = $1
-            `, [voidRequestId, opChecker, challengeId])
+            `,
+                [voidRequestId, opChecker, challengeId]
+            )
         ).rejects.toThrow(/context_digest is required|is prohibited/);
 
         // 6. Adversarial Check C: Direct UPDATE to APPROVED without challenge_id must fail
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.payment_void_requests 
                 SET status = 'APPROVED', approver_operator_id = $2, decided_at = NOW(),
                     context_digest = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
                 WHERE void_request_id = $1
-            `, [voidRequestId, opChecker])
+            `,
+                [voidRequestId, opChecker]
+            )
         ).rejects.toThrow(/challenge_id is required|is prohibited/);
 
         // 7. Legitimate approval via atomic stored procedure identity.fn_approve_payment_void()
@@ -1346,59 +1533,97 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // 7A. Adversarial Check: Calling fn_approve_payment_void with an unverified challenge is strictly rejected
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5) AS result;
-            `, [voidRequestId, instructionId, opChecker, challengeId, digest])
-        ).rejects.toThrow(/Cryptographically verified WebAuthn assertion for challenge .* not found/);
+            `,
+                [voidRequestId, instructionId, opChecker, challengeId, digest]
+            )
+        ).rejects.toThrow(
+            /Cryptographically verified WebAuthn assertion for challenge .* not found/
+        );
 
         // 7B. Record cryptographically verified WebAuthn assertion evidence
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.webauthn_credentials (credential_id, operator_id, public_key, counter)
             VALUES ('cred_pg_ctx_001', $1, 'dummy_pub_key', 1)
             ON CONFLICT (credential_id) DO NOTHING;
-        `, [opChecker]);
+        `,
+            [opChecker]
+        );
 
-        const dummySigHash = crypto.createHash('sha256').update('synthetic_test_signature_data_' + challengeId).digest('hex');
-        await client.query(`
+        const dummySigHash = crypto
+            .createHash('sha256')
+            .update('synthetic_test_signature_data_' + challengeId)
+            .digest('hex');
+        await client.query(
+            `
             SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5);
-        `, [challengeId, opChecker, 'cred_pg_ctx_001', dummySigHash, digest]);
+        `,
+            [challengeId, opChecker, 'cred_pg_ctx_001', dummySigHash, digest]
+        );
 
         // 7C. Now legitimate approval via atomic stored procedure identity.fn_approve_payment_void() succeeds
-        const approveProcRes = await client.query(`
+        const approveProcRes = await client.query(
+            `
             SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5) AS result;
-        `, [voidRequestId, instructionId, opChecker, challengeId, digest]);
+        `,
+            [voidRequestId, instructionId, opChecker, challengeId, digest]
+        );
         expect(approveProcRes.rows[0].result.status).toBe('APPROVED');
 
         // Verify status in DB
-        const verifiedVr = await client.query(`SELECT status FROM identity.payment_void_requests WHERE void_request_id = $1`, [voidRequestId]);
+        const verifiedVr = await client.query(
+            `SELECT status FROM identity.payment_void_requests WHERE void_request_id = $1`,
+            [voidRequestId]
+        );
         expect(verifiedVr.rows[0].status).toBe('APPROVED');
 
-        const verifiedInst = await client.query(`SELECT state, approval_status FROM instructions WHERE instruction_id = $1`, [instructionId]);
+        const verifiedInst = await client.query(
+            `SELECT state, approval_status FROM instructions WHERE instruction_id = $1`,
+            [instructionId]
+        );
         expect(verifiedInst.rows[0].state).toBe('VOIDED');
         expect(verifiedInst.rows[0].approval_status).toBe('VOIDED');
 
         // 8. Adversarial Check D: Prohibit modifying approver_operator_id, reason, or context_digest on APPROVED void request
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET reason = 'Tampered reason' WHERE void_request_id = $1`, [voidRequestId])
+            client.query(
+                `UPDATE identity.payment_void_requests SET reason = 'Tampered reason' WHERE void_request_id = $1`,
+                [voidRequestId]
+            )
         ).rejects.toThrow(/strictly immutable/);
 
         // Immutability defense with distinct operator (opAdmin !== opMaker): blocked by immutability trigger
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET approver_operator_id = $2 WHERE void_request_id = $1`, [voidRequestId, opAdmin])
+            client.query(
+                `UPDATE identity.payment_void_requests SET approver_operator_id = $2 WHERE void_request_id = $1`,
+                [voidRequestId, opAdmin]
+            )
         ).rejects.toThrow(/strictly immutable/);
 
         // Dual-control defense with same operator (opMaker === requester): blocked by chk_dual_control_void_distinct
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET approver_operator_id = $2 WHERE void_request_id = $1`, [voidRequestId, opMaker])
+            client.query(
+                `UPDATE identity.payment_void_requests SET approver_operator_id = $2 WHERE void_request_id = $1`,
+                [voidRequestId, opMaker]
+            )
         ).rejects.toThrow(/chk_dual_control_void_distinct/);
 
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET context_digest = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' WHERE void_request_id = $1`, [voidRequestId])
+            client.query(
+                `UPDATE identity.payment_void_requests SET context_digest = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' WHERE void_request_id = $1`,
+                [voidRequestId]
+            )
         ).rejects.toThrow(/strictly immutable/);
 
         // 9. Adversarial Check E: Prohibit transition from APPROVED -> REJECTED
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET status = 'REJECTED' WHERE void_request_id = $1`, [voidRequestId])
+            client.query(
+                `UPDATE identity.payment_void_requests SET status = 'REJECTED' WHERE void_request_id = $1`,
+                [voidRequestId]
+            )
         ).rejects.toThrow(/strictly immutable/);
 
         // 10. Adversarial Check F: Challenge reuse / replay attack must fail via unique constraint uq_void_request_challenge
@@ -1409,26 +1634,35 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const instruction2Id = inst2Res.rows[0].instruction_id;
 
-        const vr2Res = await client.query(`
+        const vr2Res = await client.query(
+            `
             INSERT INTO identity.payment_void_requests (
                 instruction_id, instruction_version, requester_operator_id, reason, status
             ) VALUES ($1, 1, $2, 'Another void request attempting challenge reuse', 'PENDING')
             RETURNING void_request_id;
-        `, [instruction2Id, opMaker]);
+        `,
+            [instruction2Id, opMaker]
+        );
         const voidRequest2Id = vr2Res.rows[0].void_request_id;
 
         // Attempting to use the already consumed challengeId on a second void request must fail with unique constraint violation
         await expect(
-            client.query(`
+            client.query(
+                `
                 UPDATE identity.payment_void_requests SET challenge_id = $1 WHERE void_request_id = $2;
-            `, [challengeId, voidRequest2Id])
+            `,
+                [challengeId, voidRequest2Id]
+            )
         ).rejects.toThrow(/uq_void_request_challenge|duplicate key value/);
 
         // 11. Adversarial Check G: Double-approval on already approved void request fails
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5);
-            `, [voidRequestId, instructionId, opChecker, challengeId, digest])
+            `,
+                [voidRequestId, instructionId, opChecker, challengeId, digest]
+            )
         ).rejects.toThrow(/already VOIDED|is not in PENDING status/);
 
         // 12. Check PENDING -> REJECTED transition works, and REJECTED -> APPROVED is strictly rejected
@@ -1439,28 +1673,42 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const instruction3Id = inst3Res.rows[0].instruction_id;
 
-        const vr3Res = await client.query(`
+        const vr3Res = await client.query(
+            `
             INSERT INTO identity.payment_void_requests (
                 instruction_id, instruction_version, requester_operator_id, reason, status
             ) VALUES ($1, 1, $2, 'Void request to be rejected', 'PENDING')
             RETURNING void_request_id;
-        `, [instruction3Id, opMaker]);
+        `,
+            [instruction3Id, opMaker]
+        );
         const voidRequest3Id = vr3Res.rows[0].void_request_id;
 
         // Reject void request
-        await client.query(`
+        await client.query(
+            `
             UPDATE identity.payment_void_requests 
             SET status = 'REJECTED', approver_operator_id = $2, decided_at = NOW()
             WHERE void_request_id = $1
-        `, [voidRequest3Id, opChecker]);
+        `,
+            [voidRequest3Id, opChecker]
+        );
 
-        const rejectedVr = await client.query(`SELECT status FROM identity.payment_void_requests WHERE void_request_id = $1`, [voidRequest3Id]);
+        const rejectedVr = await client.query(
+            `SELECT status FROM identity.payment_void_requests WHERE void_request_id = $1`,
+            [voidRequest3Id]
+        );
         expect(rejectedVr.rows[0].status).toBe('REJECTED');
 
         // Transition REJECTED -> APPROVED must be strictly rejected
         await expect(
-            client.query(`UPDATE identity.payment_void_requests SET status = 'APPROVED' WHERE void_request_id = $1`, [voidRequest3Id])
-        ).rejects.toThrow(/strictly immutable|Direct update of payment_void_requests to APPROVED is prohibited/);
+            client.query(
+                `UPDATE identity.payment_void_requests SET status = 'APPROVED' WHERE void_request_id = $1`,
+                [voidRequest3Id]
+            )
+        ).rejects.toThrow(
+            /strictly immutable|Direct update of payment_void_requests to APPROVED is prohibited/
+        );
     });
 
     test('28. Least-Privilege Role Hardening (Finding 3): fusion_app_runtime role permissions', async () => {
@@ -1469,34 +1717,54 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         await client.query('SET ROLE fusion_app_runtime');
         try {
             // 1. DELETE denied on instructions
-            await expect(client.query('DELETE FROM public.instructions')).rejects.toThrow(/permission denied for table instructions/);
+            await expect(client.query('DELETE FROM public.instructions')).rejects.toThrow(
+                /permission denied for table instructions/
+            );
 
             // 2. DELETE denied on payment_approvals
-            await expect(client.query('DELETE FROM identity.payment_approvals')).rejects.toThrow(/permission denied for table payment_approvals/);
+            await expect(client.query('DELETE FROM identity.payment_approvals')).rejects.toThrow(
+                /permission denied for table payment_approvals/
+            );
 
             // 3. DELETE denied on payment_void_requests
-            await expect(client.query('DELETE FROM identity.payment_void_requests')).rejects.toThrow(/permission denied for table payment_void_requests/);
+            await expect(
+                client.query('DELETE FROM identity.payment_void_requests')
+            ).rejects.toThrow(/permission denied for table payment_void_requests/);
 
             // 4. DELETE denied on routing_ledger
-            await expect(client.query('DELETE FROM public.routing_ledger')).rejects.toThrow(/permission denied for table routing_ledger/);
+            await expect(client.query('DELETE FROM public.routing_ledger')).rejects.toThrow(
+                /permission denied for table routing_ledger/
+            );
 
             // 5. TRUNCATE denied on instructions
-            await expect(client.query('TRUNCATE TABLE public.instructions')).rejects.toThrow(/permission denied for table instructions/);
+            await expect(client.query('TRUNCATE TABLE public.instructions')).rejects.toThrow(
+                /permission denied for table instructions/
+            );
 
             // 6. TRUNCATE denied on payment_approvals
-            await expect(client.query('TRUNCATE TABLE identity.payment_approvals')).rejects.toThrow(/permission denied for table payment_approvals/);
+            await expect(client.query('TRUNCATE TABLE identity.payment_approvals')).rejects.toThrow(
+                /permission denied for table payment_approvals/
+            );
 
             // 7. TRUNCATE denied on payment_void_requests
-            await expect(client.query('TRUNCATE TABLE identity.payment_void_requests')).rejects.toThrow(/permission denied for table payment_void_requests/);
+            await expect(
+                client.query('TRUNCATE TABLE identity.payment_void_requests')
+            ).rejects.toThrow(/permission denied for table payment_void_requests/);
 
             // 8. TRUNCATE denied on routing_ledger
-            await expect(client.query('TRUNCATE TABLE public.routing_ledger')).rejects.toThrow(/permission denied for table routing_ledger/);
+            await expect(client.query('TRUNCATE TABLE public.routing_ledger')).rejects.toThrow(
+                /permission denied for table routing_ledger/
+            );
 
             // 9. UPDATE denied on routing_ledger (strictly append-only)
-            await expect(client.query('UPDATE public.routing_ledger SET status = \'SETTLED\'')).rejects.toThrow(/permission denied for table routing_ledger/);
+            await expect(
+                client.query("UPDATE public.routing_ledger SET status = 'SETTLED'")
+            ).rejects.toThrow(/permission denied for table routing_ledger/);
 
             // 10. UPDATE denied on auth_audit_log (strictly append-only)
-            await expect(client.query('UPDATE identity.auth_audit_log SET event_type = \'TAMPER\'')).rejects.toThrow(/permission denied for table auth_audit_log/);
+            await expect(
+                client.query("UPDATE identity.auth_audit_log SET event_type = 'TAMPER'")
+            ).rejects.toThrow(/permission denied for table auth_audit_log/);
         } finally {
             await client.query('RESET ROLE');
         }
@@ -1510,11 +1778,15 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             /Security violation: TRUNCATE is strictly prohibited on instructions/
         );
 
-        await expect(client.query('TRUNCATE TABLE identity.payment_approvals CASCADE')).rejects.toThrow(
+        await expect(
+            client.query('TRUNCATE TABLE identity.payment_approvals CASCADE')
+        ).rejects.toThrow(
             /Security violation: TRUNCATE is strictly prohibited on payment_approvals/
         );
 
-        await expect(client.query('TRUNCATE TABLE identity.payment_void_requests CASCADE')).rejects.toThrow(
+        await expect(
+            client.query('TRUNCATE TABLE identity.payment_void_requests CASCADE')
+        ).rejects.toThrow(
             /Security violation: TRUNCATE is strictly prohibited on payment_void_requests/
         );
 
@@ -1522,22 +1794,26 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             /Security violation: TRUNCATE is strictly prohibited on routing_ledger/
         );
 
-        await expect(client.query('TRUNCATE TABLE identity.role_change_requests CASCADE')).rejects.toThrow(
+        await expect(
+            client.query('TRUNCATE TABLE identity.role_change_requests CASCADE')
+        ).rejects.toThrow(
             /Security violation: TRUNCATE is strictly prohibited on role_change_requests/
         );
 
-        await expect(client.query('TRUNCATE TABLE identity.webauthn_challenges CASCADE')).rejects.toThrow(
+        await expect(
+            client.query('TRUNCATE TABLE identity.webauthn_challenges CASCADE')
+        ).rejects.toThrow(
             /Security violation: TRUNCATE is strictly prohibited on webauthn_challenges/
         );
 
         // Row-Level DELETE Block Triggers: Direct DELETE on audit and governance tables
-        await expect(
-            client.query('DELETE FROM identity.payment_void_requests')
-        ).rejects.toThrow(/Deletion of payment void requests is strictly prohibited/);
+        await expect(client.query('DELETE FROM identity.payment_void_requests')).rejects.toThrow(
+            /Deletion of payment void requests is strictly prohibited/
+        );
 
-        await expect(
-            client.query('DELETE FROM identity.role_change_requests')
-        ).rejects.toThrow(/Deletion of role change governance records is strictly prohibited/);
+        await expect(client.query('DELETE FROM identity.role_change_requests')).rejects.toThrow(
+            /Deletion of role change governance records is strictly prohibited/
+        );
 
         // Insert a dummy instruction and ledger row to verify row-level DELETE block
         const ledgerInstRes = await client.query(`
@@ -1547,14 +1823,17 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const ledgerInstId = ledgerInstRes.rows[0].instruction_id;
 
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO public.routing_ledger (transaction_id, route_selected, status)
             VALUES ($1, 'FIAT', 'INITIATED')
-        `, [ledgerInstId]);
+        `,
+            [ledgerInstId]
+        );
 
-        await expect(
-            client.query('DELETE FROM public.routing_ledger')
-        ).rejects.toThrow(/Accounting ledger is strictly append-only/);
+        await expect(client.query('DELETE FROM public.routing_ledger')).rejects.toThrow(
+            /Accounting ledger is strictly append-only/
+        );
     });
 
     test('30. Adversarial Direct-SQL Financial Mutation Tests under fusion_app_runtime (Finding 1)', async () => {
@@ -1581,99 +1860,145 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         try {
             // Adversarial Test 1: Set a PENDING instruction to APPROVED directly
             await expect(
-                client.query(`UPDATE public.instructions SET state = 'APPROVED', approval_status = 'APPROVED' WHERE instruction_id = $1`, [pendingInstId])
+                client.query(
+                    `UPDATE public.instructions SET state = 'APPROVED', approval_status = 'APPROVED' WHERE instruction_id = $1`,
+                    [pendingInstId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to APPROVED is prohibited/);
 
             // Adversarial Test 2: Set an APPROVED instruction to VOIDED without the approved void workflow
             await expect(
-                client.query(`UPDATE public.instructions SET state = 'VOIDED', approval_status = 'VOIDED' WHERE instruction_id = $1`, [approvedInstId])
+                client.query(
+                    `UPDATE public.instructions SET state = 'VOIDED', approval_status = 'VOIDED' WHERE instruction_id = $1`,
+                    [approvedInstId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to VOIDED is prohibited/);
 
             // Adversarial Test 3: Insert an approval record pretending another operator approved
             await expect(
-                client.query(`
+                client.query(
+                    `
                     INSERT INTO identity.payment_approvals (instruction_id, maker_operator_id, checker_operator_id, status, amount, currency)
                     VALUES ($1, $2, $3, 'APPROVED', 5000, 'USD')
-                `, [pendingInstId, opMaker, opChecker])
-            ).rejects.toThrow(/Direct insertion of non-PENDING(_APPROVAL)? approval records is (strictly )?prohibited/);
+                `,
+                    [pendingInstId, opMaker, opChecker]
+                )
+            ).rejects.toThrow(
+                /Direct insertion of non-PENDING(_APPROVAL)? approval records is (strictly )?prohibited/
+            );
 
             // Adversarial Test 4: Modify an existing approval record to APPROVED
             await client.query('RESET ROLE');
-            const apprRes = await client.query(`
+            const apprRes = await client.query(
+                `
                 INSERT INTO identity.payment_approvals (instruction_id, maker_operator_id, status, amount, currency)
                 VALUES ($1, $2, 'PENDING_APPROVAL', 5000, 'USD')
                 RETURNING approval_id;
-            `, [pendingInstId, opMaker]);
+            `,
+                [pendingInstId, opMaker]
+            );
             const testApprId = apprRes.rows[0].approval_id;
 
             await client.query('SET ROLE fusion_app_runtime');
             await expect(
-                client.query(`UPDATE identity.payment_approvals SET status = 'APPROVED', checker_operator_id = $1 WHERE approval_id = $2`, [opChecker, testApprId])
+                client.query(
+                    `UPDATE identity.payment_approvals SET status = 'APPROVED', checker_operator_id = $1 WHERE approval_id = $2`,
+                    [opChecker, testApprId]
+                )
             ).rejects.toThrow(/Direct update of payment_approvals to APPROVED is prohibited/);
 
             // Adversarial Test 5: Modify a void request to APPROVED using arbitrary non-null challenge and digest values
             await client.query('RESET ROLE');
-            const vrTestRes = await client.query(`
+            const vrTestRes = await client.query(
+                `
                 INSERT INTO identity.payment_void_requests (instruction_id, instruction_version, requester_operator_id, reason, status)
                 VALUES ($1, 1, $2, 'Adversarial direct update attempt', 'PENDING')
                 RETURNING void_request_id;
-            `, [approvedInstId, opMaker]);
+            `,
+                [approvedInstId, opMaker]
+            );
             const testVoidReqId = vrTestRes.rows[0].void_request_id;
 
             await client.query('SET ROLE fusion_app_runtime');
             await expect(
-                client.query(`
+                client.query(
+                    `
                     UPDATE identity.payment_void_requests
                     SET status = 'APPROVED', approver_operator_id = $1, decided_at = NOW(), challenge_id = '00000000-0000-4000-8000-000000000099', context_digest = '0000000000000000000000000000000000000000000000000000000000000000'
                     WHERE void_request_id = $2
-                `, [opChecker, testVoidReqId])
+                `,
+                    [opChecker, testVoidReqId]
+                )
             ).rejects.toThrow(/Direct update of payment_void_requests to APPROVED is prohibited/);
 
             // Adversarial Test 6: Change the approver identity after approval
             await client.query('RESET ROLE');
-            const approvedApprRes = await client.query(`
+            const approvedApprRes = await client.query(
+                `
                 INSERT INTO identity.payment_approvals (instruction_id, maker_operator_id, checker_operator_id, status, amount, currency, decided_at, context_digest)
                 VALUES ($1, $2, $3, 'PENDING_APPROVAL', 8000, 'USD', NULL, NULL)
                 RETURNING approval_id;
-            `, [approvedInstId, opMaker, opChecker]);
+            `,
+                [approvedInstId, opMaker, opChecker]
+            );
             const approvedApprId = approvedApprRes.rows[0].approval_id;
             // Mark it approved via authorized workflow definer role
             await client.query('SET ROLE fusion_workflow_definer');
-            await client.query(`
+            await client.query(
+                `
                 UPDATE identity.payment_approvals
                 SET status = 'APPROVED', checker_operator_id = $1, decided_at = NOW(), context_digest = '1111111111111111111111111111111111111111111111111111111111111111'
                 WHERE approval_id = $2
-            `, [opChecker, approvedApprId]);
+            `,
+                [opChecker, approvedApprId]
+            );
             await client.query('RESET ROLE');
 
             await client.query('SET ROLE fusion_app_runtime');
             await expect(
-                client.query(`UPDATE identity.payment_approvals SET checker_operator_id = $1 WHERE approval_id = $2`, [opMaker, approvedApprId])
-            ).rejects.toThrow(/Cannot modify approval in terminal state|Approver identity is strictly immutable post-approval/);
+                client.query(
+                    `UPDATE identity.payment_approvals SET checker_operator_id = $1 WHERE approval_id = $2`,
+                    [opMaker, approvedApprId]
+                )
+            ).rejects.toThrow(
+                /Cannot modify approval in terminal state|Approver identity is strictly immutable post-approval/
+            );
 
             // Adversarial Test 7: Reuse an existing challenge against another void request
             await client.query('RESET ROLE');
-            const chReuseRes = await client.query(`
+            const chReuseRes = await client.query(
+                `
                 INSERT INTO identity.webauthn_challenges (operator_id, ceremony_type, challenge, context_digest, expires_at)
                 VALUES ($1, 'authentication', 'mock_reuse_ch_' || gen_random_uuid(), '2222222222222222222222222222222222222222222222222222222222222222', NOW() + INTERVAL '5 minutes')
                 RETURNING challenge_id;
-            `, [opChecker]);
+            `,
+                [opChecker]
+            );
             const chReuseId = chReuseRes.rows[0].challenge_id;
 
-            await client.query(`
+            await client.query(
+                `
                 UPDATE identity.payment_void_requests SET challenge_id = $1 WHERE void_request_id = $2;
-            `, [chReuseId, testVoidReqId]);
+            `,
+                [chReuseId, testVoidReqId]
+            );
 
-            const vrReuse2Res = await client.query(`
+            const vrReuse2Res = await client.query(
+                `
                 INSERT INTO identity.payment_void_requests (instruction_id, instruction_version, requester_operator_id, reason, status)
                 VALUES ($1, 1, $2, 'Second void request reusing challenge', 'PENDING')
                 RETURNING void_request_id;
-            `, [pendingInstId, opMaker]);
+            `,
+                [pendingInstId, opMaker]
+            );
             const testVoidReq2Id = vrReuse2Res.rows[0].void_request_id;
 
             await client.query('SET ROLE fusion_app_runtime');
             await expect(
-                client.query(`UPDATE identity.payment_void_requests SET challenge_id = $1 WHERE void_request_id = $2`, [chReuseId, testVoidReq2Id])
+                client.query(
+                    `UPDATE identity.payment_void_requests SET challenge_id = $1 WHERE void_request_id = $2`,
+                    [chReuseId, testVoidReq2Id]
+                )
             ).rejects.toThrow(/uq_void_request_challenge|duplicate key value/);
         } finally {
             await client.query('RESET ROLE');
@@ -1694,7 +2019,9 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(ownerRes.rows.length).toBeGreaterThan(0);
         expect(ownerRes.rows[0].rolname).toBe('fusion_workflow_definer');
         expect(ownerRes.rows[0].prosecdef).toBe(true);
-        expect(ownerRes.rows[0].proconfig).toEqual(expect.arrayContaining(['search_path=pg_catalog, identity, public']));
+        expect(ownerRes.rows[0].proconfig).toEqual(
+            expect.arrayContaining(['search_path=pg_catalog, identity, public'])
+        );
 
         // 2. Verify owner of fn_approve_payment_instruction is fusion_workflow_definer
         const apprOwnerRes = await client.query(`
@@ -1707,17 +2034,23 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         expect(apprOwnerRes.rows.length).toBeGreaterThan(0);
         expect(apprOwnerRes.rows[0].rolname).toBe('fusion_workflow_definer');
         expect(apprOwnerRes.rows[0].prosecdef).toBe(true);
-        expect(apprOwnerRes.rows[0].proconfig).toEqual(expect.arrayContaining(['search_path=pg_catalog, identity, public']));
+        expect(apprOwnerRes.rows[0].proconfig).toEqual(
+            expect.arrayContaining(['search_path=pg_catalog, identity, public'])
+        );
 
         // 3. Connect as fusion_app_runtime: cannot drop or alter stored functions
         await client.query('SET ROLE fusion_app_runtime');
         try {
             await expect(
-                client.query('DROP FUNCTION identity.fn_approve_payment_void(UUID, UUID, UUID, UUID, VARCHAR(64))')
+                client.query(
+                    'DROP FUNCTION identity.fn_approve_payment_void(UUID, UUID, UUID, UUID, VARCHAR(64))'
+                )
             ).rejects.toThrow(/must be owner of function|permission denied/);
 
             await expect(
-                client.query('DROP FUNCTION identity.fn_approve_payment_instruction(UUID, UUID, UUID, UUID, VARCHAR(64), TEXT, VARCHAR(32))')
+                client.query(
+                    'DROP FUNCTION identity.fn_approve_payment_instruction(UUID, UUID, UUID, UUID, VARCHAR(64), TEXT, VARCHAR(32))'
+                )
             ).rejects.toThrow(/must be owner of function|permission denied/);
 
             // 4. Cannot directly insert into verified_webauthn_assertions
@@ -1754,29 +2087,37 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         try {
             // (a) Attempt direct INSERT into verified assertion table
             await expect(
-                rClient.query(`
+                rClient.query(
+                    `
                     INSERT INTO identity.verified_webauthn_assertions (
                         challenge_id, operator_id, credential_id, signature_hash, context_digest
                     ) VALUES ($1, $2, $3, $4, $5)
-                `, [fakeChallengeId, fakeOperatorId, fakeCredId, fakeSigHash, fakeDigest])
+                `,
+                    [fakeChallengeId, fakeOperatorId, fakeCredId, fakeSigHash, fakeDigest]
+                )
             ).rejects.toThrow(/permission denied for table verified_webauthn_assertions/);
 
             // (b) Attempt to call fn_record_verified_webauthn_assertion directly
             await expect(
-                rClient.query(`
+                rClient.query(
+                    `
                     SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5)
-                `, [fakeChallengeId, fakeOperatorId, fakeCredId, fakeSigHash, fakeDigest])
-            ).rejects.toThrow(/permission denied for function fn_record_verified_webauthn_assertion/);
+                `,
+                    [fakeChallengeId, fakeOperatorId, fakeCredId, fakeSigHash, fakeDigest]
+                )
+            ).rejects.toThrow(
+                /permission denied for function fn_record_verified_webauthn_assertion/
+            );
 
             // (c) Attempt to assume verifier role
-            await expect(
-                rClient.query('SET ROLE fusion_webauthn_verifier')
-            ).rejects.toThrow(/permission denied to set role "fusion_webauthn_verifier"/);
+            await expect(rClient.query('SET ROLE fusion_webauthn_verifier')).rejects.toThrow(
+                /permission denied to set role "fusion_webauthn_verifier"/
+            );
 
             // (d) Attempt to assume workflow definer role
-            await expect(
-                rClient.query('SET ROLE fusion_workflow_definer')
-            ).rejects.toThrow(/permission denied to set role "fusion_workflow_definer"/);
+            await expect(rClient.query('SET ROLE fusion_workflow_definer')).rejects.toThrow(
+                /permission denied to set role "fusion_workflow_definer"/
+            );
         } finally {
             rClient.release();
             await runtimePool.end();
@@ -1785,18 +2126,27 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         // 2. Setup genuine challenge and credential in database
         const testChUuid = crypto.randomUUID();
         const testChStr = 'genuine_adv_challenge_' + Date.now();
-        const genuineDigest = crypto.createHash('sha256').update('genuine_context_' + Date.now()).digest('hex');
+        const genuineDigest = crypto
+            .createHash('sha256')
+            .update('genuine_context_' + Date.now())
+            .digest('hex');
 
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.webauthn_challenges (challenge_id, operator_id, challenge, ceremony_type, expires_at, context_digest)
             VALUES ($1, $2, $3, 'authentication', NOW() + INTERVAL '5 minutes', $4)
-        `, [testChUuid, opChecker, testChStr, genuineDigest]);
+        `,
+            [testChUuid, opChecker, testChStr, genuineDigest]
+        );
 
-        await client.query(`
+        await client.query(
+            `
             INSERT INTO identity.webauthn_credentials (credential_id, operator_id, public_key, counter)
             VALUES ($1, $2, 'test_pub_key_genuine', 0)
             ON CONFLICT (credential_id) DO NOTHING;
-        `, ['cred_genuine_adv', opChecker]);
+        `,
+            ['cred_genuine_adv', opChecker]
+        );
 
         // (e) Attempt to invoke approval with unverified challenge
         const instRes = await client.query(`
@@ -1806,17 +2156,23 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const instId = instRes.rows[0].instruction_id;
 
-        const apprRes = await client.query(`
+        const apprRes = await client.query(
+            `
             INSERT INTO identity.payment_approvals (instruction_id, maker_operator_id, status, amount, currency, instruction_version)
             VALUES ($1, $2, 'PENDING_APPROVAL', 9000, 'USD', 1)
             RETURNING approval_id;
-        `, [instId, opMaker]);
+        `,
+            [instId, opMaker]
+        );
         const apprId = apprRes.rows[0].approval_id;
 
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn')
-            `, [apprId, instId, opChecker, testChUuid, genuineDigest])
+            `,
+                [apprId, instId, opChecker, testChUuid, genuineDigest]
+            )
         ).rejects.toThrow(/Cryptographic(ally verified)? WebAuthn assertion/i);
 
         // 3. Connect via dedicated isolated verifier principal (fusion_webauthn_verifier)
@@ -1833,28 +2189,43 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             vClient = await verifierPool.connect();
 
             // Genuinely record verified assertion through verifier principal
-            const genuineSigHash = crypto.createHash('sha256').update('genuine_sig_' + Date.now()).digest('hex');
-            const recRes = await vClient.query(`
+            const genuineSigHash = crypto
+                .createHash('sha256')
+                .update('genuine_sig_' + Date.now())
+                .digest('hex');
+            const recRes = await vClient.query(
+                `
                 SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5) AS assertion_id
-            `, [testChUuid, opChecker, 'cred_genuine_adv', genuineSigHash, genuineDigest]);
+            `,
+                [testChUuid, opChecker, 'cred_genuine_adv', genuineSigHash, genuineDigest]
+            );
 
             expect(recRes.rows.length).toBe(1);
             expect(recRes.rows[0].assertion_id).toBeDefined();
 
             // Verify that fusion_webauthn_verifier cannot execute financial approval procedures
             await expect(
-                vClient.query(`
+                vClient.query(
+                    `
                     SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn')
-                `, [apprId, instId, opChecker, testChUuid, genuineDigest])
+                `,
+                    [apprId, instId, opChecker, testChUuid, genuineDigest]
+                )
             ).rejects.toThrow(/permission denied for function fn_approve_payment_instruction/);
 
             // Verify that fusion_webauthn_verifier cannot mutate financial records directly
             await expect(
-                vClient.query(`UPDATE public.instructions SET amount = 1 WHERE instruction_id = $1`, [instId])
+                vClient.query(
+                    `UPDATE public.instructions SET amount = 1 WHERE instruction_id = $1`,
+                    [instId]
+                )
             ).rejects.toThrow(/permission denied for table instructions/);
 
             await expect(
-                vClient.query(`INSERT INTO public.routing_ledger (transaction_id, route_selected, status) VALUES ($1, 'FIAT', 'LOCKED')`, [instId])
+                vClient.query(
+                    `INSERT INTO public.routing_ledger (transaction_id, route_selected, status) VALUES ($1, 'FIAT', 'LOCKED')`,
+                    [instId]
+                )
             ).rejects.toThrow(/permission denied for table routing_ledger/);
         } finally {
             if (vClient) vClient.release();
@@ -1863,31 +2234,45 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
         // (g) Cross-operator assertion reuse: Attempt approval with another operator using opChecker's assertion
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn')
-            `, [apprId, instId, opMaker, testChUuid, genuineDigest])
+            `,
+                [apprId, instId, opMaker, testChUuid, genuineDigest]
+            )
         ).rejects.toThrow(/Dual control violation|operator mismatch/i);
 
         // (h) Context-digest substitution: Attempt approval with mismatched context digest
         const tamperedDigest = crypto.createHash('sha256').update('tampered_context').digest('hex');
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn')
-            `, [apprId, instId, opChecker, testChUuid, tamperedDigest])
+            `,
+                [apprId, instId, opChecker, testChUuid, tamperedDigest]
+            )
         ).rejects.toThrow(/context digest mismatch/i);
 
         // 4. Now that assertion was recorded by verifier and parameters match, approval succeeds
-        const approveSuccessRes = await client.query(`
+        const approveSuccessRes = await client.query(
+            `
             SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn') AS result
-        `, [apprId, instId, opChecker, testChUuid, genuineDigest]);
+        `,
+            [apprId, instId, opChecker, testChUuid, genuineDigest]
+        );
         expect(approveSuccessRes.rows[0].result.status).toBe('APPROVED');
 
         // (f) Challenge reuse: Attempting approval again with now-consumed assertion fails
         await expect(
-            client.query(`
+            client.query(
+                `
                 SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, 'notes', 'webauthn')
-            `, [apprId, instId, opChecker, testChUuid, genuineDigest])
-        ).rejects.toThrow(/already been consumed|is already executed|status.*must be PENDING_APPROVAL|is in status APPROVED/i);
+            `,
+                [apprId, instId, opChecker, testChUuid, genuineDigest]
+            )
+        ).rejects.toThrow(
+            /already been consumed|is already executed|status.*must be PENDING_APPROVAL|is in status APPROVED/i
+        );
     });
 
     test('34. Migration 023: Role Login Isolation and Membership Closure (AI-2B.6.2 Finding 1)', async () => {
@@ -1926,7 +2311,7 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         // Must NOT contain denylist pattern (old 022 style)
         expect(trigBody).not.toContain("IN ('fusion_app_runtime'");
         // Must contain authoritative check for fusion_workflow_definer (023 style)
-        expect(trigBody).toContain("fusion_workflow_definer");
+        expect(trigBody).toContain('fusion_workflow_definer');
         expect(trigBody).toContain("CURRENT_USER <> 'fusion_workflow_definer'");
 
         // Verify fn_record_verified_webauthn_assertion uses SESSION_USER (not CURRENT_USER whitelist)
@@ -1974,7 +2359,7 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
               AND privilege_type = 'UPDATE'
             ORDER BY column_name
         `);
-        const updatableCols = credColPriv.rows.map(r => r.column_name).sort();
+        const updatableCols = credColPriv.rows.map((r) => r.column_name).sort();
         expect(updatableCols).toEqual(['counter', 'last_used_at']);
 
         // Verify fusion_webauthn_verifier HAS column-level UPDATE on consumed_at only for challenges
@@ -1986,7 +2371,7 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
               AND privilege_type = 'UPDATE'
             ORDER BY column_name
         `);
-        const challUpdatableCols = challColPriv.rows.map(r => r.column_name).sort();
+        const challUpdatableCols = challColPriv.rows.map((r) => r.column_name).sort();
         expect(challUpdatableCols).toEqual(['consumed_at']);
 
         // Verify via DIRECT VERIFIER SESSION: attempt to update restricted columns
@@ -2003,11 +2388,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         const opId35 = opChecker;
 
         try {
-            await client.query(`
+            await client.query(
+                `
                 INSERT INTO identity.webauthn_credentials (credential_id, operator_id, public_key, counter)
                 VALUES ($1, $2, 'test_priv_pub_key_35', 0)
                 ON CONFLICT (credential_id) DO NOTHING
-            `, [credId35, opId35]);
+            `,
+                [credId35, opId35]
+            );
 
             vClient35 = await verifierPool35.connect();
 
@@ -2019,76 +2407,112 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
             // Verifier CANNOT change public_key
             await expect(
-                vClient35.query(`UPDATE identity.webauthn_credentials SET public_key = 'MALICIOUS' WHERE credential_id = $1`, [credId35])
+                vClient35.query(
+                    `UPDATE identity.webauthn_credentials SET public_key = 'MALICIOUS' WHERE credential_id = $1`,
+                    [credId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT change operator_id (credential hijacking)
             await expect(
-                vClient35.query(`UPDATE identity.webauthn_credentials SET operator_id = $1 WHERE credential_id = $2`, [opAdmin, credId35])
+                vClient35.query(
+                    `UPDATE identity.webauthn_credentials SET operator_id = $1 WHERE credential_id = $2`,
+                    [opAdmin, credId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT change credential_id
             await expect(
-                vClient35.query(`UPDATE identity.webauthn_credentials SET credential_id = 'hijacked' WHERE credential_id = $1`, [credId35])
+                vClient35.query(
+                    `UPDATE identity.webauthn_credentials SET credential_id = 'hijacked' WHERE credential_id = $1`,
+                    [credId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT INSERT new credentials
             await expect(
-                vClient35.query(`INSERT INTO identity.webauthn_credentials (credential_id, operator_id, public_key, counter) VALUES ('fake_cred_35', $1, 'fake_key', 0)`, [opId35])
+                vClient35.query(
+                    `INSERT INTO identity.webauthn_credentials (credential_id, operator_id, public_key, counter) VALUES ('fake_cred_35', $1, 'fake_key', 0)`,
+                    [opId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Create test challenge as superuser
-            const challRes35 = await client.query(`
+            const challRes35 = await client.query(
+                `
                 INSERT INTO identity.webauthn_challenges (challenge, operator_id, ceremony_type, expires_at, context_digest)
                 VALUES ('chall_priv_35_' || gen_random_uuid()::text, $1, 'authentication', NOW() + INTERVAL '5 minutes', $2)
                 RETURNING challenge_id
-            `, [opId35, crypto.createHash('sha256').update('test_context_priv_35').digest('hex')]);
+            `,
+                [opId35, crypto.createHash('sha256').update('test_context_priv_35').digest('hex')]
+            );
             const challId35 = challRes35.rows[0].challenge_id;
 
             // Verifier CAN mark challenge consumed
-            await vClient35.query(`UPDATE identity.webauthn_challenges SET consumed_at = NOW() WHERE challenge_id = $1`, [challId35]);
+            await vClient35.query(
+                `UPDATE identity.webauthn_challenges SET consumed_at = NOW() WHERE challenge_id = $1`,
+                [challId35]
+            );
 
             // Verifier CANNOT change context_digest on challenges
             await expect(
-                vClient35.query(`UPDATE identity.webauthn_challenges SET context_digest = 'malicious_digest' WHERE challenge_id = $1`, [challId35])
+                vClient35.query(
+                    `UPDATE identity.webauthn_challenges SET context_digest = 'malicious_digest' WHERE challenge_id = $1`,
+                    [challId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT change operator_id on challenges
             await expect(
-                vClient35.query(`UPDATE identity.webauthn_challenges SET operator_id = $1 WHERE challenge_id = $2`, [opAdmin, challId35])
+                vClient35.query(
+                    `UPDATE identity.webauthn_challenges SET operator_id = $1 WHERE challenge_id = $2`,
+                    [opAdmin, challId35]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT execute fn_approve_payment_void
             await expect(
-                vClient35.query(`SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5)`,
-                    ['00000000-0000-4000-8000-100000000001', '00000000-0000-4000-8000-200000000001',
-                     opChecker, '00000000-0000-4000-8000-300000000001', 'a'.repeat(64)])
+                vClient35.query(`SELECT identity.fn_approve_payment_void($1, $2, $3, $4, $5)`, [
+                    '00000000-0000-4000-8000-100000000001',
+                    '00000000-0000-4000-8000-200000000001',
+                    opChecker,
+                    '00000000-0000-4000-8000-300000000001',
+                    'a'.repeat(64),
+                ])
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT SET ROLE to fusion_workflow_definer
-            await expect(
-                vClient35.query('SET ROLE fusion_workflow_definer')
-            ).rejects.toThrow(/permission denied|must be/);
+            await expect(vClient35.query('SET ROLE fusion_workflow_definer')).rejects.toThrow(
+                /permission denied|must be/
+            );
 
             // Verifier CAN perform SELECT FOR UPDATE on challenges
-            const challRes35b = await client.query(`
+            const challRes35b = await client.query(
+                `
                 INSERT INTO identity.webauthn_challenges (challenge, operator_id, ceremony_type, expires_at, context_digest)
                 VALUES ('chall_fu_35_' || gen_random_uuid()::text, $1, 'authentication', NOW() + INTERVAL '5 minutes', $2)
                 RETURNING challenge_id
-            `, [opId35, crypto.createHash('sha256').update('test_fu_35').digest('hex')]);
+            `,
+                [opId35, crypto.createHash('sha256').update('test_fu_35').digest('hex')]
+            );
             const challId35b = challRes35b.rows[0].challenge_id;
 
             await vClient35.query('BEGIN');
-            const fuRes = await vClient35.query(`SELECT * FROM identity.webauthn_challenges WHERE challenge_id = $1 FOR UPDATE`, [challId35b]);
+            const fuRes = await vClient35.query(
+                `SELECT * FROM identity.webauthn_challenges WHERE challenge_id = $1 FOR UPDATE`,
+                [challId35b]
+            );
             await vClient35.query('ROLLBACK');
             expect(fuRes.rows.length).toBe(1);
 
             // Verifier CAN perform SELECT FOR UPDATE on credentials
             await vClient35.query('BEGIN');
-            const fuCredRes = await vClient35.query(`SELECT * FROM identity.webauthn_credentials WHERE credential_id = $1 FOR UPDATE`, [credId35]);
+            const fuCredRes = await vClient35.query(
+                `SELECT * FROM identity.webauthn_credentials WHERE credential_id = $1 FOR UPDATE`,
+                [credId35]
+            );
             await vClient35.query('ROLLBACK');
             expect(fuCredRes.rows.length).toBe(1);
-
         } finally {
             if (vClient35) vClient35.release();
             await verifierPool35.end();
@@ -2106,18 +2530,24 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         `);
         const gucInstId = gucInstRes.rows[0].instruction_id;
 
-        const gucApprRes = await client.query(`
+        const gucApprRes = await client.query(
+            `
             INSERT INTO identity.payment_approvals (instruction_id, maker_operator_id, status, amount, currency, instruction_version)
             VALUES ($1, $2, 'PENDING_APPROVAL', 4500, 'USD', 1)
             RETURNING approval_id;
-        `, [gucInstId, opMaker]);
+        `,
+            [gucInstId, opMaker]
+        );
         const gucApprId = gucApprRes.rows[0].approval_id;
 
-        const gucVoidRes = await client.query(`
+        const gucVoidRes = await client.query(
+            `
             INSERT INTO identity.payment_void_requests (instruction_id, instruction_version, requester_operator_id, reason, status)
             VALUES ($1, 1, $2, 'GUC void test', 'PENDING')
             RETURNING void_request_id;
-        `, [gucInstId, opMaker]);
+        `,
+            [gucInstId, opMaker]
+        );
         const gucVoidId = gucVoidRes.rows[0].void_request_id;
 
         // Switch role to fusion_app_runtime
@@ -2126,44 +2556,74 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             // 1. Mandatory Adversarial Attempt 1: SET LOCAL pg_temp.fusion_internal_workflow = 'true'
             await client.query("SET LOCAL pg_temp.fusion_internal_workflow = 'true'");
             await expect(
-                client.query(`UPDATE public.instructions SET status = 'APPROVED' WHERE instruction_id = $1`, [gucInstId])
+                client.query(
+                    `UPDATE public.instructions SET status = 'APPROVED' WHERE instruction_id = $1`,
+                    [gucInstId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to APPROVED is prohibited/);
 
             // 2. Mandatory Adversarial Attempt 2: SELECT set_config('pg_temp.fusion_internal_workflow', 'true', true)
-            await client.query("SELECT set_config('pg_temp.fusion_internal_workflow', 'true', true)");
+            await client.query(
+                "SELECT set_config('pg_temp.fusion_internal_workflow', 'true', true)"
+            );
             await expect(
-                client.query(`UPDATE public.instructions SET status = 'APPROVED' WHERE instruction_id = $1`, [gucInstId])
+                client.query(
+                    `UPDATE public.instructions SET status = 'APPROVED' WHERE instruction_id = $1`,
+                    [gucInstId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to APPROVED is prohibited/);
 
             // 3. Attempt direct changes to VOIDED under fusion_app_runtime
             await expect(
-                client.query(`UPDATE public.instructions SET status = 'VOIDED' WHERE instruction_id = $1`, [gucInstId])
+                client.query(
+                    `UPDATE public.instructions SET status = 'VOIDED' WHERE instruction_id = $1`,
+                    [gucInstId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to VOIDED is prohibited/);
 
             // 4. Attempt direct changes to EXECUTED under fusion_app_runtime
             await expect(
-                client.query(`UPDATE public.instructions SET status = 'EXECUTED' WHERE instruction_id = $1`, [gucInstId])
-            ).rejects.toThrow(/Direct transition of instruction .* to EXECUTED is prohibited|cannot transition to EXECUTED without prior approval/);
+                client.query(
+                    `UPDATE public.instructions SET status = 'EXECUTED' WHERE instruction_id = $1`,
+                    [gucInstId]
+                )
+            ).rejects.toThrow(
+                /Direct transition of instruction .* to EXECUTED is prohibited|cannot transition to EXECUTED without prior approval/
+            );
 
             // 5. Attempt direct changes to SETTLED under fusion_app_runtime
             await expect(
-                client.query(`UPDATE public.instructions SET status = 'SETTLED' WHERE instruction_id = $1`, [gucInstId])
-            ).rejects.toThrow(/Direct transition of instruction .* to SETTLED is prohibited|cannot transition to SETTLED without prior approval/);
+                client.query(
+                    `UPDATE public.instructions SET status = 'SETTLED' WHERE instruction_id = $1`,
+                    [gucInstId]
+                )
+            ).rejects.toThrow(
+                /Direct transition of instruction .* to SETTLED is prohibited|cannot transition to SETTLED without prior approval/
+            );
 
             // 6. Attempt direct updates to payment_approvals guard with GUC set
             await client.query("SET LOCAL pg_temp.fusion_internal_workflow = 'true'");
             await expect(
-                client.query(`UPDATE identity.payment_approvals SET status = 'APPROVED' WHERE approval_id = $1`, [gucApprId])
+                client.query(
+                    `UPDATE identity.payment_approvals SET status = 'APPROVED' WHERE approval_id = $1`,
+                    [gucApprId]
+                )
             ).rejects.toThrow(/Direct update of payment_approvals to APPROVED is prohibited/);
 
             await expect(
-                client.query(`UPDATE identity.payment_approvals SET status = 'VOIDED' WHERE approval_id = $1`, [gucApprId])
+                client.query(
+                    `UPDATE identity.payment_approvals SET status = 'VOIDED' WHERE approval_id = $1`,
+                    [gucApprId]
+                )
             ).rejects.toThrow(/Direct update of payment_approvals to VOIDED is prohibited/);
 
             // 7. Attempt direct updates to payment_void_requests guard with GUC set
             await client.query("SET LOCAL pg_temp.fusion_internal_workflow = 'true'");
             await expect(
-                client.query(`UPDATE identity.payment_void_requests SET status = 'APPROVED' WHERE void_request_id = $1`, [gucVoidId])
+                client.query(
+                    `UPDATE identity.payment_void_requests SET status = 'APPROVED' WHERE void_request_id = $1`,
+                    [gucVoidId]
+                )
             ).rejects.toThrow(/Direct update of payment_void_requests to APPROVED is prohibited/);
         } finally {
             await client.query('RESET ROLE');
@@ -2187,39 +2647,78 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         try {
             // 1. Mandatory Adversarial: Direct SQL execution of an APPROVED instruction is blocked
             await expect(
-                client.query(`UPDATE public.instructions SET state = 'EXECUTED' WHERE instruction_id = $1`, [instId])
+                client.query(
+                    `UPDATE public.instructions SET state = 'EXECUTED' WHERE instruction_id = $1`,
+                    [instId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to EXECUTED is prohibited/);
 
             // 2. Mandatory Adversarial: Direct SQL settlement of an APPROVED instruction is blocked
             await expect(
-                client.query(`UPDATE public.instructions SET state = 'SETTLED' WHERE instruction_id = $1`, [instId])
+                client.query(
+                    `UPDATE public.instructions SET state = 'SETTLED' WHERE instruction_id = $1`,
+                    [instId]
+                )
             ).rejects.toThrow(/Direct transition of instruction .* to SETTLED is prohibited/);
 
             // 3. Execution without provider dispatch record / invalid parameters:
             // 3a. Missing idempotency key
             await expect(
-                client.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                    [instId, opMaker, '', 'STRIPE_TEST', 'sandbox', JSON.stringify({ intent_id: 'pi_36_0' })])
+                client.query(
+                    `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                    [
+                        instId,
+                        opMaker,
+                        '',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ intent_id: 'pi_36_0' }),
+                    ]
+                )
             ).rejects.toThrow(/p_idempotency_key is required/);
 
             // 3b. Non-allowlisted provider
             await expect(
-                client.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                    [instId, opMaker, 'idem_36_bad_prov', 'LIVE_SWIFT_UNTRUSTED', 'sandbox', JSON.stringify({ intent_id: 'pi_36_1' })])
+                client.query(
+                    `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                    [
+                        instId,
+                        opMaker,
+                        'idem_36_bad_prov',
+                        'LIVE_SWIFT_UNTRUSTED',
+                        'sandbox',
+                        JSON.stringify({ intent_id: 'pi_36_1' }),
+                    ]
+                )
             ).rejects.toThrow(/not in permitted sandbox\/testnet provider allowlist/);
 
             // 3c. Non-allowlisted environment
             await expect(
-                client.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                    [instId, opMaker, 'idem_36_bad_env', 'STRIPE_TEST', 'production_live', JSON.stringify({ intent_id: 'pi_36_2' })])
+                client.query(
+                    `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                    [
+                        instId,
+                        opMaker,
+                        'idem_36_bad_env',
+                        'STRIPE_TEST',
+                        'production_live',
+                        JSON.stringify({ intent_id: 'pi_36_2' }),
+                    ]
+                )
             ).rejects.toThrow(/not in permitted sandbox\/testnet environment allowlist/);
 
             // 4. Settle without execution evidence:
             // 4a. Random dispatch_id
             await expect(
-                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                    [instId, '00000000-0000-4000-8000-999999999999', 'pi_fake', JSON.stringify({ proof: 'none' })])
-            ).rejects.toThrow(/Instruction .* must be in EXECUTED state before settlement|No authorized dispatch record .* found/);
+                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                    instId,
+                    '00000000-0000-4000-8000-999999999999',
+                    'pi_fake',
+                    JSON.stringify({ proof: 'none' }),
+                ])
+            ).rejects.toThrow(
+                /Instruction .* must be in EXECUTED state before settlement|No authorized dispatch record .* found/
+            );
 
             // 5. Legitimate execution via identity.fn_execute_payment_instruction
             const idemKey = `idem_exec_36_${Date.now()}`;
@@ -2229,9 +2728,12 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                 amount: 88000,
                 currency: 'USD',
             };
-            const execRes = await client.query(`
+            const execRes = await client.query(
+                `
                 SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6) AS result
-            `, [instId, opMaker, idemKey, 'STRIPE_TEST', 'sandbox', JSON.stringify(providerResult)]);
+            `,
+                [instId, opMaker, idemKey, 'STRIPE_TEST', 'sandbox', JSON.stringify(providerResult)]
+            );
 
             expect(execRes.rows[0].result.status).toBe('EXECUTED');
             expect(execRes.rows[0].result.instruction_id).toBe(instId);
@@ -2239,50 +2741,90 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             expect(dispatchId).toBeDefined();
 
             // Verify state in instructions table is now EXECUTED
-            const checkExec = await client.query('SELECT state FROM instructions WHERE instruction_id = $1', [instId]);
+            const checkExec = await client.query(
+                'SELECT state FROM instructions WHERE instruction_id = $1',
+                [instId]
+            );
             expect(checkExec.rows[0].state).toBe('EXECUTED');
 
             // 6. Mandatory Adversarial: Execute same instruction twice (blocked)
             await expect(
-                client.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                    [instId, opMaker, `idem_exec_36_dup_${Date.now()}`, 'STRIPE_TEST', 'sandbox', JSON.stringify(providerResult)])
+                client.query(
+                    `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                    [
+                        instId,
+                        opMaker,
+                        `idem_exec_36_dup_${Date.now()}`,
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify(providerResult),
+                    ]
+                )
             ).rejects.toThrow(/has already been executed|duplicate execution blocked/);
 
             // 7. Mandatory Adversarial: Settle without valid dispatch record matching instruction
-            const otherInstRes = await client.query(`
+            const otherInstRes = await client.query(
+                `
                 SELECT instruction_id FROM instructions WHERE state = 'APPROVED' AND instruction_id <> $1 LIMIT 1
-            `, [instId]);
+            `,
+                [instId]
+            );
             if (otherInstRes.rows.length > 0) {
                 const otherId = otherInstRes.rows[0].instruction_id;
                 await expect(
-                    client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                        [otherId, dispatchId, 'pi_test_stripe_exec_36', JSON.stringify({ verified: true })])
-                ).rejects.toThrow(/Instruction .* must be in EXECUTED state before settlement|belongs to instruction .* not instruction/);
+                    client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                        otherId,
+                        dispatchId,
+                        'pi_test_stripe_exec_36',
+                        JSON.stringify({ verified: true }),
+                    ])
+                ).rejects.toThrow(
+                    /Instruction .* must be in EXECUTED state before settlement|belongs to instruction .* not instruction/
+                );
             }
 
             // 8. Mandatory Adversarial: Substitute provider transaction reference (anti-tamper)
             await expect(
-                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                    [instId, dispatchId, 'pi_SUBSTITUTED_TAMPERED_REFERENCE', JSON.stringify({ proof: 'forged' })])
+                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                    instId,
+                    dispatchId,
+                    'pi_SUBSTITUTED_TAMPERED_REFERENCE',
+                    JSON.stringify({ proof: 'forged' }),
+                ])
             ).rejects.toThrow(/substitution blocked/i);
 
             // 9. Legitimate settlement via identity.fn_settle_payment_instruction
-            const settleRes = await client.query(`
+            const settleRes = await client.query(
+                `
                 SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4) AS result
-            `, [instId, dispatchId, 'pi_test_stripe_exec_36', JSON.stringify({ confirmed: true, rail: 'STRIPE_TEST' })]);
+            `,
+                [
+                    instId,
+                    dispatchId,
+                    'pi_test_stripe_exec_36',
+                    JSON.stringify({ confirmed: true, rail: 'STRIPE_TEST' }),
+                ]
+            );
 
             expect(settleRes.rows[0].result.status).toBe('SETTLED');
             expect(settleRes.rows[0].result.instruction_id).toBe(instId);
 
             // Verify state in instructions table is now SETTLED
-            const checkSettle = await client.query('SELECT state, utr, external_intent_id FROM instructions WHERE instruction_id = $1', [instId]);
+            const checkSettle = await client.query(
+                'SELECT state, utr, external_intent_id FROM instructions WHERE instruction_id = $1',
+                [instId]
+            );
             expect(checkSettle.rows[0].state).toBe('SETTLED');
             expect(checkSettle.rows[0].external_intent_id).toBe('pi_test_stripe_exec_36');
 
             // 10. Mandatory Adversarial: Settle same instruction twice (blocked)
             await expect(
-                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                    [instId, dispatchId, 'pi_test_stripe_exec_36', JSON.stringify({ retry: true })])
+                client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                    instId,
+                    dispatchId,
+                    'pi_test_stripe_exec_36',
+                    JSON.stringify({ retry: true }),
+                ])
             ).rejects.toThrow(/is already SETTLED|duplicate settlement blocked/);
 
             // 11. Mandatory Adversarial: Attempt to execute or settle a VOIDED instruction
@@ -2293,39 +2835,63 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                 const voidedId = voidedRes.rows[0].instruction_id;
 
                 await expect(
-                    client.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                        [voidedId, opMaker, `idem_voided_${Date.now()}`, 'STRIPE_TEST', 'sandbox', JSON.stringify({ test: true })])
+                    client.query(
+                        `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                        [
+                            voidedId,
+                            opMaker,
+                            `idem_voided_${Date.now()}`,
+                            'STRIPE_TEST',
+                            'sandbox',
+                            JSON.stringify({ test: true }),
+                        ]
+                    )
                 ).rejects.toThrow(/is VOIDED and cannot be executed/);
 
                 await expect(
-                    client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                        [voidedId, dispatchId, 'pi_voided_attempt', JSON.stringify({ test: true })])
+                    client.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                        voidedId,
+                        dispatchId,
+                        'pi_voided_attempt',
+                        JSON.stringify({ test: true }),
+                    ])
                 ).rejects.toThrow(/is VOIDED and cannot be settled/);
             }
 
             // 12. Mandatory Adversarial: Tamper resistance on evidence tables (INSERT, UPDATE, DELETE denied)
             await expect(
-                client.query(`
+                client.query(
+                    `
                     INSERT INTO identity.payment_dispatch_records (instruction_id, idempotency_key, provider, environment, provider_result)
                     VALUES ($1, 'fake_idem_app_runtime', 'STRIPE_TEST', 'sandbox', '{}')
-                `, [instId])
+                `,
+                    [instId]
+                )
             ).rejects.toThrow(/permission denied/);
 
             await expect(
-                client.query(`
+                client.query(
+                    `
                     INSERT INTO identity.payment_settlement_evidence (instruction_id, dispatch_id, provider_tx_reference, provider, evidence_payload)
                     VALUES ($1, $2, 'fake_ref', 'STRIPE_TEST', '{}')
-                `, [instId, dispatchId])
+                `,
+                    [instId, dispatchId]
+                )
             ).rejects.toThrow(/permission denied/);
 
             await expect(
-                client.query(`DELETE FROM identity.payment_dispatch_records WHERE instruction_id = $1`, [instId])
+                client.query(
+                    `DELETE FROM identity.payment_dispatch_records WHERE instruction_id = $1`,
+                    [instId]
+                )
             ).rejects.toThrow(/permission denied/);
 
             await expect(
-                client.query(`DELETE FROM identity.payment_settlement_evidence WHERE instruction_id = $1`, [instId])
+                client.query(
+                    `DELETE FROM identity.payment_settlement_evidence WHERE instruction_id = $1`,
+                    [instId]
+                )
             ).rejects.toThrow(/permission denied/);
-
         } finally {
             await client.query('RESET ROLE');
         }
@@ -2340,23 +2906,27 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
         try {
             // 1. fusion_app_runtime CANNOT execute fn_record_verified_webauthn_assertion
             await expect(
-                client.query(`SELECT identity.fn_record_verified_webauthn_assertion($1::uuid, $2::uuid, $3, $4, $5)`,
+                client.query(
+                    `SELECT identity.fn_record_verified_webauthn_assertion($1::uuid, $2::uuid, $3, $4, $5)`,
                     [
                         '00000000-0000-4000-8000-111111111111',
                         opChecker,
                         'cred_test_37',
                         'a'.repeat(64),
-                        'b'.repeat(64)
+                        'b'.repeat(64),
                     ]
                 )
             ).rejects.toThrow(/permission denied/);
 
             // 2. fusion_app_runtime CANNOT insert directly into verified_webauthn_assertions
             await expect(
-                client.query(`
+                client.query(
+                    `
                     INSERT INTO identity.verified_webauthn_assertions (challenge_id, operator_id, credential_id, signature_hash, context_digest)
                     VALUES ('00000000-0000-4000-8000-111111111111', $1, 'cred_fake', 'sig_fake', 'digest_fake')
-                `, [opChecker])
+                `,
+                    [opChecker]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // 3. fusion_app_runtime CANNOT update or delete verified_webauthn_assertions
@@ -2367,7 +2937,6 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(`DELETE FROM identity.verified_webauthn_assertions`)
             ).rejects.toThrow(/permission denied/);
-
         } finally {
             await client.query('RESET ROLE');
         }
@@ -2386,14 +2955,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             appClient37 = await appPool37.connect();
 
             // 4. fusion_app_runtime CANNOT assume fusion_webauthn_verifier role
-            await expect(
-                appClient37.query('SET ROLE fusion_webauthn_verifier')
-            ).rejects.toThrow(/permission denied|must be/);
+            await expect(appClient37.query('SET ROLE fusion_webauthn_verifier')).rejects.toThrow(
+                /permission denied|must be/
+            );
 
             // 5. fusion_app_runtime CANNOT assume fusion_workflow_definer role
-            await expect(
-                appClient37.query('SET ROLE fusion_workflow_definer')
-            ).rejects.toThrow(/permission denied|must be/);
+            await expect(appClient37.query('SET ROLE fusion_workflow_definer')).rejects.toThrow(
+                /permission denied|must be/
+            );
         } finally {
             if (appClient37) appClient37.release();
             await appPool37.end();
@@ -2414,20 +2983,43 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
             // Verifier CANNOT execute fn_execute_payment_instruction
             await expect(
-                vClient37.query(`SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
-                    ['00000000-0000-4000-8000-111111111111', opMaker, 'idem_v_37', 'STRIPE_TEST', 'sandbox', '{}'])
+                vClient37.query(
+                    `SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)`,
+                    [
+                        '00000000-0000-4000-8000-111111111111',
+                        opMaker,
+                        'idem_v_37',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        '{}',
+                    ]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT execute fn_settle_payment_instruction
             await expect(
-                vClient37.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`,
-                    ['00000000-0000-4000-8000-111111111111', '00000000-0000-4000-8000-222222222222', 'ref_v_37', '{}'])
+                vClient37.query(`SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)`, [
+                    '00000000-0000-4000-8000-111111111111',
+                    '00000000-0000-4000-8000-222222222222',
+                    'ref_v_37',
+                    '{}',
+                ])
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT execute fn_approve_payment_instruction
             await expect(
-                vClient37.query(`SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, $6, $7)`,
-                    ['00000000-0000-4000-8000-111111111111', '00000000-0000-4000-8000-222222222222', opChecker, null, 'digest', 'notes', 'none'])
+                vClient37.query(
+                    `SELECT identity.fn_approve_payment_instruction($1, $2, $3, $4, $5, $6, $7)`,
+                    [
+                        '00000000-0000-4000-8000-111111111111',
+                        '00000000-0000-4000-8000-222222222222',
+                        opChecker,
+                        null,
+                        'digest',
+                        'notes',
+                        'none',
+                    ]
+                )
             ).rejects.toThrow(/permission denied/);
 
             // Verifier CANNOT insert into payment_dispatch_records
@@ -2445,7 +3037,6 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
                     VALUES ('00000000-0000-4000-8000-111111111111', '00000000-0000-4000-8000-222222222222', 'ref_v_fake', 'STRIPE_TEST', '{}')
                 `)
             ).rejects.toThrow(/permission denied/);
-
         } finally {
             if (vClient37) vClient37.release();
             await verifierPool37.end();
@@ -2480,7 +3071,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opInvented, 'idem_test_38_1', 'STRIPE_TEST', 'sandbox', JSON.stringify({ intent_id: 'pi_test_38_1', status: 'succeeded' })]
+                    [
+                        instId,
+                        opInvented,
+                        'idem_test_38_1',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ intent_id: 'pi_test_38_1', status: 'succeeded' }),
+                    ]
                 )
             ).rejects.toThrow(/not authorized for payment execution dispatch/);
 
@@ -2488,7 +3086,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opAuthorized, 'idem_test_38_2a', 'STRIPE_TEST', 'sandbox', JSON.stringify({ status: 'FAILED', intent_id: 'pi_fail' })]
+                    [
+                        instId,
+                        opAuthorized,
+                        'idem_test_38_2a',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ status: 'FAILED', intent_id: 'pi_fail' }),
+                    ]
                 )
             ).rejects.toThrow(/Provider execution result indicates failure or unverified status/);
 
@@ -2496,7 +3101,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opAuthorized, 'idem_test_38_2b', 'STRIPE_TEST', 'sandbox', JSON.stringify({ status: 'succeeded', forged: true })]
+                    [
+                        instId,
+                        opAuthorized,
+                        'idem_test_38_2b',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ status: 'succeeded', forged: true }),
+                    ]
                 )
             ).rejects.toThrow(/missing mandatory provider reference/);
 
@@ -2504,7 +3116,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opAuthorized, 'idem_test_38_3', 'SIMULATED_BTC', 'sandbox', JSON.stringify({ status: 'succeeded', intent_id: 'real_looking_hash' })]
+                    [
+                        instId,
+                        opAuthorized,
+                        'idem_test_38_3',
+                        'SIMULATED_BTC',
+                        'sandbox',
+                        JSON.stringify({ status: 'succeeded', intent_id: 'real_looking_hash' }),
+                    ]
                 )
             ).rejects.toThrow(/requires explicit simulation markers/);
 
@@ -2512,7 +3131,14 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opAuditor, 'idem_test_38_4', 'STRIPE_TEST', 'sandbox', JSON.stringify({ status: 'succeeded', intent_id: 'pi_test_38_4' })]
+                    [
+                        instId,
+                        opAuditor,
+                        'idem_test_38_4',
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ status: 'succeeded', intent_id: 'pi_test_38_4' }),
+                    ]
                 )
             ).rejects.toThrow(/not authorized for payment execution dispatch/);
 
@@ -2520,7 +3146,18 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             const idemKey = 'idem_legit_38_' + Date.now();
             const execRes = await client.query(
                 'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6) AS res',
-                [instId, opAuthorized, idemKey, 'STRIPE_TEST', 'sandbox', JSON.stringify({ status: 'succeeded', intent_id: 'pi_test_legit_38', amount: 35000 })]
+                [
+                    instId,
+                    opAuthorized,
+                    idemKey,
+                    'STRIPE_TEST',
+                    'sandbox',
+                    JSON.stringify({
+                        status: 'succeeded',
+                        intent_id: 'pi_test_legit_38',
+                        amount: 35000,
+                    }),
+                ]
             );
             expect(execRes.rows[0].res.status).toBe('EXECUTED');
             const dispatchId = execRes.rows[0].res.dispatch_id;
@@ -2528,32 +3165,43 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
 
             // 5a. Settle with failed evidence_payload (blocked)
             await expect(
-                client.query(
-                    'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)',
-                    [instId, dispatchId, 'pi_test_legit_38', JSON.stringify({ status: 'FAILED' })]
-                )
+                client.query('SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)', [
+                    instId,
+                    dispatchId,
+                    'pi_test_legit_38',
+                    JSON.stringify({ status: 'FAILED' }),
+                ])
             ).rejects.toThrow(/indicates failed or rejected status/);
 
             // 5b. Settle with unconfirmed arbitrary evidence payload (blocked)
             await expect(
-                client.query(
-                    'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)',
-                    [instId, dispatchId, 'pi_test_legit_38', JSON.stringify({ arbitrary_field: 'unverified' })]
-                )
+                client.query('SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)', [
+                    instId,
+                    dispatchId,
+                    'pi_test_legit_38',
+                    JSON.stringify({ arbitrary_field: 'unverified' }),
+                ])
             ).rejects.toThrow(/lacks verifiable confirmation indicators/);
 
             // 6. Fabricated substituted transaction reference (blocked)
             await expect(
-                client.query(
-                    'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)',
-                    [instId, dispatchId, 'pi_test_FABRICATED_REF_999', JSON.stringify({ confirmed: true })]
-                )
+                client.query('SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)', [
+                    instId,
+                    dispatchId,
+                    'pi_test_FABRICATED_REF_999',
+                    JSON.stringify({ confirmed: true }),
+                ])
             ).rejects.toThrow(/substitution blocked/i);
 
             // Legitimate settlement
             const settleRes = await client.query(
                 'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4) AS res',
-                [instId, dispatchId, 'pi_test_legit_38', JSON.stringify({ confirmed: true, rail: 'STRIPE_TEST' })]
+                [
+                    instId,
+                    dispatchId,
+                    'pi_test_legit_38',
+                    JSON.stringify({ confirmed: true, rail: 'STRIPE_TEST' }),
+                ]
             );
             expect(settleRes.rows[0].res.status).toBe('SETTLED');
 
@@ -2561,31 +3209,46 @@ describe('Phase AI-2B.1: PostgreSQL RBAC & Maker-Checker Integration Gate', () =
             await expect(
                 client.query(
                     'SELECT identity.fn_execute_payment_instruction($1, $2, $3, $4, $5, $6)',
-                    [instId, opAuthorized, 'idem_dup_38_' + Date.now(), 'STRIPE_TEST', 'sandbox', JSON.stringify({ status: 'succeeded', intent_id: 'pi_test_legit_38' })]
+                    [
+                        instId,
+                        opAuthorized,
+                        'idem_dup_38_' + Date.now(),
+                        'STRIPE_TEST',
+                        'sandbox',
+                        JSON.stringify({ status: 'succeeded', intent_id: 'pi_test_legit_38' }),
+                    ]
                 )
             ).rejects.toThrow(/duplicate execution blocked/);
 
             await expect(
-                client.query(
-                    'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)',
-                    [instId, dispatchId, 'pi_test_legit_38', JSON.stringify({ confirmed: true })]
-                )
+                client.query('SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)', [
+                    instId,
+                    dispatchId,
+                    'pi_test_legit_38',
+                    JSON.stringify({ confirmed: true }),
+                ])
             ).rejects.toThrow(/duplicate settlement blocked/);
 
             // 8. Substitute another instruction dispatch reference (blocked)
-            const otherInstRes = await client.query(`
+            const otherInstRes = await client.query(
+                `
                 SELECT instruction_id FROM instructions WHERE state = 'APPROVED' AND instruction_id <> $1 LIMIT 1
-            `, [instId]);
+            `,
+                [instId]
+            );
             if (otherInstRes.rows.length > 0) {
                 const otherId = otherInstRes.rows[0].instruction_id;
                 await expect(
-                    client.query(
-                        'SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)',
-                        [otherId, dispatchId, 'pi_test_legit_38', JSON.stringify({ confirmed: true })]
-                    )
-                ).rejects.toThrow(/must be in EXECUTED state before settlement|belongs to instruction .* not instruction/);
+                    client.query('SELECT identity.fn_settle_payment_instruction($1, $2, $3, $4)', [
+                        otherId,
+                        dispatchId,
+                        'pi_test_legit_38',
+                        JSON.stringify({ confirmed: true }),
+                    ])
+                ).rejects.toThrow(
+                    /must be in EXECUTED state before settlement|belongs to instruction .* not instruction/
+                );
             }
-
         } finally {
             await client.query('RESET ROLE');
         }

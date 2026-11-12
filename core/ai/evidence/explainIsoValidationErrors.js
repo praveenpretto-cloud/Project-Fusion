@@ -2,10 +2,10 @@
 
 /**
  * Tool 7: explainIsoValidationErrors
- * 
+ *
  * Extracts and categorizes persisted ISO 20022 validation errors from invoices.iso_enriched.
  * Does NOT execute live XML parsing, and does NOT claim legal or regulatory compliance.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {string} documentId - Invoice ID or Saga ID
  * @returns {Promise<object>} Structured ISO validation error explanation
@@ -15,12 +15,17 @@ async function explainIsoValidationErrors(client, documentId) {
         throw new Error('explainIsoValidationErrors: client with query method is required');
     }
 
-    if (!documentId || typeof documentId !== 'string' || documentId.trim().length === 0 || documentId.trim().length > 255) {
+    if (
+        !documentId ||
+        typeof documentId !== 'string' ||
+        documentId.trim().length === 0 ||
+        documentId.trim().length > 255
+    ) {
         return {
             success: false,
             status: 'INVALID_IDENTIFIER',
             message: 'documentId must be a non-empty string under 256 characters',
-            data: null
+            data: null,
         };
     }
 
@@ -40,7 +45,7 @@ async function explainIsoValidationErrors(client, documentId) {
             success: false,
             status: 'NOT_FOUND',
             message: `No invoice record found matching document ID '${cleanId}'`,
-            data: null
+            data: null,
         };
     }
 
@@ -49,8 +54,8 @@ async function explainIsoValidationErrors(client, documentId) {
             success: false,
             status: 'AMBIGUOUS_IDENTIFIER_MATCH',
             message: `Document identifier '${cleanId}' collided between multiple invoice records`,
-            candidates: result.rows.map(r => ({ invoice_id: r.invoice_id, saga_id: r.saga_id })),
-            data: null
+            candidates: result.rows.map((r) => ({ invoice_id: r.invoice_id, saga_id: r.saga_id })),
+            data: null,
         };
     }
 
@@ -86,16 +91,17 @@ async function explainIsoValidationErrors(client, documentId) {
             persisted_errors: validationErrors.map((err, idx) => ({
                 index: idx + 1,
                 error_message: typeof err === 'string' ? err : JSON.stringify(err),
-                category: typeof err === 'string' && err.includes('structuredAddress') 
-                    ? 'MANDATORY_STRUCTURED_ADDRESS_SYNTAX' 
-                    : 'SCHEMA_VALIDATION_ERROR'
+                category:
+                    typeof err === 'string' && err.includes('structuredAddress')
+                        ? 'MANDATORY_STRUCTURED_ADDRESS_SYNTAX'
+                        : 'SCHEMA_VALIDATION_ERROR',
             })),
-            disclaimer: 'Persisted schema validation errors from invoices.iso_enriched; does not represent an independent regulatory compliance or customs clearance determination.'
-        }
+            disclaimer:
+                'Persisted schema validation errors from invoices.iso_enriched; does not represent an independent regulatory compliance or customs clearance determination.',
+        },
     };
 }
 
 module.exports = {
     explainIsoValidationErrors,
 };
-

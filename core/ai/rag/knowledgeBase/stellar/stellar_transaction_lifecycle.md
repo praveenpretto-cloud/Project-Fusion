@@ -12,6 +12,7 @@ licensing: Technical Documentation Summary - Permitted Fair Use Attribution
 # Stellar Horizon Transaction Lifecycle & Sequence Numbers
 
 ## Transaction Construction and Submission
+
 Stellar transactions bundle one or more atomic operations (e.g. `Payment`, `ChangeTrust`, `CreateAccount`) signed by cryptographic source accounts:
 
 - Source Account Sequence Number: Every transaction consumes an incremental sequence number strictly 1 greater than the current account sequence recorded on the ledger.
@@ -20,10 +21,10 @@ Stellar transactions bundle one or more atomic operations (e.g. `Payment`, `Chan
 - Consensus Submission: Submitted via Horizon REST endpoint `POST /transactions` to stellar-core nodes executing Stellar Consensus Protocol (SCP). Ledger close occurs every ~5 seconds.
 
 ## Sequence Number Handling and Concurrency
+
 A primary operational challenge on Stellar is sequence number synchronization:
 
 - Sequence gaps: If sequence $N+2$ is submitted before $N+1$, the network rejects the transaction with `tx_bad_seq`.
 - Concurrent transactions: Multiple workers attempting to submit from the same source account concurrently encounter sequence conflicts.
 - Mitigation pattern: Use dedicated ephemeral sequence channels (channel accounts) or serialized queueing per source public key.
 - Sequence recovery: On sequence error, the client must query the Horizon account endpoint (`GET /accounts/{id}`) to fetch the authoritative ledger sequence number.
-

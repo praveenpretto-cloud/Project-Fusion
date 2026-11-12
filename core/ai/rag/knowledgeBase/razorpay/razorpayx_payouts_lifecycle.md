@@ -12,6 +12,7 @@ licensing: Technical Documentation Summary - Permitted Fair Use Attribution
 # RazorpayX Payout Lifecycle & Modes Specification
 
 ## Payout State Machine
+
 RazorpayX payouts transfer funds from a business virtual account to vendor bank accounts. The lifecycle stages are:
 
 - `queued`: Payout received during non-banking clearing hours or queued pending balance replenishment.
@@ -22,6 +23,7 @@ RazorpayX payouts transfer funds from a business virtual account to vendor bank 
 - `rejected`: Payout blocked prior to bank dispatch due to compliance check, invalid account format, or insufficient balance.
 
 ## Settlement Clearing Rails
+
 RazorpayX routes payouts across distinct national clearing modes:
 
 - `IMPS`: Immediate Payment Service. Real-time 24x7 clearing for amounts up to INR 5,00,000.
@@ -29,4 +31,3 @@ RazorpayX routes payouts across distinct national clearing modes:
 - `RTGS`: Real Time Gross Settlement. Real-time settlement for large-value payments (minimum INR 2,00,000).
 - `UPI`: Unified Payments Interface. Real-time 24x7 instant mobile clearing using Virtual Payment Addresses (VPA).
 - `card`: Payouts direct to Visa, Mastercard, or RuPay debit/credit card numbers.
-

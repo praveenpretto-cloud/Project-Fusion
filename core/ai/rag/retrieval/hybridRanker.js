@@ -7,17 +7,17 @@ const { telemetry, SPAN_NAMES, FUSION_AI_ATTRIBUTES } = require('../../observabi
  */
 function minMaxNormalize(scores) {
     if (!scores || scores.length === 0) return [];
-    const vals = scores.map(s => s.score);
+    const vals = scores.map((s) => s.score);
     const min = Math.min(...vals);
     const max = Math.max(...vals);
 
     if (max === min) {
-        return scores.map(s => ({ ...s, normScore: s.score > 0 ? 1.0 : 0.0 }));
+        return scores.map((s) => ({ ...s, normScore: s.score > 0 ? 1.0 : 0.0 }));
     }
 
-    return scores.map(s => ({
+    return scores.map((s) => ({
         ...s,
-        normScore: (s.score - min) / (max - min)
+        normScore: (s.score - min) / (max - min),
     }));
 }
 
@@ -34,13 +34,14 @@ class HybridRanker {
         this.bm25Retriever = bm25Retriever;
         this.denseRetriever = denseRetriever;
         this.alpha = options.alpha !== undefined ? options.alpha : 0.5;
-        this.minRelevanceThreshold = options.minRelevanceThreshold !== undefined ? options.minRelevanceThreshold : 0.15;
+        this.minRelevanceThreshold =
+            options.minRelevanceThreshold !== undefined ? options.minRelevanceThreshold : 0.15;
     }
 
     /**
      * Executes hybrid retrieval combining BM25 and Dense scores.
-     * 
-     * @param {string} query 
+     *
+     * @param {string} query
      * @param {object} [options]
      * @param {string} [options.provider]
      * @param {string} [options.error_code]
@@ -52,14 +53,16 @@ class HybridRanker {
             const topK = options.topK || 3;
             const candidateK = Math.max(topK * 4, 15);
             span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_TOP_K, topK);
-            if (options.provider) span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_PROVIDER, options.provider);
-            if (options.error_code) span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_ERROR_CODE, options.error_code);
+            if (options.provider)
+                span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_PROVIDER, options.provider);
+            if (options.error_code)
+                span.setAttribute(FUSION_AI_ATTRIBUTES.RAG_ERROR_CODE, options.error_code);
             const start = Date.now();
 
             // 1. Lexical retrieval
             const bm25Results = this.bm25Retriever.search(query, {
                 ...options,
-                topK: candidateK
+                topK: candidateK,
             });
 
             // 2. Dense semantic retrieval
@@ -67,10 +70,12 @@ class HybridRanker {
             try {
                 denseResults = await this.denseRetriever.search(query, {
                     ...options,
-                    topK: candidateK
+                    topK: candidateK,
                 });
             } catch (denseErr) {
-                console.warn(`[HYBRID RANKER] Dense search fallback to lexical only: ${denseErr.message}`);
+                console.warn(
+                    `[HYBRID RANKER] Dense search fallback to lexical only: ${denseErr.message}`
+                );
             }
 
             // 3. Normalize score distributions
@@ -88,7 +93,7 @@ class HybridRanker {
                     bm25_norm: item.normScore,
                     dense_raw: 0,
                     dense_norm: 0,
-                    has_exact_error_match: false
+                    has_exact_error_match: false,
                 });
             }
 
@@ -101,7 +106,7 @@ class HybridRanker {
                         bm25_norm: 0,
                         dense_raw: item.score,
                         dense_norm: item.normScore,
-                        has_exact_error_match: false
+                        has_exact_error_match: false,
                     });
                 } else {
                     const existing = merged.get(id);
@@ -112,14 +117,19 @@ class HybridRanker {
 
             // 5. Evaluate exact error-code and technical token match priority
             const queryLower = query.toLowerCase();
-            const targetErrorCode = options.error_code ? options.error_code.toLowerCase().trim() : null;
+            const targetErrorCode = options.error_code
+                ? options.error_code.toLowerCase().trim()
+                : null;
 
             for (const item of merged.values()) {
                 const chunk = item.chunk;
-                const errorCodes = (chunk.error_codes || []).map(c => c.toLowerCase());
-                
-                const matchesExplicitErrorCode = targetErrorCode && errorCodes.includes(targetErrorCode);
-                const matchesQueryErrorCode = errorCodes.some(ec => ec.length >= 4 && queryLower.includes(ec));
+                const errorCodes = (chunk.error_codes || []).map((c) => c.toLowerCase());
+
+                const matchesExplicitErrorCode =
+                    targetErrorCode && errorCodes.includes(targetErrorCode);
+                const matchesQueryErrorCode = errorCodes.some(
+                    (ec) => ec.length >= 4 && queryLower.includes(ec)
+                );
 
                 if (matchesExplicitErrorCode || matchesQueryErrorCode) {
                     item.has_exact_error_match = true;
@@ -139,7 +149,7 @@ class HybridRanker {
                 } else if (normBm25.length === 0) {
                     hybridScore = item.dense_norm;
                 } else {
-                    hybridScore = (this.alpha * item.bm25_norm) + ((1 - this.alpha) * item.dense_norm);
+                    hybridScore = this.alpha * item.bm25_norm + (1 - this.alpha) * item.dense_norm;
                 }
 
                 if (item.has_exact_error_match) {
@@ -149,15 +159,17 @@ class HybridRanker {
                 if (hybridScore >= this.minRelevanceThreshold) {
                     let matchType = 'HYBRID';
                     if (item.has_exact_error_match) matchType = 'EXACT_ERROR_MATCH';
-                    else if (item.bm25_norm > 0 && item.dense_norm === 0) matchType = 'LEXICAL_BM25';
-                    else if (item.bm25_norm === 0 && item.dense_norm > 0) matchType = 'DENSE_SEMANTIC';
+                    else if (item.bm25_norm > 0 && item.dense_norm === 0)
+                        matchType = 'LEXICAL_BM25';
+                    else if (item.bm25_norm === 0 && item.dense_norm > 0)
+                        matchType = 'DENSE_SEMANTIC';
 
                     rankedResults.push({
                         chunk: item.chunk,
                         score: Number(hybridScore.toFixed(4)),
                         match_type: matchType,
                         bm25_score: Number(item.bm25_raw.toFixed(4)),
-                        dense_score: Number(item.dense_raw.toFixed(4))
+                        dense_score: Number(item.dense_raw.toFixed(4)),
                     });
                 }
             }
@@ -176,7 +188,7 @@ class HybridRanker {
             telemetry.recordRagRetrieval(Date.now() - start, {
                 chunksReturned: sliced.length,
                 abstained,
-                provider: options.provider
+                provider: options.provider,
             });
 
             return sliced;
@@ -186,6 +198,5 @@ class HybridRanker {
 
 module.exports = {
     HybridRanker,
-    minMaxNormalize
+    minMaxNormalize,
 };
-

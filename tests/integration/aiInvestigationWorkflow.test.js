@@ -4,12 +4,12 @@
  * ════════════════════════════════════════════════════════════════════════════
  * AI PAYMENT OPERATIONS COPILOT — INTEGRATION TEST SUITE
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Tests the Express API routes (/api/ai/synthetic-cases, /api/ai/investigate)
  * against synthetic cases, MockModelProvider, schema validators, citation rules,
  * timeout/error handlers, and security boundaries (zero persistent DB access,
  * zero payment mutation capabilities).
- * 
+ *
  * Uses in-memory request dispatching (sandbox safe, zero socket binding).
  */
 
@@ -30,87 +30,97 @@ function safeJsonParse(str) {
 /**
  * In-memory HTTP request dispatcher (sandbox safe, 100% offline, zero network socket binding)
  */
-function makeRequest(app, { method = 'GET', url = '/', headers = {}, body = null, ip = '127.0.0.1', hostname = 'localhost' }) {
+function makeRequest(
+    app,
+    {
+        method = 'GET',
+        url = '/',
+        headers = {},
+        body = null,
+        ip = '127.0.0.1',
+        hostname = 'localhost',
+    }
+) {
     return new Promise((resolve) => {
         let statusCode = 200;
         const responseHeaders = {};
         let responseBody = null;
 
-            const req = {
-                method: method.toUpperCase(),
-                url,
-                originalUrl: url,
-                path: url.split('?')[0],
-                params: {},
-                query: {},
-                headers: { ...headers },
-                body: body || {},
-                ip,
-                hostname,
-                socket: { remoteAddress: ip },
-                on(event, cb) {
-                    if (event === 'close') {
-                        // no-op for in-memory
-                    }
-                    return this;
+        const req = {
+            method: method.toUpperCase(),
+            url,
+            originalUrl: url,
+            path: url.split('?')[0],
+            params: {},
+            query: {},
+            headers: { ...headers },
+            body: body || {},
+            ip,
+            hostname,
+            socket: { remoteAddress: ip },
+            on(event, cb) {
+                if (event === 'close') {
+                    // no-op for in-memory
                 }
-            };
+                return this;
+            },
+        };
 
-            const chunks = [];
-            const res = {
-                statusCode: 200,
-                status(code) {
-                    statusCode = code;
-                    this.statusCode = code;
-                    return this;
-                },
-                setHeader(k, v) {
-                    responseHeaders[k.toLowerCase()] = v;
-                },
-                getHeader(k) {
-                    return responseHeaders[k.toLowerCase()];
-                },
-                flushHeaders() {},
-                write(chunk) {
-                    chunks.push(chunk);
-                },
-                flush() {},
-                send(payload) {
+        const chunks = [];
+        const res = {
+            statusCode: 200,
+            status(code) {
+                statusCode = code;
+                this.statusCode = code;
+                return this;
+            },
+            setHeader(k, v) {
+                responseHeaders[k.toLowerCase()] = v;
+            },
+            getHeader(k) {
+                return responseHeaders[k.toLowerCase()];
+            },
+            flushHeaders() {},
+            write(chunk) {
+                chunks.push(chunk);
+            },
+            flush() {},
+            send(payload) {
+                responseBody = payload;
+                resolve({
+                    status: statusCode,
+                    statusCode,
+                    headers: responseHeaders,
+                    body: typeof payload === 'string' ? safeJsonParse(payload) : payload,
+                    text: String(payload),
+                });
+            },
+            json(payload) {
+                responseBody = payload;
+                resolve({
+                    status: statusCode,
+                    statusCode,
+                    headers: responseHeaders,
+                    body: payload,
+                    text: JSON.stringify(payload),
+                });
+            },
+            end(payload) {
+                if (payload) {
+                    chunks.push(payload);
                     responseBody = payload;
-                    resolve({
-                        status: statusCode,
-                        statusCode,
-                        headers: responseHeaders,
-                        body: typeof payload === 'string' ? safeJsonParse(payload) : payload,
-                        text: String(payload),
-                    });
-                },
-                json(payload) {
-                    responseBody = payload;
-                    resolve({
-                        status: statusCode,
-                        statusCode,
-                        headers: responseHeaders,
-                        body: payload,
-                        text: JSON.stringify(payload),
-                    });
-                },
-                end(payload) {
-                    if (payload) {
-                        chunks.push(payload);
-                        responseBody = payload;
-                    } else if (chunks.length > 0) {
-                        responseBody = chunks.join('');
-                    }
-                    resolve({
-                        status: statusCode,
-                        statusCode,
-                        headers: responseHeaders,
-                        body: responseBody,
-                        text: String(responseBody || ''),
-                    });
-                },
-            };
+                } else if (chunks.length > 0) {
+                    responseBody = chunks.join('');
+                }
+                resolve({
+                    status: statusCode,
+                    statusCode,
+                    headers: responseHeaders,
+                    body: responseBody,
+                    text: String(responseBody || ''),
+                });
+            },
+        };
 
         app.handle(req, res);
     });
@@ -144,7 +154,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
         test('returns all 15 registered synthetic cases with sanitized metadata', async () => {
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: '/api/ai/synthetic-cases'
+                url: '/api/ai/synthetic-cases',
             });
 
             expect(res.status).toBe(200);
@@ -180,8 +190,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-01',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -203,8 +213,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-06',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -220,8 +230,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-10',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -239,8 +249,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 body: {
                     caseId: 'CASE-01',
                     question: customQuestion,
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -256,7 +266,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const res = await makeRequest(app, {
                 method: 'POST',
                 url: '/api/ai/investigate',
-                body: {}
+                body: {},
             });
 
             expect(res.status).toBe(400);
@@ -269,8 +279,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 method: 'POST',
                 url: '/api/ai/investigate',
                 body: {
-                    caseId: '3a7f8b2c-0001-4567-89ab-cdef01234567'
-                }
+                    caseId: '3a7f8b2c-0001-4567-89ab-cdef01234567',
+                },
             });
 
             expect(res.status).toBe(400);
@@ -283,8 +293,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 method: 'POST',
                 url: '/api/ai/investigate',
                 body: {
-                    caseId: 'CASE-99'
-                }
+                    caseId: 'CASE-99',
+                },
             });
 
             expect(res.status).toBe(400);
@@ -297,8 +307,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 method: 'POST',
                 url: '/api/ai/investigate',
                 body: {
-                    caseId: 1
-                }
+                    caseId: 1,
+                },
             });
 
             expect(res.status).toBe(400);
@@ -318,8 +328,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-01',
-                    question: longQuestion
-                }
+                    question: longQuestion,
+                },
             });
 
             expect(res.status).toBe(400);
@@ -333,8 +343,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-01',
-                    question: { malicious: 'object' }
-                }
+                    question: { malicious: 'object' },
+                },
             });
 
             expect(res.status).toBe(400);
@@ -353,8 +363,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-01',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -371,7 +381,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             expect(Array.isArray(report.limitations)).toBe(true);
 
             // Finding citations validation
-            report.confirmed_findings.forEach(finding => {
+            report.confirmed_findings.forEach((finding) => {
                 expect(typeof finding.claim).toBe('string');
                 expect(Array.isArray(finding.evidence_references)).toBe(true);
                 expect(finding.evidence_references.length).toBeGreaterThan(0);
@@ -380,7 +390,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
 
             // Recommended checks formatting
             expect(Array.isArray(report.recommended_checks_display)).toBe(true);
-            report.recommended_checks_display.forEach(check => {
+            report.recommended_checks_display.forEach((check) => {
                 expect(check).toHaveProperty('code');
                 expect(check).toHaveProperty('description');
             });
@@ -401,32 +411,36 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                     {
                         claim: 'Payment failed due to SWIFT BIC error.',
                         evidence_references: ['non_existent_swift_table', 'fabrication_oracle_db'],
-                        source_field: 'swift_table.error'
-                    }
+                        source_field: 'swift_table.error',
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['VERIFY_PROVIDER_STATUS'],
                 evidence_references: ['non_existent_swift_table'],
-                limitations: ['Advisory only.']
+                limitations: ['Advisory only.'],
             });
 
             const orchestrator = new InvestigationOrchestrator({
                 dbClient: syntheticStore.createControlledDbBoundary(),
-                modelProvider: mockProvider
+                modelProvider: mockProvider,
             });
 
             const testCase = syntheticStore.getCaseById('CASE-01');
             const outcome = await orchestrator.investigate({
                 transactionId: testCase.transactionId,
                 explicitIntent: testCase.intent,
-                evidenceOverride: testCase.evidence
+                evidenceOverride: testCase.evidence,
             });
 
             expect(outcome.success).toBe(false);
             expect(outcome.status).toBe('REPORT_VALIDATION_FAILED');
             expect(outcome.validation_errors.length).toBeGreaterThan(0);
-            expect(outcome.validation_errors.some(e => e.includes('cites unknown or unretrieved evidence'))).toBe(true);
+            expect(
+                outcome.validation_errors.some((e) =>
+                    e.includes('cites unknown or unretrieved evidence')
+                )
+            ).toBe(true);
         });
     });
 
@@ -436,19 +450,19 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
     describe('7. Timeout & Provider Failure Translation', () => {
         test('returns 504 on model timeout', async () => {
             const mockProvider = new MockModelProvider({
-                forcedStatus: 'MODEL_TIMEOUT'
+                forcedStatus: 'MODEL_TIMEOUT',
             });
 
             const orchestrator = new InvestigationOrchestrator({
                 dbClient: syntheticStore.createControlledDbBoundary(),
-                modelProvider: mockProvider
+                modelProvider: mockProvider,
             });
 
             const testCase = syntheticStore.getCaseById('CASE-01');
             const outcome = await orchestrator.investigate({
                 transactionId: testCase.transactionId,
                 explicitIntent: testCase.intent,
-                evidenceOverride: testCase.evidence
+                evidenceOverride: testCase.evidence,
             });
 
             expect(outcome.success).toBe(false);
@@ -461,8 +475,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-14',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(503);
@@ -477,8 +491,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-15',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(502);
@@ -503,7 +517,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const spyBoundary = {
                 query: jest.fn().mockImplementation(async () => {
                     throw new Error('Database access prohibited');
-                })
+                }),
             };
 
             const mockProvider = new MockModelProvider();
@@ -515,26 +529,26 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                     {
                         claim: 'Gateway rejected payout due to insufficient balance.',
                         evidence_references: ['getTransactionTimeline'],
-                        source_field: 'getTransactionTimeline.timeline.current_state'
-                    }
+                        source_field: 'getTransactionTimeline.timeline.current_state',
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['VERIFY_PROVIDER_STATUS'],
                 evidence_references: ['getTransactionTimeline'],
-                limitations: ['Advisory only.']
+                limitations: ['Advisory only.'],
             });
 
             const orchestrator = new InvestigationOrchestrator({
                 dbClient: spyBoundary,
-                modelProvider: mockProvider
+                modelProvider: mockProvider,
             });
 
             const testCase = syntheticStore.getCaseById('CASE-01');
             const outcome = await orchestrator.investigate({
                 transactionId: testCase.transactionId,
                 explicitIntent: testCase.intent,
-                evidenceOverride: testCase.evidence
+                evidenceOverride: testCase.evidence,
             });
 
             expect(outcome.success).toBe(true);
@@ -552,16 +566,23 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 body: {
                     caseId: 'CASE-13',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
             expect(res.body.success).toBe(true);
             expect(res.body.report.summary).toContain('refuses mutation request');
             // Prohibit mutation verbs in recommended checks
-            const forbiddenVerbs = ['EXECUTE', 'DISBURSE', 'REFUND', 'RETRY', 'OVERRIDE', 'TRANSFER'];
-            res.body.report.recommended_checks.forEach(code => {
+            const forbiddenVerbs = [
+                'EXECUTE',
+                'DISBURSE',
+                'REFUND',
+                'RETRY',
+                'OVERRIDE',
+                'TRANSFER',
+            ];
+            res.body.report.recommended_checks.forEach((code) => {
                 for (const verb of forbiddenVerbs) {
                     expect(code).not.toContain(verb);
                 }
@@ -578,26 +599,26 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                     {
                         claim: 'Instruction failed; we should execute payout immediately.',
                         evidence_references: ['getTransactionTimeline'],
-                        source_field: 'getTransactionTimeline.status'
-                    }
+                        source_field: 'getTransactionTimeline.status',
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['EXECUTE_PAYOUT_NOW'], // invalid mutation code
                 evidence_references: ['getTransactionTimeline'],
-                limitations: ['Advisory only.']
+                limitations: ['Advisory only.'],
             });
 
             const orchestrator = new InvestigationOrchestrator({
                 dbClient: syntheticStore.createControlledDbBoundary(),
-                modelProvider: mockProvider
+                modelProvider: mockProvider,
             });
 
             const testCase = syntheticStore.getCaseById('CASE-01');
             const outcome = await orchestrator.investigate({
                 transactionId: testCase.transactionId,
                 explicitIntent: testCase.intent,
-                evidenceOverride: testCase.evidence
+                evidenceOverride: testCase.evidence,
             });
 
             expect(outcome.success).toBe(false);
@@ -608,10 +629,10 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
         test('router exposes zero payment mutation endpoints or tools', () => {
             // Verify router stack only has GET /synthetic-cases and POST /investigate
             const routes = aiInvestigateRouter.stack
-                .filter(layer => layer.route)
-                .map(layer => ({
+                .filter((layer) => layer.route)
+                .map((layer) => ({
                     path: layer.route.path,
-                    methods: Object.keys(layer.route.methods)
+                    methods: Object.keys(layer.route.methods),
                 }));
 
             expect(routes).toEqual([
@@ -620,7 +641,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 { path: '/agent-investigate', methods: ['post'] },
                 { path: '/agent-investigate/stream', methods: ['post'] },
                 { path: '/observability/traces/:traceId', methods: ['get'] },
-                { path: '/observability/metrics', methods: ['get'] }
+                { path: '/observability/metrics', methods: ['get'] },
             ]);
         });
     });
@@ -639,7 +660,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/investigate',
                 ip: '203.0.113.195',
                 hostname: 'external.example.com',
-                body: { caseId: 'CASE-01' }
+                body: { caseId: 'CASE-01' },
             });
 
             expect(res.status).toBe(401);
@@ -653,7 +674,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 ip: '203.0.113.195',
                 hostname: 'external.example.com',
                 headers: { 'x-api-key': 'valid_test_secret_key' },
-                body: { caseId: 'CASE-01', providerType: 'mock' }
+                body: { caseId: 'CASE-01', providerType: 'mock' },
             });
 
             expect(resAuth.status).toBe(200);
@@ -675,8 +696,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 url: '/api/ai/agent-investigate',
                 body: {
                     caseId: 'CASE-01',
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(200);
@@ -695,7 +716,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const res = await makeRequest(app, {
                 method: 'POST',
                 url: '/api/ai/agent-investigate',
-                body: { providerType: 'mock' }
+                body: { providerType: 'mock' },
             });
 
             expect(res.status).toBe(400);
@@ -706,7 +727,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const res = await makeRequest(app, {
                 method: 'POST',
                 url: '/api/ai/agent-investigate',
-                body: { caseId: 'CASE-999', providerType: 'mock' }
+                body: { caseId: 'CASE-999', providerType: 'mock' },
             });
 
             expect(res.status).toBe(400);
@@ -720,8 +741,8 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 body: {
                     caseId: 'CASE-01',
                     question: 'A'.repeat(501),
-                    providerType: 'mock'
-                }
+                    providerType: 'mock',
+                },
             });
 
             expect(res.status).toBe(400);
@@ -734,7 +755,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const res = await makeRequest(app, {
                 method: 'GET',
                 url: '/api/ai/observability/metrics',
-                ip: '127.0.0.1'
+                ip: '127.0.0.1',
             });
 
             expect(res.status).toBe(200);
@@ -752,7 +773,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 method: 'GET',
                 url: '/api/ai/observability/traces/0123456789abcdef0123456789abcdef',
                 ip: '198.51.100.22',
-                hostname: 'external.example.com'
+                hostname: 'external.example.com',
             });
 
             expect(res.status).toBe(403);
@@ -763,7 +784,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
             const res = await makeRequest(app, {
                 method: 'GET',
                 url: '/api/ai/observability/traces/00000000000000000000000000000000',
-                ip: '127.0.0.1'
+                ip: '127.0.0.1',
             });
 
             expect(res.status).toBe(404);
@@ -775,7 +796,7 @@ describe('AI Payment Operations Copilot — Integration Suite', () => {
                 method: 'POST',
                 url: '/api/ai/agent-investigate/stream',
                 body: { caseId: 'CASE-01', providerType: 'mock' },
-                ip: '127.0.0.1'
+                ip: '127.0.0.1',
             });
 
             expect(res.status).toBe(200);

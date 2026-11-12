@@ -9,7 +9,11 @@ describe('Task 2: Simulation Isolation & Ledger Protection', () => {
 
     describe('MockAdapter Contract Verification', () => {
         test("executeMockRail returns status: 'SIMULATED' and NEVER 'SUCCESS'", async () => {
-            const result = await executeMockRail({ instruction_id: 'inst-test-001', amount: 500, currency: 'USD' });
+            const result = await executeMockRail({
+                instruction_id: 'inst-test-001',
+                amount: 500,
+                currency: 'USD',
+            });
             expect(result.status).toBe('SIMULATED');
             expect(result.status).not.toBe('SUCCESS');
             expect(result.simulated).toBe(true);
@@ -36,16 +40,18 @@ describe('Task 2: Simulation Isolation & Ledger Protection', () => {
                     mockQueries.push({ sql, params });
                     if (sql.includes('SELECT * FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: 'mock-instruction-uuid',
-                                sender: 'ACC_SENDER',
-                                recipient: 'ACC_RECIPIENT',
-                                amount: 100,
-                                currency: 'USD',
-                                state: 'LOCKED',
-                                provider: 'MOCK',
-                                execution_attempts: 0,
-                            }],
+                            rows: [
+                                {
+                                    instruction_id: 'mock-instruction-uuid',
+                                    sender: 'ACC_SENDER',
+                                    recipient: 'ACC_RECIPIENT',
+                                    amount: 100,
+                                    currency: 'USD',
+                                    state: 'LOCKED',
+                                    provider: 'MOCK',
+                                    execution_attempts: 0,
+                                },
+                            ],
                         };
                     }
                     if (sql.includes('SELECT state FROM instructions')) {
@@ -76,7 +82,10 @@ describe('Task 2: Simulation Isolation & Ledger Protection', () => {
                 isolatedSaga = require('../../core/orchestrator/sagaCore');
             });
 
-            const result = await isolatedSaga.processInstructionSagaAtomic('mock-instruction-uuid', mockPool);
+            const result = await isolatedSaga.processInstructionSagaAtomic(
+                'mock-instruction-uuid',
+                mockPool
+            );
             jest.dontMock('../../adapters/paymentsAdapters');
 
             expect(result.status).toBe('SUCCESS');
@@ -84,20 +93,20 @@ describe('Task 2: Simulation Isolation & Ledger Protection', () => {
             expect(result.current_state).not.toBe('SETTLED');
 
             // Verify SIMULATED state update query was executed
-            const simulatedStateUpdate = mockQueries.find(q =>
+            const simulatedStateUpdate = mockQueries.find((q) =>
                 q.sql.includes("UPDATE instructions SET state = 'SIMULATED'")
             );
             expect(simulatedStateUpdate).toBeDefined();
 
             // Verify that SETTLED update was NEVER executed
-            const settledStateUpdate = mockQueries.find(q =>
+            const settledStateUpdate = mockQueries.find((q) =>
                 q.sql.includes("UPDATE instructions SET state = 'SETTLED'")
             );
             expect(settledStateUpdate).toBeUndefined();
 
             // Verify that ledger_entries table was NEVER touched
-            const ledgerInsert = mockQueries.find(q =>
-                q.sql.includes('INSERT INTO ledger_entries') || q.sql.includes('writeLedger')
+            const ledgerInsert = mockQueries.find(
+                (q) => q.sql.includes('INSERT INTO ledger_entries') || q.sql.includes('writeLedger')
             );
             expect(ledgerInsert).toBeUndefined();
         });
