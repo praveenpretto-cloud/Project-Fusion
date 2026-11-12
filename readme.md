@@ -68,6 +68,8 @@
 
 ## ⚡ Quick Start (Local Prototype)
 
+> **Runtime Requirement**: Node.js `>=22.0.0` (tested on Node.js 22, 24, and 26) with npm `>=10.0.0`.
+
 ```bash
 # 1. Install dependencies
 npm install

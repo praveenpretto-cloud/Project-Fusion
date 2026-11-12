@@ -16,6 +16,9 @@
         "knip": "knip",
         "prepare": "node -e \"if (process.env.CI) process.exit(0); const { execSync } = require('child_process'); execSync('husky', { stdio: 'inherit' });\""
     },
+    "engines": {
+        "node": ">=22.0.0"
+    },
     "jest": {
         "testEnvironment": "node",
         "coverageDirectory": "coverage",
