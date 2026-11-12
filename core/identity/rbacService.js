@@ -200,7 +200,9 @@ class RbacService {
                 },
                 pool,
             });
-            const err = new Error(`Access denied: operator lacks required permission "${permissionKey}"`);
+            const err = new Error(
+                `Access denied: operator lacks required permission "${permissionKey}"`
+            );
             err.statusCode = 403;
             err.code = 'PERMISSION_DENIED';
             throw err;
@@ -215,28 +217,40 @@ class RbacService {
      * Enforces Dual Control: Sensitive roles (SYSTEM_ADMIN, TREASURY_ANALYST, COMPLIANCE_OFFICER)
      * cannot be assigned unilaterally without an approved role change request.
      */
-    async assignRoleToOperator({ operatorId, roleKey, assignedBy = null, bypassDualControl = false, pool = null } = {}) {
+    async assignRoleToOperator({
+        operatorId,
+        roleKey,
+        assignedBy = null,
+        bypassDualControl = false,
+        pool = null,
+    } = {}) {
         if (!operatorId || !roleKey) {
             throw new Error('operatorId and roleKey are required for role assignment');
         }
 
         // Defend against self-elevation
         if (assignedBy && assignedBy === operatorId) {
-            const err = new Error('Self-elevation prohibited: operators cannot grant roles to themselves');
+            const err = new Error(
+                'Self-elevation prohibited: operators cannot grant roles to themselves'
+            );
             err.statusCode = 403;
             err.code = 'SELF_ELEVATION_PROHIBITED';
             throw err;
         }
 
         if (!ROLES[roleKey]) {
-            const err = new Error(`Invalid role: "${roleKey}". Allowed roles: ${Object.keys(ROLES).join(', ')}`);
+            const err = new Error(
+                `Invalid role: "${roleKey}". Allowed roles: ${Object.keys(ROLES).join(', ')}`
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // Dual control enforcement for sensitive roles
         if (assignedBy && SENSITIVE_ROLES.includes(roleKey) && !bypassDualControl) {
-            const err = new Error(`Dual control required: Assigning sensitive role "${roleKey}" requires an approved role change request.`);
+            const err = new Error(
+                `Dual control required: Assigning sensitive role "${roleKey}" requires an approved role change request.`
+            );
             err.statusCode = 403;
             err.code = 'DUAL_CONTROL_REQUIRED';
             throw err;
@@ -250,7 +264,10 @@ class RbacService {
 
         if (pool) {
             // Lookup role_id
-            const roleRes = await pool.query('SELECT role_id FROM identity.roles WHERE role_key = $1', [roleKey]);
+            const roleRes = await pool.query(
+                'SELECT role_id FROM identity.roles WHERE role_key = $1',
+                [roleKey]
+            );
             if (roleRes.rows.length === 0) {
                 throw new Error(`Role "${roleKey}" not found in database`);
             }
@@ -286,7 +303,9 @@ class RbacService {
             pool,
         });
 
-        logger.info(`[RBAC] Assigned role "${roleKey}" to operator ${operatorId} by ${assignedBy || 'system'}`);
+        logger.info(
+            `[RBAC] Assigned role "${roleKey}" to operator ${operatorId} by ${assignedBy || 'system'}`
+        );
         return { success: true, operatorId, roleKey, beforeRoles, afterRoles };
     }
 
@@ -296,13 +315,21 @@ class RbacService {
      * Enforces Dual Control: Sensitive roles cannot be revoked unilaterally without
      * an approved role change request.
      */
-    async revokeRoleFromOperator({ operatorId, roleKey, revokedBy = null, bypassDualControl = false, pool = null } = {}) {
+    async revokeRoleFromOperator({
+        operatorId,
+        roleKey,
+        revokedBy = null,
+        bypassDualControl = false,
+        pool = null,
+    } = {}) {
         if (!operatorId || !roleKey) {
             throw new Error('operatorId and roleKey are required for role revocation');
         }
 
         if (revokedBy && revokedBy === operatorId) {
-            const err = new Error('Self-modification prohibited: operators cannot revoke roles from themselves');
+            const err = new Error(
+                'Self-modification prohibited: operators cannot revoke roles from themselves'
+            );
             err.statusCode = 403;
             err.code = 'SELF_MODIFICATION_PROHIBITED';
             throw err;
@@ -310,7 +337,9 @@ class RbacService {
 
         // Dual control enforcement for sensitive roles
         if (revokedBy && SENSITIVE_ROLES.includes(roleKey) && !bypassDualControl) {
-            const err = new Error(`Dual control required: Revoking sensitive role "${roleKey}" requires an approved role change request.`);
+            const err = new Error(
+                `Dual control required: Revoking sensitive role "${roleKey}" requires an approved role change request.`
+            );
             err.statusCode = 403;
             err.code = 'DUAL_CONTROL_REQUIRED';
             throw err;
@@ -323,7 +352,10 @@ class RbacService {
         const beforeRoles = await this.getOperatorRoles(operatorId, { pool });
 
         if (pool) {
-            const roleRes = await pool.query('SELECT role_id FROM identity.roles WHERE role_key = $1', [roleKey]);
+            const roleRes = await pool.query(
+                'SELECT role_id FROM identity.roles WHERE role_key = $1',
+                [roleKey]
+            );
             if (roleRes.rows.length === 0) {
                 throw new Error(`Role "${roleKey}" not found in database`);
             }
@@ -356,7 +388,9 @@ class RbacService {
             pool,
         });
 
-        logger.info(`[RBAC] Revoked role "${roleKey}" from operator ${operatorId} by ${revokedBy || 'system'}`);
+        logger.info(
+            `[RBAC] Revoked role "${roleKey}" from operator ${operatorId} by ${revokedBy || 'system'}`
+        );
         return { success: true, operatorId, roleKey, beforeRoles, afterRoles };
     }
 
@@ -376,20 +410,26 @@ class RbacService {
         pool = null,
     } = {}) {
         if (!requestingOperatorId || !targetOperatorId || !roleKey || !action || !reason) {
-            const err = new Error('requestingOperatorId, targetOperatorId, roleKey, action, and reason are required');
+            const err = new Error(
+                'requestingOperatorId, targetOperatorId, roleKey, action, and reason are required'
+            );
             err.statusCode = 400;
             throw err;
         }
 
         if (requestingOperatorId === targetOperatorId) {
-            const err = new Error('Self-elevation prohibited: operators cannot submit role change requests for themselves');
+            const err = new Error(
+                'Self-elevation prohibited: operators cannot submit role change requests for themselves'
+            );
             err.statusCode = 403;
             err.code = 'SELF_ELEVATION_PROHIBITED';
             throw err;
         }
 
         if (!ROLES[roleKey]) {
-            const err = new Error(`Invalid role: "${roleKey}". Allowed roles: ${Object.keys(ROLES).join(', ')}`);
+            const err = new Error(
+                `Invalid role: "${roleKey}". Allowed roles: ${Object.keys(ROLES).join(', ')}`
+            );
             err.statusCode = 400;
             throw err;
         }
@@ -450,7 +490,9 @@ class RbacService {
             pool,
         });
 
-        logger.info(`[RBAC] Role change requested: ${action} "${roleKey}" for ${targetOperatorId} by ${requestingOperatorId}`);
+        logger.info(
+            `[RBAC] Role change requested: ${action} "${roleKey}" for ${targetOperatorId} by ${requestingOperatorId}`
+        );
         return record;
     }
 
@@ -490,7 +532,9 @@ class RbacService {
                 const request = res.rows[0];
 
                 if (request.status !== 'PENDING') {
-                    const err = new Error(`Cannot approve role change request in status "${request.status}"`);
+                    const err = new Error(
+                        `Cannot approve role change request in status "${request.status}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'INVALID_REQUEST_STATE';
                     throw err;
@@ -498,7 +542,9 @@ class RbacService {
 
                 // FOUR-EYES DUAL CONTROL: Requester cannot approve own request!
                 if (request.requesting_operator_id === approvingOperatorId) {
-                    const err = new Error('Dual control violation: An operator cannot approve their own role change request.');
+                    const err = new Error(
+                        'Dual control violation: An operator cannot approve their own role change request.'
+                    );
                     err.statusCode = 403;
                     err.code = 'DUAL_CONTROL_VIOLATION';
                     throw err;
@@ -506,7 +552,9 @@ class RbacService {
 
                 // Self-elevation check: Target cannot approve elevation for themselves!
                 if (request.target_operator_id === approvingOperatorId) {
-                    const err = new Error('Self-elevation prohibited: An operator cannot approve their own role change.');
+                    const err = new Error(
+                        'Self-elevation prohibited: An operator cannot approve their own role change.'
+                    );
                     err.statusCode = 403;
                     err.code = 'SELF_ELEVATION_PROHIBITED';
                     throw err;
@@ -571,7 +619,9 @@ class RbacService {
             }
 
             if (request.status !== 'PENDING') {
-                const err = new Error(`Cannot approve role change request in status "${request.status}"`);
+                const err = new Error(
+                    `Cannot approve role change request in status "${request.status}"`
+                );
                 err.statusCode = 409;
                 err.code = 'INVALID_REQUEST_STATE';
                 throw err;
@@ -582,14 +632,18 @@ class RbacService {
             const roleKey = request.role_key || request.roleKey;
 
             if (requesterId === approvingOperatorId) {
-                const err = new Error('Dual control violation: An operator cannot approve their own role change request.');
+                const err = new Error(
+                    'Dual control violation: An operator cannot approve their own role change request.'
+                );
                 err.statusCode = 403;
                 err.code = 'DUAL_CONTROL_VIOLATION';
                 throw err;
             }
 
             if (targetId === approvingOperatorId) {
-                const err = new Error('Self-elevation prohibited: An operator cannot approve their own role change.');
+                const err = new Error(
+                    'Self-elevation prohibited: An operator cannot approve their own role change.'
+                );
                 err.statusCode = 403;
                 err.code = 'SELF_ELEVATION_PROHIBITED';
                 throw err;
@@ -630,7 +684,9 @@ class RbacService {
             });
         }
 
-        logger.info(`[RBAC] ✅ Role change approved: ${updatedRecord.action} for ${updatedRecord.target_operator_id || updatedRecord.targetOperatorId} by ${approvingOperatorId}`);
+        logger.info(
+            `[RBAC] ✅ Role change approved: ${updatedRecord.action} for ${updatedRecord.target_operator_id || updatedRecord.targetOperatorId} by ${approvingOperatorId}`
+        );
         return updatedRecord;
     }
 
@@ -664,14 +720,18 @@ class RbacService {
                 const request = res.rows[0];
 
                 if (request.status !== 'PENDING') {
-                    const err = new Error(`Cannot reject role change request in status "${request.status}"`);
+                    const err = new Error(
+                        `Cannot reject role change request in status "${request.status}"`
+                    );
                     err.statusCode = 409;
                     err.code = 'INVALID_REQUEST_STATE';
                     throw err;
                 }
 
                 if (request.requesting_operator_id === approvingOperatorId) {
-                    const err = new Error('Dual control violation: An operator cannot review their own role change request.');
+                    const err = new Error(
+                        'Dual control violation: An operator cannot review their own role change request.'
+                    );
                     err.statusCode = 403;
                     err.code = 'DUAL_CONTROL_VIOLATION';
                     throw err;
@@ -718,7 +778,9 @@ class RbacService {
             }
 
             if (request.status !== 'PENDING') {
-                const err = new Error(`Cannot reject role change request in status "${request.status}"`);
+                const err = new Error(
+                    `Cannot reject role change request in status "${request.status}"`
+                );
                 err.statusCode = 409;
                 err.code = 'INVALID_REQUEST_STATE';
                 throw err;
@@ -726,7 +788,9 @@ class RbacService {
 
             const requesterId = request.requesting_operator_id || request.requestingOperatorId;
             if (requesterId === approvingOperatorId) {
-                const err = new Error('Dual control violation: An operator cannot review their own role change request.');
+                const err = new Error(
+                    'Dual control violation: An operator cannot review their own role change request.'
+                );
                 err.statusCode = 403;
                 err.code = 'DUAL_CONTROL_VIOLATION';
                 throw err;
@@ -753,7 +817,9 @@ class RbacService {
             });
         }
 
-        logger.info(`[RBAC] 🛑 Role change rejected for ${updatedRecord.target_operator_id || updatedRecord.targetOperatorId} by ${approvingOperatorId}`);
+        logger.info(
+            `[RBAC] 🛑 Role change rejected for ${updatedRecord.target_operator_id || updatedRecord.targetOperatorId} by ${approvingOperatorId}`
+        );
         return updatedRecord;
     }
 
@@ -792,7 +858,14 @@ class RbacService {
     /**
      * Appends an immutable audit event for security and governance tracking.
      */
-    async logSecurityEvent({ eventType, operatorId = null, metadata = {}, ipAddress = null, userAgent = null, pool = null } = {}) {
+    async logSecurityEvent({
+        eventType,
+        operatorId = null,
+        metadata = {},
+        ipAddress = null,
+        userAgent = null,
+        pool = null,
+    } = {}) {
         const record = {
             eventType,
             operatorId,
@@ -822,9 +895,14 @@ class RbacService {
      */
     assertAiBoundary(principal) {
         if (!principal) return true;
-        const isAi = principal.isAi || principal.clientType === 'ai_agent' || principal.role === 'AI_COPILOT';
+        const isAi =
+            principal.isAi ||
+            principal.clientType === 'ai_agent' ||
+            principal.role === 'AI_COPILOT';
         if (isAi) {
-            const err = new Error('AI operations intelligence is strictly read-only. Payment initiation and approval are prohibited.');
+            const err = new Error(
+                'AI operations intelligence is strictly read-only. Payment initiation and approval are prohibited.'
+            );
             err.statusCode = 403;
             err.code = 'AI_BOUNDARY_VIOLATION';
             throw err;
@@ -843,4 +921,3 @@ module.exports = {
     RbacService,
     defaultRbacService,
 };
-

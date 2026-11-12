@@ -25,20 +25,25 @@ async function reconcileToZoho(pool, instruction, settlementRef) {
 
     // Only reconcile instructions that originated from Zoho
     if (!zohoInvoiceId) {
-        logger.info(`[RECONCILE] Instruction ${instruction.instruction_id} has no Zoho invoice ID — skipping Zoho reconciliation`);
+        logger.info(
+            `[RECONCILE] Instruction ${instruction.instruction_id} has no Zoho invoice ID — skipping Zoho reconciliation`
+        );
         return { skipped: true, reason: 'no_zoho_invoice_id' };
     }
 
-    logger.info(`[RECONCILE] Reconciling instruction ${instruction.instruction_id} → Zoho Invoice ${zohoInvoiceId}`);
+    logger.info(
+        `[RECONCILE] Reconciling instruction ${instruction.instruction_id} → Zoho Invoice ${zohoInvoiceId}`
+    );
 
     try {
         const { markInvoicePaid } = require('../../adapters/zohoAdapter');
 
         const payment = await markInvoicePaid(zohoInvoiceId, {
-            amount:    parseFloat(instruction.net_amount || instruction.amount),
-            date:      new Date().toISOString().split('T')[0],
-            reference: settlementRef || instruction.external_intent_id || instruction.instruction_id,
-            mode:      instruction.currency === 'INR' ? 'bank_transfer' : 'bank_transfer',
+            amount: parseFloat(instruction.net_amount || instruction.amount),
+            date: new Date().toISOString().split('T')[0],
+            reference:
+                settlementRef || instruction.external_intent_id || instruction.instruction_id,
+            mode: instruction.currency === 'INR' ? 'bank_transfer' : 'bank_transfer',
         });
 
         // Log success
@@ -47,11 +52,7 @@ async function reconcileToZoho(pool, instruction, settlementRef) {
              (instruction_id, zoho_invoice_id, zoho_payment_id, reconciled_at, status)
              VALUES ($1, $2, $3, NOW(), 'RECONCILED')
              ON CONFLICT DO NOTHING`,
-            [
-                instruction.instruction_id,
-                zohoInvoiceId,
-                payment?.payment_id || null,
-            ]
+            [instruction.instruction_id, zohoInvoiceId, payment?.payment_id || null]
         );
 
         // Update local invoice state to SETTLED
@@ -60,9 +61,10 @@ async function reconcileToZoho(pool, instruction, settlementRef) {
             [zohoInvoiceId, `ZOHO-${zohoInvoiceId}`]
         );
 
-        logger.info(`[RECONCILE] ✅ Zoho invoice ${zohoInvoiceId} marked as PAID. Zoho Payment ID: ${payment?.payment_id}`);
+        logger.info(
+            `[RECONCILE] ✅ Zoho invoice ${zohoInvoiceId} marked as PAID. Zoho Payment ID: ${payment?.payment_id}`
+        );
         return { success: true, zohoPaymentId: payment?.payment_id };
-
     } catch (err) {
         logger.error(`[RECONCILE] ❌ Failed to reconcile ${zohoInvoiceId}: ${err.message}`);
 
@@ -107,7 +109,7 @@ async function runDailyReconciliationSweep(pool) {
     logger.info(`[RECONCILE] Found ${unreconciled.length} unreconciled instruction(s)`);
 
     let successCount = 0;
-    let failCount    = 0;
+    let failCount = 0;
 
     for (const instruction of unreconciled) {
         const result = await reconcileToZoho(pool, instruction, instruction.external_intent_id);
@@ -115,7 +117,9 @@ async function runDailyReconciliationSweep(pool) {
         else if (!result.skipped) failCount++;
     }
 
-    logger.info(`[RECONCILE] Sweep complete — ✅ ${successCount} reconciled, ❌ ${failCount} failed`);
+    logger.info(
+        `[RECONCILE] Sweep complete — ✅ ${successCount} reconciled, ❌ ${failCount} failed`
+    );
     return { successCount, failCount, total: unreconciled.length };
 }
 

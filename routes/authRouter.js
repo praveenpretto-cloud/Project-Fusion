@@ -12,11 +12,22 @@ const express = require('express');
 const crypto = require('crypto');
 const logger = require('../logger');
 const { OidcClient } = require('../core/identity/oidcClient');
-const { SessionManager, SESSION_COOKIE_NAME, CSRF_COOKIE_NAME } = require('../core/identity/sessionManager');
-const { authenticateDevUser, assertDevEnvironment, isLoopbackIp } = require('../core/identity/devAuthAdapter');
+const {
+    SessionManager,
+    SESSION_COOKIE_NAME,
+    CSRF_COOKIE_NAME,
+} = require('../core/identity/sessionManager');
+const {
+    authenticateDevUser,
+    assertDevEnvironment,
+    isLoopbackIp,
+} = require('../core/identity/devAuthAdapter');
 const { createSessionAuthMiddleware } = require('../core/identity/authMiddleware');
 
-function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new SessionManager() } = {}) {
+function createAuthRouter({
+    oidcClient = new OidcClient(),
+    sessionManager = new SessionManager(),
+} = {}) {
     const r = express.Router();
     const authenticateSession = createSessionAuthMiddleware(sessionManager);
 
@@ -27,7 +38,10 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
     // OIDC Initiation (Authorization Code Flow + PKCE S256)
     r.all('/oidc/login', async (req, res) => {
         try {
-            const redirectUri = req.query.redirect_uri || req.body?.redirect_uri || `${req.protocol}://${req.get('host')}/api/auth/oidc/callback`;
+            const redirectUri =
+                req.query.redirect_uri ||
+                req.body?.redirect_uri ||
+                `${req.protocol}://${req.get('host')}/api/auth/oidc/callback`;
             const pool = req.app?.locals?.pool;
 
             const { authorizationUrl, state } = await oidcClient.initiateAuthorization({
@@ -61,7 +75,9 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
             const pool = req.app?.locals?.pool;
 
             if (!state || !code) {
-                return res.status(400).json({ error: 'Missing code or state in authorization callback' });
+                return res
+                    .status(400)
+                    .json({ error: 'Missing code or state in authorization callback' });
             }
 
             // 2. Consume transaction atomically (Single-use, replay check, decrypts code_verifier)
@@ -96,8 +112,12 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
                 if (identityResult.rows.length > 0) {
                     const op = identityResult.rows[0];
                     if (!op.is_active) {
-                        logger.warn(`[OIDC] Rejected login for deactivated operator ${op.operator_id}`);
-                        return res.status(403).json({ error: 'Operator account has been deactivated' });
+                        logger.warn(
+                            `[OIDC] Rejected login for deactivated operator ${op.operator_id}`
+                        );
+                        return res
+                            .status(403)
+                            .json({ error: 'Operator account has been deactivated' });
                     }
                     operatorId = op.operator_id;
                     operatorProfile = {
@@ -121,7 +141,9 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
                 } else {
                     // Unknown (issuer, subject) principal
                     if (!oidcClient.allowJitProvisioning) {
-                        logger.warn(`[OIDC] Rejected unregistered federated identity: (${claims.issuer}, ${claims.subject}). JIT disabled.`);
+                        logger.warn(
+                            `[OIDC] Rejected unregistered federated identity: (${claims.issuer}, ${claims.subject}). JIT disabled.`
+                        );
                         return res.status(403).json({
                             error: 'Federated identity is not registered with an operator account. Automatic account linking is prohibited.',
                         });
@@ -133,7 +155,9 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
                         [claims.email]
                     );
                     if (existingEmailResult.rows.length > 0) {
-                        logger.warn(`[OIDC] Refused automatic linking of ${claims.email} to subject ${claims.subject}`);
+                        logger.warn(
+                            `[OIDC] Refused automatic linking of ${claims.email} to subject ${claims.subject}`
+                        );
                         return res.status(409).json({
                             error: 'An operator account with this email already exists under a different identity. Automatic account linking is prohibited.',
                         });
@@ -144,7 +168,10 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
                         `INSERT INTO identity.operators (email, full_name)
                          VALUES ($1, $2)
                          RETURNING operator_id, email, full_name`,
-                        [claims.email || `${claims.subject}@federated.internal`, claims.name || 'Enterprise Operator']
+                        [
+                            claims.email || `${claims.subject}@federated.internal`,
+                            claims.name || 'Enterprise Operator',
+                        ]
                     );
                     const newOp = opResult.rows[0];
                     operatorId = newOp.operator_id;
@@ -157,7 +184,12 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
                     await pool.query(
                         `INSERT INTO identity.operator_identities (operator_id, issuer, subject, idp_metadata)
                          VALUES ($1, $2, $3, $4)`,
-                        [operatorId, claims.issuer, claims.subject, JSON.stringify(claims.claims || {})]
+                        [
+                            operatorId,
+                            claims.issuer,
+                            claims.subject,
+                            JSON.stringify(claims.claims || {}),
+                        ]
                     );
                 }
             } else {
@@ -167,7 +199,9 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
 
                 if (existingOp) {
                     if (!existingOp.isActive) {
-                        return res.status(403).json({ error: 'Operator account has been deactivated' });
+                        return res
+                            .status(403)
+                            .json({ error: 'Operator account has been deactivated' });
                     }
                     operatorId = existingOp.operatorId;
                     operatorProfile = {
@@ -286,7 +320,10 @@ function createAuthRouter({ oidcClient = new OidcClient(), sessionManager = new 
     r.post('/logout', authenticateSession, async (req, res) => {
         try {
             const pool = req.app?.locals?.pool;
-            await sessionManager.revokeSession(req.rawSessionToken, { reason: 'USER_LOGOUT', pool });
+            await sessionManager.revokeSession(req.rawSessionToken, {
+                reason: 'USER_LOGOUT',
+                pool,
+            });
 
             const clearOpts = sessionManager.getClearCookieOptions();
             res.clearCookie(SESSION_COOKIE_NAME, clearOpts);

@@ -4,7 +4,7 @@ const { KnowledgeIndexer } = require('../ingestion/knowledgeIndexer');
 
 /**
  * 25 Curated Golden Evaluation Cases for Project Fusion RAG Subsystem
- * 
+ *
  * Tests exact error-code lookups, natural-language semantic paraphrases,
  * similar error codes, event semantics, standards requirements,
  * cross-provider ambiguity, out-of-vocabulary codes, and prompt injection.
@@ -19,7 +19,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'balance_insufficient',
         expectedChunkIds: ['docs:stripe:doc-stripe-002:chunk-002'],
         expectedKeyTerms: ['balance_insufficient', 'merchant Stripe balance', 'liquidity'],
-        category: 'EXACT_ERROR_CODE'
+        category: 'EXACT_ERROR_CODE',
     },
     {
         id: 'RAG-02',
@@ -29,7 +29,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'card_declined',
         expectedChunkIds: ['docs:stripe:doc-stripe-002:chunk-001'],
         expectedKeyTerms: ['card_declined', 'issuer', 'fraud prevention'],
-        category: 'EXACT_ERROR_CODE'
+        category: 'EXACT_ERROR_CODE',
     },
     {
         id: 'RAG-03',
@@ -39,7 +39,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'business_account_low_balance',
         expectedChunkIds: ['docs:razorpay:doc-razorpay-002:chunk-001'],
         expectedKeyTerms: ['BAD_REQUEST_ERROR', 'business_account_low_balance', 'virtual account'],
-        category: 'EXACT_ERROR_CODE'
+        category: 'EXACT_ERROR_CODE',
     },
     {
         id: 'RAG-04',
@@ -49,7 +49,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'tx_insufficient_balance',
         expectedChunkIds: ['docs:stellar:doc-stellar-002:chunk-001'],
         expectedKeyTerms: ['tx_insufficient_balance', 'fee bid', 'native XLM'],
-        category: 'EXACT_ERROR_CODE'
+        category: 'EXACT_ERROR_CODE',
     },
     {
         id: 'RAG-05',
@@ -59,7 +59,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'op_underfunded',
         expectedChunkIds: ['docs:stellar:doc-stellar-002:chunk-002'],
         expectedKeyTerms: ['op_underfunded', 'source account', 'reserve requirements'],
-        category: 'EXACT_ERROR_CODE'
+        category: 'EXACT_ERROR_CODE',
     },
     {
         id: 'RAG-06',
@@ -68,8 +68,12 @@ const RAG_BENCHMARK_CASES = [
         provider: 'PROJECT_FUSION',
         error_code: 'POSTING_ARITHMETIC_MISMATCH',
         expectedChunkIds: ['docs:projectfusion:doc-fusion-002:chunk-001'],
-        expectedKeyTerms: ['POSTING_ARITHMETIC_MISMATCH', 'ARITHMETIC_EQUALITY_FAILED', 'Debits Equal Credits'],
-        category: 'EXACT_ERROR_CODE'
+        expectedKeyTerms: [
+            'POSTING_ARITHMETIC_MISMATCH',
+            'ARITHMETIC_EQUALITY_FAILED',
+            'Debits Equal Credits',
+        ],
+        category: 'EXACT_ERROR_CODE',
     },
 
     // ── 2. NATURAL LANGUAGE SEMANTIC PARAPHRASES (NO TECHNICAL JARGON) ────────
@@ -78,18 +82,24 @@ const RAG_BENCHMARK_CASES = [
         title: 'Paraphrase: Bank account lacked sufficient funds for payout',
         query: 'The bank account did not have enough funds to send the payout.',
         provider: 'STRIPE',
-        expectedChunkIds: ['docs:stripe:doc-stripe-002:chunk-002', 'docs:stripe:doc-stripe-002:chunk-001'],
+        expectedChunkIds: [
+            'docs:stripe:doc-stripe-002:chunk-002',
+            'docs:stripe:doc-stripe-002:chunk-001',
+        ],
         expectedKeyTerms: ['balance_insufficient', 'liquidity', 'balance'],
-        category: 'SEMANTIC_PARAPHRASE'
+        category: 'SEMANTIC_PARAPHRASE',
     },
     {
         id: 'RAG-08',
         title: 'Paraphrase: Blockchain rejected outdated sequence number',
         query: 'The blockchain rejected a transaction because its sequence number was outdated.',
         provider: 'STELLAR',
-        expectedChunkIds: ['docs:stellar:doc-stellar-001:chunk-002', 'docs:stellar:doc-stellar-002:chunk-001'],
+        expectedChunkIds: [
+            'docs:stellar:doc-stellar-001:chunk-002',
+            'docs:stellar:doc-stellar-002:chunk-001',
+        ],
         expectedKeyTerms: ['sequence number', 'tx_bad_seq', 'ledger'],
-        category: 'SEMANTIC_PARAPHRASE'
+        category: 'SEMANTIC_PARAPHRASE',
     },
     {
         id: 'RAG-09',
@@ -98,7 +108,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'ISO20022',
         expectedChunkIds: ['docs:iso20022:doc-iso20022-001:chunk-002'],
         expectedKeyTerms: ['Structured Address', 'AdrLine', 'TwnNm', 'Ctry'],
-        category: 'SEMANTIC_PARAPHRASE'
+        category: 'SEMANTIC_PARAPHRASE',
     },
     {
         id: 'RAG-10',
@@ -107,7 +117,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'STRIPE',
         expectedChunkIds: ['docs:stripe:doc-stripe-002:chunk-001'],
         expectedKeyTerms: ['expired_card', 'expiration month'],
-        category: 'SEMANTIC_PARAPHRASE'
+        category: 'SEMANTIC_PARAPHRASE',
     },
 
     // ── 3. SIMILAR ERROR CODES & PRODUCT DISTINCTIONS ───────────────────────
@@ -116,18 +126,29 @@ const RAG_BENCHMARK_CASES = [
         title: 'Similar Codes: Stripe card_declined vs balance_insufficient distinction',
         query: 'How does a customer card decline differ from an insufficient merchant account balance on Stripe?',
         provider: 'STRIPE',
-        expectedChunkIds: ['docs:stripe:doc-stripe-002:chunk-001', 'docs:stripe:doc-stripe-002:chunk-002'],
+        expectedChunkIds: [
+            'docs:stripe:doc-stripe-002:chunk-001',
+            'docs:stripe:doc-stripe-002:chunk-002',
+        ],
         expectedKeyTerms: ['card_declined', 'balance_insufficient', 'merchant Stripe balance'],
-        category: 'SIMILAR_ERROR_CODES'
+        category: 'SIMILAR_ERROR_CODES',
     },
     {
         id: 'RAG-12',
         title: 'Similar Codes: Stellar tx_insufficient_balance vs op_underfunded',
         query: 'What is the technical difference between tx_insufficient_balance and op_underfunded on Stellar?',
         provider: 'STELLAR',
-        expectedChunkIds: ['docs:stellar:doc-stellar-002:chunk-001', 'docs:stellar:doc-stellar-002:chunk-002'],
-        expectedKeyTerms: ['tx_insufficient_balance', 'fee bid', 'op_underfunded', 'reserve requirements'],
-        category: 'SIMILAR_ERROR_CODES'
+        expectedChunkIds: [
+            'docs:stellar:doc-stellar-002:chunk-001',
+            'docs:stellar:doc-stellar-002:chunk-002',
+        ],
+        expectedKeyTerms: [
+            'tx_insufficient_balance',
+            'fee bid',
+            'op_underfunded',
+            'reserve requirements',
+        ],
+        category: 'SIMILAR_ERROR_CODES',
     },
     {
         id: 'RAG-13',
@@ -136,7 +157,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'RAZORPAY',
         expectedChunkIds: ['docs:razorpay:doc-razorpay-002:chunk-002'],
         expectedKeyTerms: ['payout.reversed', 'reversals', 'refunds'],
-        category: 'SIMILAR_ERROR_CODES'
+        category: 'SIMILAR_ERROR_CODES',
     },
 
     // ── 4. EVENT SEMANTICS & WEBHOOK IDEMPOTENCY ───────────────────────────
@@ -147,7 +168,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'STRIPE',
         expectedChunkIds: ['docs:stripe:doc-stripe-003:chunk-002'],
         expectedKeyTerms: ['charge.refund.updated', 'charge.refunded', 'webhook'],
-        category: 'EVENT_SEMANTICS'
+        category: 'EVENT_SEMANTICS',
     },
     {
         id: 'RAG-15',
@@ -156,7 +177,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'STRIPE',
         expectedChunkIds: ['docs:stripe:doc-stripe-003:chunk-003'],
         expectedKeyTerms: ['Stripe-Signature', 'HMAC-SHA256', 'ON CONFLICT DO NOTHING'],
-        category: 'IDEMPOTENCY_SECURITY'
+        category: 'IDEMPOTENCY_SECURITY',
     },
     {
         id: 'RAG-16',
@@ -165,7 +186,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'STELLAR',
         expectedChunkIds: ['docs:stellar:doc-stellar-002:chunk-003'],
         expectedKeyTerms: ['504 Gateway Timeout', 'ledger inclusion', 'transaction hash'],
-        category: 'GATEWAY_TIMEOUT'
+        category: 'GATEWAY_TIMEOUT',
     },
 
     // ── 5. STANDARDS MANDATES & VERSION DISTINCTIONS ───────────────────────
@@ -176,7 +197,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'ISO20022',
         expectedChunkIds: ['docs:iso20022:doc-iso20022-001:chunk-002'],
         expectedKeyTerms: ['TwnNm', 'Ctry', 'CBPR+ Baseline', 'market infrastructure'],
-        category: 'STANDARDS_MANDATE'
+        category: 'STANDARDS_MANDATE',
     },
     {
         id: 'RAG-18',
@@ -184,8 +205,12 @@ const RAG_BENCHMARK_CASES = [
         query: 'Is an XML schema validation failure on ISO 20022 address proof of sanctions violation?',
         provider: 'ISO20022',
         expectedChunkIds: ['docs:iso20022:doc-iso20022-001:chunk-002'],
-        expectedKeyTerms: ['Syntactic Formatting vs Regulatory Non-Compliance', 'schema validation', 'not evidence of legal'],
-        category: 'COMPLIANCE_DISTINCTION'
+        expectedKeyTerms: [
+            'Syntactic Formatting vs Regulatory Non-Compliance',
+            'schema validation',
+            'not evidence of legal',
+        ],
+        category: 'COMPLIANCE_DISTINCTION',
     },
     {
         id: 'RAG-19',
@@ -194,7 +219,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'ISO20022',
         expectedChunkIds: ['docs:iso20022:doc-iso20022-002:chunk-001'],
         expectedKeyTerms: ['camt.053', 'OPBD', 'CLBD'],
-        category: 'MESSAGE_SPEC'
+        category: 'MESSAGE_SPEC',
     },
 
     // ── 6. CROSS-PROVIDER AMBIGUITY & ARCHITECTURE ─────────────────────────
@@ -206,10 +231,10 @@ const RAG_BENCHMARK_CASES = [
         expectedChunkIds: [
             'docs:stripe:doc-stripe-002:chunk-002',
             'docs:razorpay:doc-razorpay-002:chunk-001',
-            'docs:stellar:doc-stellar-002:chunk-001'
+            'docs:stellar:doc-stellar-002:chunk-001',
         ],
         expectedKeyTerms: ['balance', 'insufficient'],
-        category: 'CROSS_PROVIDER_AMBIGUITY'
+        category: 'CROSS_PROVIDER_AMBIGUITY',
     },
     {
         id: 'RAG-21',
@@ -218,7 +243,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'PROJECT_FUSION',
         expectedChunkIds: ['docs:projectfusion:doc-fusion-001:chunk-001'],
         expectedKeyTerms: ['MANUAL_CHECK', 'ambiguous gateway outcome', '504 Gateway Timeout'],
-        category: 'INTERNAL_ARCHITECTURE'
+        category: 'INTERNAL_ARCHITECTURE',
     },
 
     // ── 7. PROMPT INJECTION RESISTANCE ─────────────────────────────────────
@@ -229,7 +254,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'STRIPE',
         expectedChunkIds: ['docs:stripe:doc-stripe-004:chunk-001'],
         expectedKeyTerms: ['untrusted counterparty text', 'passive data strings', 'never override'],
-        category: 'PROMPT_INJECTION_CONTAINMENT'
+        category: 'PROMPT_INJECTION_CONTAINMENT',
     },
 
     // ── 8. ABSTENTION & NO-MATCH NEGATIVE CONTROLS ─────────────────────────
@@ -241,7 +266,7 @@ const RAG_BENCHMARK_CASES = [
         error_code: 'err_nonexistent_code_99999',
         expectedChunkIds: [], // Abstention: expect zero matches
         expectedKeyTerms: [],
-        category: 'UNKNOWN_ERROR_CODE'
+        category: 'UNKNOWN_ERROR_CODE',
     },
     {
         id: 'RAG-24',
@@ -250,7 +275,7 @@ const RAG_BENCHMARK_CASES = [
         provider: 'ALL',
         expectedChunkIds: [], // Abstention: expect zero matches
         expectedKeyTerms: [],
-        category: 'NO_RELEVANT_DOCUMENT'
+        category: 'NO_RELEVANT_DOCUMENT',
     },
     {
         id: 'RAG-25',
@@ -259,8 +284,8 @@ const RAG_BENCHMARK_CASES = [
         provider: 'KLARNA',
         expectedChunkIds: [], // Abstention: Klarna is not an integrated rail
         expectedKeyTerms: [],
-        category: 'OUTDATED_OR_UNSUPPORTED'
-    }
+        category: 'OUTDATED_OR_UNSUPPORTED',
+    },
 ];
 
 class RAGEvaluationRunner {
@@ -277,8 +302,8 @@ class RAGEvaluationRunner {
 
     /**
      * Evaluates a single benchmark case under a specific retrieval mode.
-     * 
-     * @param {object} testCase 
+     *
+     * @param {object} testCase
      * @param {'BM25'|'DENSE'|'HYBRID'} [mode='HYBRID']
      */
     async evaluateCase(testCase, mode = 'HYBRID') {
@@ -293,24 +318,24 @@ class RAGEvaluationRunner {
             results = this.indexer.bm25Retriever.search(testCase.query, {
                 provider: testCase.provider,
                 error_code: testCase.error_code,
-                topK: 5
+                topK: 5,
             });
         } else if (mode === 'DENSE') {
             results = await this.indexer.denseRetriever.search(testCase.query, {
                 provider: testCase.provider,
                 error_code: testCase.error_code,
-                topK: 5
+                topK: 5,
             });
         } else {
             results = await this.indexer.search(testCase.query, {
                 provider: testCase.provider,
                 error_code: testCase.error_code,
-                topK: 5
+                topK: 5,
             });
         }
 
         const durationMs = Date.now() - start;
-        const retrievedChunkIds = results.map(r => r.chunk.chunk_id);
+        const retrievedChunkIds = results.map((r) => r.chunk.chunk_id);
         const top3ChunkIds = retrievedChunkIds.slice(0, 3);
         const top5ChunkIds = retrievedChunkIds.slice(0, 5);
 
@@ -327,11 +352,15 @@ class RAGEvaluationRunner {
             abstentionSuccess = results.length === 0 ? 1.0 : 0.0;
         } else {
             // Precision@3
-            const matchesInTop3 = top3ChunkIds.filter(id => testCase.expectedChunkIds.includes(id)).length;
+            const matchesInTop3 = top3ChunkIds.filter((id) =>
+                testCase.expectedChunkIds.includes(id)
+            ).length;
             precisionAt3 = matchesInTop3 / Math.min(3, testCase.expectedChunkIds.length);
 
             // Recall@5
-            const matchesInTop5 = testCase.expectedChunkIds.filter(id => top5ChunkIds.includes(id)).length;
+            const matchesInTop5 = testCase.expectedChunkIds.filter((id) =>
+                top5ChunkIds.includes(id)
+            ).length;
             recallAt5 = matchesInTop5 / testCase.expectedChunkIds.length;
 
             // Reciprocal Rank (RR)
@@ -345,7 +374,10 @@ class RAGEvaluationRunner {
 
             // Exact Error-Code Match Accuracy
             if (testCase.error_code) {
-                exactCodeMatchAcc = (retrievedChunkIds[0] && testCase.expectedChunkIds.includes(retrievedChunkIds[0])) ? 1.0 : 0.0;
+                exactCodeMatchAcc =
+                    retrievedChunkIds[0] && testCase.expectedChunkIds.includes(retrievedChunkIds[0])
+                        ? 1.0
+                        : 0.0;
             }
         }
 
@@ -353,14 +385,15 @@ class RAGEvaluationRunner {
         const topResult = results[0];
         let termCoverage = 1.0;
         if (testCase.expectedKeyTerms.length > 0 && topResult) {
-            const contentLower = `${topResult.chunk.title} ${topResult.chunk.section} ${topResult.chunk.content}`.toLowerCase();
-            const matchedTerms = testCase.expectedKeyTerms.filter(t => contentLower.includes(t.toLowerCase())).length;
+            const contentLower =
+                `${topResult.chunk.title} ${topResult.chunk.section} ${topResult.chunk.content}`.toLowerCase();
+            const matchedTerms = testCase.expectedKeyTerms.filter((t) =>
+                contentLower.includes(t.toLowerCase())
+            ).length;
             termCoverage = matchedTerms / testCase.expectedKeyTerms.length;
         }
 
-        const passed = isAbstentionCase 
-            ? (abstentionSuccess === 1.0)
-            : (precisionAt3 > 0);
+        const passed = isAbstentionCase ? abstentionSuccess === 1.0 : precisionAt3 > 0;
 
         return {
             id: testCase.id,
@@ -374,24 +407,26 @@ class RAGEvaluationRunner {
             durationMs,
             retrievedCount: results.length,
             isAbstentionCase,
-            topResult: topResult ? {
-                chunk_id: topResult.chunk.chunk_id,
-                score: topResult.score,
-                match_type: topResult.match_type
-            } : null,
+            topResult: topResult
+                ? {
+                      chunk_id: topResult.chunk.chunk_id,
+                      score: topResult.score,
+                      match_type: topResult.match_type,
+                  }
+                : null,
             precisionAt3: precisionAt3 !== null ? Number(precisionAt3.toFixed(3)) : null,
             recallAt5: recallAt5 !== null ? Number(recallAt5.toFixed(3)) : null,
             reciprocalRank: reciprocalRank !== null ? Number(reciprocalRank.toFixed(3)) : null,
             abstentionSuccess,
             exactCodeMatchAcc,
             termCoverage: Number(termCoverage.toFixed(3)),
-            passed
+            passed,
         };
     }
 
     /**
      * Runs all benchmark cases for a given retrieval mode.
-     * 
+     *
      * @param {'BM25'|'DENSE'|'HYBRID'} [mode='HYBRID']
      */
     async runAll(mode = 'HYBRID') {
@@ -402,38 +437,63 @@ class RAGEvaluationRunner {
         }
 
         const totalCases = results.length;
-        const passedCases = results.filter(r => r.passed).length;
-        
+        const passedCases = results.filter((r) => r.passed).length;
+
         // Denominator separation: Only positive expectation cases contribute to Precision, Recall, and MRR
-        const positiveCases = results.filter(r => !r.isAbstentionCase);
-        const abstentionCases = results.filter(r => r.isAbstentionCase);
+        const positiveCases = results.filter((r) => !r.isAbstentionCase);
+        const abstentionCases = results.filter((r) => r.isAbstentionCase);
 
-        const meanP3 = positiveCases.length > 0
-            ? Number((positiveCases.reduce((acc, r) => acc + (r.precisionAt3 || 0), 0) / positiveCases.length).toFixed(3))
-            : 0;
+        const meanP3 =
+            positiveCases.length > 0
+                ? Number(
+                      (
+                          positiveCases.reduce((acc, r) => acc + (r.precisionAt3 || 0), 0) /
+                          positiveCases.length
+                      ).toFixed(3)
+                  )
+                : 0;
 
-        const meanR5 = positiveCases.length > 0
-            ? Number((positiveCases.reduce((acc, r) => acc + (r.recallAt5 || 0), 0) / positiveCases.length).toFixed(3))
-            : 0;
+        const meanR5 =
+            positiveCases.length > 0
+                ? Number(
+                      (
+                          positiveCases.reduce((acc, r) => acc + (r.recallAt5 || 0), 0) /
+                          positiveCases.length
+                      ).toFixed(3)
+                  )
+                : 0;
 
-        const mrr = positiveCases.length > 0
-            ? Number((positiveCases.reduce((acc, r) => acc + (r.reciprocalRank || 0), 0) / positiveCases.length).toFixed(3))
-            : 0;
+        const mrr =
+            positiveCases.length > 0
+                ? Number(
+                      (
+                          positiveCases.reduce((acc, r) => acc + (r.reciprocalRank || 0), 0) /
+                          positiveCases.length
+                      ).toFixed(3)
+                  )
+                : 0;
 
         // Abstention accuracy
-        const abstentionVal = abstentionCases.length > 0
-            ? (abstentionCases.reduce((acc, r) => acc + (r.abstentionSuccess || 0), 0) / abstentionCases.length) * 100
-            : 100.0;
+        const abstentionVal =
+            abstentionCases.length > 0
+                ? (abstentionCases.reduce((acc, r) => acc + (r.abstentionSuccess || 0), 0) /
+                      abstentionCases.length) *
+                  100
+                : 100.0;
 
         // Exact code match accuracy
-        const exactCases = results.filter(r => r.exactCodeMatchAcc !== null);
-        const exactVal = exactCases.length > 0
-            ? (exactCases.reduce((acc, r) => acc + r.exactCodeMatchAcc, 0) / exactCases.length) * 100
-            : 100.0;
+        const exactCases = results.filter((r) => r.exactCodeMatchAcc !== null);
+        const exactVal =
+            exactCases.length > 0
+                ? (exactCases.reduce((acc, r) => acc + r.exactCodeMatchAcc, 0) /
+                      exactCases.length) *
+                  100
+                : 100.0;
 
-        const latencies = results.map(r => r.durationMs).sort((a, b) => a - b);
+        const latencies = results.map((r) => r.durationMs).sort((a, b) => a - b);
         const medianLatency = latencies[Math.floor(latencies.length / 2)];
-        const p95Latency = latencies[Math.min(Math.ceil(0.95 * latencies.length) - 1, latencies.length - 1)];
+        const p95Latency =
+            latencies[Math.min(Math.ceil(0.95 * latencies.length) - 1, latencies.length - 1)];
 
         return {
             mode,
@@ -449,7 +509,7 @@ class RAGEvaluationRunner {
             exactErrorCodeAccuracy: `${exactVal.toFixed(1)}%`,
             medianLatencyMs: medianLatency,
             p95LatencyMs: p95Latency,
-            results
+            results,
         };
     }
 
@@ -466,12 +526,12 @@ class RAGEvaluationRunner {
             indexerMetadata: this.indexer.indexMetadata,
             bm25: bm25Summary,
             dense: denseSummary,
-            hybrid: hybridSummary
+            hybrid: hybridSummary,
         };
     }
 }
 
 module.exports = {
     RAG_BENCHMARK_CASES,
-    RAGEvaluationRunner
+    RAGEvaluationRunner,
 };

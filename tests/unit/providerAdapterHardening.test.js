@@ -2,7 +2,7 @@
 
 /**
  * SPRINT 2.2.4.2.4 — PROVIDER ADAPTER HARDENING & REGRESSION TESTS
- * 
+ *
  * Verifies:
  * 1. Stripe USD 100.00 converts to 10000 minor units.
  * 2. Stripe decimal strings convert without floating-point arithmetic.
@@ -28,10 +28,7 @@ const {
     verifyStripeSignature,
     verifyRazorpayXSignature,
 } = require('../../core/webhooks/webhookProcessor');
-const {
-    handleStripeWebhook,
-    handleRazorpayWebhook,
-} = require('../../routes/webhooks');
+const { handleStripeWebhook, handleRazorpayWebhook } = require('../../routes/webhooks');
 
 describe('Sprint 2.2.4.2.4 — Workstream 1: Stripe Monetary Conversion', () => {
     test('1. Stripe USD 100.00 converts to exactly 10000 minor units', () => {
@@ -87,15 +84,30 @@ describe('Sprint 2.2.4.2.4 — Workstream 1: Stripe Monetary Conversion', () => 
     });
 
     test('6. Rejects unsupported currencies on Stripe minor unit conversion', () => {
-        expect(() => toStripeMinorUnits('100.00', 'INR')).toThrow(/Unsupported Stripe fiat currency/);
-        expect(() => toStripeMinorUnits('100.00', 'SGD')).toThrow(/Unsupported Stripe fiat currency/);
-        expect(() => toStripeMinorUnits('100.00', 'BTC')).toThrow(/Unsupported Stripe fiat currency/);
+        expect(() => toStripeMinorUnits('100.00', 'INR')).toThrow(
+            /Unsupported Stripe fiat currency/
+        );
+        expect(() => toStripeMinorUnits('100.00', 'SGD')).toThrow(
+            /Unsupported Stripe fiat currency/
+        );
+        expect(() => toStripeMinorUnits('100.00', 'BTC')).toThrow(
+            /Unsupported Stripe fiat currency/
+        );
     });
 });
 
 describe('Sprint 2.2.4.2.4 — Workstream 2: Stripe Payment Method Isolation', () => {
     test('1. Bank-rail instructions are intercepted and return SIMULATED before Stripe API call', async () => {
-        const bankRailsToTest = ['BANK_TRANSFER', 'NEFT', 'SWIFT', 'ACH', 'SEPA', 'WIRE', 'NIUM', 'ISO20022'];
+        const bankRailsToTest = [
+            'BANK_TRANSFER',
+            'NEFT',
+            'SWIFT',
+            'ACH',
+            'SEPA',
+            'WIRE',
+            'NIUM',
+            'ISO20022',
+        ];
 
         for (const rail of bankRailsToTest) {
             const inst = {
@@ -182,7 +194,10 @@ describe('Sprint 2.2.4.2.4 — Workstream 3: Stellar Legacy Adapter Alias', () =
     });
 
     test('3. server.js imports executeCryptoRail and executeCryptoTransfer successfully', () => {
-        const { executeCryptoRail, executeCryptoTransfer } = require('../../adapters/cryptoAdapters');
+        const {
+            executeCryptoRail,
+            executeCryptoTransfer,
+        } = require('../../adapters/cryptoAdapters');
         expect(executeCryptoRail).toBeDefined();
         expect(executeCryptoTransfer).toBeDefined();
     });
@@ -278,8 +293,12 @@ describe('Sprint 2.2.4.2.4 — Workstream 5: Provider Integration Integrity', ()
     test('2. Stripe adapter exports all required operational functions', () => {
         expect(typeof executePaymentRail).toBe('function');
         expect(typeof require('../../adapters/paymentsAdapters').queryStatus).toBe('function');
-        expect(typeof require('../../adapters/paymentsAdapters').rollbackPaymentRail).toBe('function');
-        expect(typeof require('../../adapters/paymentsAdapters').getPaymentBalance).toBe('function');
+        expect(typeof require('../../adapters/paymentsAdapters').rollbackPaymentRail).toBe(
+            'function'
+        );
+        expect(typeof require('../../adapters/paymentsAdapters').getPaymentBalance).toBe(
+            'function'
+        );
     });
 
     test('3. Stellar adapter exports all required operational functions', () => {
@@ -310,35 +329,40 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
                 mockQueries.push({ sql, params });
                 if (sql.includes('SELECT * FROM instructions WHERE instruction_id')) {
                     return {
-                        rows: [{
-                            instruction_id: instructionId,
-                            amount,
-                            currency,
-                            sender: 'ACC_SENDER_01',
-                            recipient: 'ACC_RECIPIENT_01',
-                            purpose,
-                            rail,
-                            payment_method,
-                            route_selected,
-                            state: 'LOCKED',
-                            execution_attempts: 0,
-                        }],
+                        rows: [
+                            {
+                                instruction_id: instructionId,
+                                amount,
+                                currency,
+                                sender: 'ACC_SENDER_01',
+                                recipient: 'ACC_RECIPIENT_01',
+                                purpose,
+                                rail,
+                                payment_method,
+                                route_selected,
+                                state: 'LOCKED',
+                                execution_attempts: 0,
+                            },
+                        ],
                     };
                 }
                 if (sql.includes('SELECT currency, state, purpose FROM instructions')) {
                     return {
-                        rows: [{
-                            currency,
-                            state: 'LOCKED',
-                            purpose,
-                            rail,
-                        }],
+                        rows: [
+                            {
+                                currency,
+                                state: 'LOCKED',
+                                purpose,
+                                rail,
+                            },
+                        ],
                     };
                 }
                 if (sql.includes('SELECT state FROM instructions')) {
-                    const updateQuery = mockQueries.slice().reverse().find(q =>
-                        q.sql.includes('UPDATE instructions SET state')
-                    );
+                    const updateQuery = mockQueries
+                        .slice()
+                        .reverse()
+                        .find((q) => q.sql.includes('UPDATE instructions SET state'));
                     let finalState = 'UNKNOWN';
                     if (updateQuery) {
                         const match = updateQuery.sql.match(/state = '([A-Z_]+)'/);
@@ -352,7 +376,11 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
                 if (sql.includes('SELECT sequence_id FROM ledger_journal')) {
                     return { rows: [] };
                 }
-                if (sql.includes('total_debit') || sql.includes('SUM(amount)') || sql.includes('SUM(CASE')) {
+                if (
+                    sql.includes('total_debit') ||
+                    sql.includes('SUM(amount)') ||
+                    sql.includes('SUM(CASE')
+                ) {
                     return { rows: [{ total_debit: amount, total_credit: amount }] };
                 }
                 return { rows: [] };
@@ -367,22 +395,102 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
     }
 
     const allBankRailIdentifiers = [
-        { name: 'SWIFT', variations: ['SWIFT', 'swift', 'Swift', 'SWIFT_TRANSFER', 'swift-settlement'] },
+        {
+            name: 'SWIFT',
+            variations: ['SWIFT', 'swift', 'Swift', 'SWIFT_TRANSFER', 'swift-settlement'],
+        },
         { name: 'ISO20022', variations: ['ISO20022', 'iso20022', 'Iso20022'] },
         { name: 'ISO 20022', variations: ['ISO 20022', 'iso 20022', 'Iso 20022'] },
-        { name: 'ISO_20022', variations: ['ISO_20022', 'iso_20022', 'Iso_20022', 'ISO-20022', 'iso-20022', 'Iso-20022'] },
-        { name: 'NEFT', variations: ['NEFT', 'neft', 'Neft', 'NEFT_DISBURSEMENT', 'neft-clearing'] },
+        {
+            name: 'ISO_20022',
+            variations: [
+                'ISO_20022',
+                'iso_20022',
+                'Iso_20022',
+                'ISO-20022',
+                'iso-20022',
+                'Iso-20022',
+            ],
+        },
+        {
+            name: 'NEFT',
+            variations: ['NEFT', 'neft', 'Neft', 'NEFT_DISBURSEMENT', 'neft-clearing'],
+        },
         { name: 'RTGS', variations: ['RTGS', 'rtgs', 'Rtgs', 'RTGS_PAYMENT', 'rtgs-transfer'] },
         { name: 'IMPS', variations: ['IMPS', 'imps', 'Imps', 'IMPS_INSTANT', 'imps-transfer'] },
         { name: 'ACH', variations: ['ACH', 'ach', 'Ach', 'ACH_DEBIT', 'ach-transfer'] },
-        { name: 'FEDWIRE', variations: ['FEDWIRE', 'fedwire', 'FedWire', 'FED WIRE', 'fed wire', 'FED_WIRE', 'fed_wire', 'FED-WIRE', 'fed-wire'] },
-        { name: 'CHAPS', variations: ['CHAPS', 'chaps', 'Chaps', 'CHAPS_CLEARING', 'chaps-settlement'] },
+        {
+            name: 'FEDWIRE',
+            variations: [
+                'FEDWIRE',
+                'fedwire',
+                'FedWire',
+                'FED WIRE',
+                'fed wire',
+                'FED_WIRE',
+                'fed_wire',
+                'FED-WIRE',
+                'fed-wire',
+            ],
+        },
+        {
+            name: 'CHAPS',
+            variations: ['CHAPS', 'chaps', 'Chaps', 'CHAPS_CLEARING', 'chaps-settlement'],
+        },
         { name: 'SEPA', variations: ['SEPA', 'sepa', 'Sepa', 'SEPA_CREDIT', 'sepa-transfer'] },
-        { name: 'FASTER_PAYMENTS', variations: ['FASTER_PAYMENTS', 'faster_payments', 'Faster_Payments', 'FASTER PAYMENTS', 'faster payments', 'Faster Payments', 'FASTER-PAYMENTS', 'faster-payments', 'Faster-Payments', 'FASTERPAYMENTS', 'fasterpayments'] },
-        { name: 'WIRE', variations: ['WIRE', 'wire', 'Wire', 'WIRE_TRANSFER', 'international-wire'] },
+        {
+            name: 'FASTER_PAYMENTS',
+            variations: [
+                'FASTER_PAYMENTS',
+                'faster_payments',
+                'Faster_Payments',
+                'FASTER PAYMENTS',
+                'faster payments',
+                'Faster Payments',
+                'FASTER-PAYMENTS',
+                'faster-payments',
+                'Faster-Payments',
+                'FASTERPAYMENTS',
+                'fasterpayments',
+            ],
+        },
+        {
+            name: 'WIRE',
+            variations: ['WIRE', 'wire', 'Wire', 'WIRE_TRANSFER', 'international-wire'],
+        },
         { name: 'NIUM', variations: ['NIUM', 'nium', 'Nium', 'NIUM_PAYOUT', 'nium-transfer'] },
-        { name: 'NIUM_SWIFT', variations: ['NIUM_SWIFT', 'nium_swift', 'Nium_Swift', 'NIUM SWIFT', 'nium swift', 'Nium Swift', 'NIUM-SWIFT', 'nium-swift', 'Nium-Swift', 'NIUMSWIFT', 'niumswift'] },
-        { name: 'BANK_TRANSFER', variations: ['BANK_TRANSFER', 'bank_transfer', 'Bank_Transfer', 'BANK TRANSFER', 'bank transfer', 'Bank Transfer', 'BANK-TRANSFER', 'bank-transfer', 'Bank-Transfer', 'BANKTRANSFER', 'banktransfer'] },
+        {
+            name: 'NIUM_SWIFT',
+            variations: [
+                'NIUM_SWIFT',
+                'nium_swift',
+                'Nium_Swift',
+                'NIUM SWIFT',
+                'nium swift',
+                'Nium Swift',
+                'NIUM-SWIFT',
+                'nium-swift',
+                'Nium-Swift',
+                'NIUMSWIFT',
+                'niumswift',
+            ],
+        },
+        {
+            name: 'BANK_TRANSFER',
+            variations: [
+                'BANK_TRANSFER',
+                'bank_transfer',
+                'Bank_Transfer',
+                'BANK TRANSFER',
+                'bank transfer',
+                'Bank Transfer',
+                'BANK-TRANSFER',
+                'bank-transfer',
+                'Bank-Transfer',
+                'BANKTRANSFER',
+                'banktransfer',
+            ],
+        },
     ];
 
     test('1. Direct Stripe adapter execution intercepts all 16 bank-rail identifiers across casing, spaces, underscores, and hyphens', async () => {
@@ -468,11 +576,25 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
 
     test('5. Main Saga intercepts all 16 bank rails and routes them to SIMULATED with zero ledger writes', async () => {
         const sampleRails = [
-            'SWIFT', 'iso 20022', 'ISO_20022', 'iso-20022',
-            'neft', 'Rtgs', 'imps', 'ach-transfer',
-            'FedWire', 'fed wire', 'fed-wire', 'Chaps',
-            'sepa', 'faster-payments', 'Faster Payments',
-            'international-wire', 'nium', 'nium-swift', 'bank-transfer'
+            'SWIFT',
+            'iso 20022',
+            'ISO_20022',
+            'iso-20022',
+            'neft',
+            'Rtgs',
+            'imps',
+            'ach-transfer',
+            'FedWire',
+            'fed wire',
+            'fed-wire',
+            'Chaps',
+            'sepa',
+            'faster-payments',
+            'Faster Payments',
+            'international-wire',
+            'nium',
+            'nium-swift',
+            'bank-transfer',
         ];
 
         for (const sample of sampleRails) {
@@ -488,11 +610,14 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
 
-            const updateStateQuery = mockQueries.find(q =>
-                q.sql.includes('UPDATE instructions') && q.sql.includes("state = 'SIMULATED'")
+            const updateStateQuery = mockQueries.find(
+                (q) =>
+                    q.sql.includes('UPDATE instructions') && q.sql.includes("state = 'SIMULATED'")
             );
             expect(updateStateQuery).toBeDefined();
         }
@@ -537,7 +662,10 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
     });
 
     test('8. Stellar XLM Testnet routing and provider metadata are unaffected', () => {
-        const { getProviderMetadata, verifyProviderIntegrity } = require('../../core/orchestrator/providerDispatcher');
+        const {
+            getProviderMetadata,
+            verifyProviderIntegrity,
+        } = require('../../core/orchestrator/providerDispatcher');
         const stellarMeta = getProviderMetadata('core_stellar');
         expect(stellarMeta).toBeDefined();
         expect(stellarMeta.id).toBe('core_stellar');
@@ -552,7 +680,10 @@ describe('Sprint 2.2.4.2.11 — Bank Rail Identifier Completeness & Fail-Closed 
     });
 
     test('9. RazorpayX Sandbox INR routing and provider metadata are unaffected', () => {
-        const { getProviderMetadata, verifyProviderIntegrity } = require('../../core/orchestrator/providerDispatcher');
+        const {
+            getProviderMetadata,
+            verifyProviderIntegrity,
+        } = require('../../core/orchestrator/providerDispatcher');
         const razorpayMeta = getProviderMetadata('core_razorpay');
         expect(razorpayMeta).toBeDefined();
         expect(razorpayMeta.id).toBe('core_razorpay');

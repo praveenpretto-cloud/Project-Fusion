@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * LOCAL TELEMETRY EXPORTER & SPAN COLLECTOR — PHASE AI-3.4
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * In-memory ring buffer collector and console/OTLP exporter.
  * Safe for local development, reproducible testing, and interview diagnostics.
  * Rejects non-loopback endpoints unless explicitly overridden.
@@ -23,7 +23,10 @@ class LocalInMemorySpanExporter {
 
     export(spans, resultCallback) {
         if (this._isShutdown) {
-            resultCallback({ code: ExportResultCode.FAILED, error: new Error('Exporter has been shutdown') });
+            resultCallback({
+                code: ExportResultCode.FAILED,
+                error: new Error('Exporter has been shutdown'),
+            });
             return;
         }
 
@@ -42,11 +45,11 @@ class LocalInMemorySpanExporter {
     }
 
     getSpansByName(name) {
-        return this.spans.filter(s => s.name === name);
+        return this.spans.filter((s) => s.name === name);
     }
 
     getSpansByTraceId(traceId) {
-        return this.spans.filter(s => s.spanContext().traceId === traceId);
+        return this.spans.filter((s) => s.spanContext().traceId === traceId);
     }
 
     reset() {
@@ -63,8 +66,8 @@ class LocalInMemorySpanExporter {
 /**
  * Validates that an OTLP endpoint is strictly a local loopback address.
  * Rejects external / cloud endpoints.
- * 
- * @param {string} endpoint 
+ *
+ * @param {string} endpoint
  * @returns {boolean}
  */
 function isLoopbackEndpoint(endpoint) {
@@ -82,4 +85,3 @@ module.exports = {
     LocalInMemorySpanExporter,
     isLoopbackEndpoint,
 };
-

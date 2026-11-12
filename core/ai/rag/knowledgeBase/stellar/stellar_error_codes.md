@@ -12,6 +12,7 @@ licensing: Technical Documentation Summary - Permitted Fair Use Attribution
 # Stellar Transaction and Operation Result Codes Reference
 
 ## Transaction Result Codes (`result_codes.transaction`)
+
 When stellar-core evaluates a transaction, top-level validation result codes indicate transaction-level feasibility:
 
 - `tx_success`: All operations succeeded and the transaction was committed to the ledger.
@@ -23,6 +24,7 @@ When stellar-core evaluates a transaction, top-level validation result codes ind
 - `tx_bad_auth`: Cryptographic signatures are invalid or do not meet required signing weight threshold.
 
 ## Operation Result Codes (`result_codes.operations`)
+
 Inner operation result codes detail individual action outcomes:
 
 - `op_underfunded`: The source account does not hold sufficient balance of the target asset to execute the payment while preserving reserve requirements.
@@ -32,6 +34,6 @@ Inner operation result codes detail individual action outcomes:
 - `op_not_authorized`: The issuing anchor has enabled `AUTHORIZATION_REQUIRED` and has not authorized the destination trustline.
 
 ## Horizon HTTP Error Responses
+
 - `400 Bad Request`: Transaction malformed or failed core consensus validation (`result_codes` populated in error payload).
 - `504 Gateway Timeout`: Horizon did not receive ledger inclusion confirmation within wait timeout. The transaction may still clear on the subsequent ledger. Operations must query transaction hash before re-initiating.
-

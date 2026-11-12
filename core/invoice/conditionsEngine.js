@@ -36,7 +36,8 @@ const logger = require('../../logger');
 // ─── REGEX PATTERNS FOR CONDITION PARSING ────────────────────────────────────
 
 // Matches: "50% on shipment", "50 percent on delivery", "50% upon shipment"
-const PCT_MILESTONE_REGEX = /(\d+(?:\.\d+)?)\s*%?\s*(?:percent)?\s*(?:on|upon|after|at)\s+([\w\s]+?)(?:,|;|$|and)/gi;
+const PCT_MILESTONE_REGEX =
+    /(\d+(?:\.\d+)?)\s*%?\s*(?:percent)?\s*(?:on|upon|after|at)\s+([\w\s]+?)(?:,|;|$|and)/gi;
 
 // Matches: "Net 30", "net-60", "net 90 days", "30 days from invoice"
 const NET_TERMS_REGEX = /(?:net[-\s]?)(\d+)(?:\s*days?)?/i;
@@ -87,7 +88,9 @@ function selectRail(currency, amount) {
 
     if (INR_CURRENCIES.includes(currency)) {
         // WARNING: INR holds are NOT permitted under GIFT IFSC PSR 2024 for escrow
-        logger.warn(`[CONDITIONS_ENGINE] ⚠️ INR currency detected for escrow step. GIFT IFSC PSR 2024 prohibits INR e-wallets for conditional holds.`);
+        logger.warn(
+            `[CONDITIONS_ENGINE] ⚠️ INR currency detected for escrow step. GIFT IFSC PSR 2024 prohibits INR e-wallets for conditional holds.`
+        );
         return RAIL_SELECTOR.inr;
     }
 
@@ -112,7 +115,9 @@ function selectRail(currency, amount) {
  */
 function parseRawConditions(rawConditions, paymentTermsDays = 90) {
     const conditions = [];
-    const text = Array.isArray(rawConditions) ? rawConditions.join(' ') : String(rawConditions || '');
+    const text = Array.isArray(rawConditions)
+        ? rawConditions.join(' ')
+        : String(rawConditions || '');
 
     if (!text.trim()) return [];
 
@@ -134,7 +139,11 @@ function parseRawConditions(rawConditions, paymentTermsDays = 90) {
 
         if (!milestoneConfig) {
             // Unknown milestone — use manual approval as safe default
-            milestoneConfig = { milestone: 'manual_review', triggerType: 'manual', defaultDays: paymentTermsDays };
+            milestoneConfig = {
+                milestone: 'manual_review',
+                triggerType: 'manual',
+                defaultDays: paymentTermsDays,
+            };
         }
 
         conditions.push({
@@ -148,7 +157,10 @@ function parseRawConditions(rawConditions, paymentTermsDays = 90) {
     }
 
     // If no specific milestones parsed but we have payment terms, create a due-date release
-    if (conditions.length === 0 && (paymentTermsDays > 0 || NET_TERMS_REGEX.test(text) || WITHIN_DAYS_REGEX.test(text))) {
+    if (
+        conditions.length === 0 &&
+        (paymentTermsDays > 0 || NET_TERMS_REGEX.test(text) || WITHIN_DAYS_REGEX.test(text))
+    ) {
         const netMatch = text.match(NET_TERMS_REGEX) || text.match(WITHIN_DAYS_REGEX);
         const days = netMatch ? parseInt(netMatch[1]) : paymentTermsDays;
 
@@ -164,7 +176,7 @@ function parseRawConditions(rawConditions, paymentTermsDays = 90) {
     // Assign remainder to final milestone if percentages don't add up to 100
     if (conditions.length > 0 && totalAssigned < 100) {
         const lastCondition = conditions[conditions.length - 1];
-        lastCondition.percentage += (100 - totalAssigned);
+        lastCondition.percentage += 100 - totalAssigned;
         lastCondition.milestone = lastCondition.milestone.includes('acceptance')
             ? 'buyer_acceptance_or_due_date'
             : lastCondition.milestone;
@@ -273,7 +285,9 @@ function conditionsToSagaSteps(extractedConditions, totalAmount, currency) {
 function createProgrammableConditions(invoice) {
     const { invoiceId, totalAmount, currency, paymentTermsDays = 90, rawConditions } = invoice;
 
-    logger.info(`[CONDITIONS_ENGINE] Processing conditions for invoice ${invoiceId} | ${currency} ${totalAmount} | ${paymentTermsDays}d terms`);
+    logger.info(
+        `[CONDITIONS_ENGINE] Processing conditions for invoice ${invoiceId} | ${currency} ${totalAmount} | ${paymentTermsDays}d terms`
+    );
 
     let extractedConditions;
     let useDefaultRules = false;
@@ -283,18 +297,24 @@ function createProgrammableConditions(invoice) {
 
     if (parsed.length > 0) {
         extractedConditions = parsed;
-        logger.info(`[CONDITIONS_ENGINE] Parsed ${parsed.length} condition(s) from raw terms for ${invoiceId}`);
+        logger.info(
+            `[CONDITIONS_ENGINE] Parsed ${parsed.length} condition(s) from raw terms for ${invoiceId}`
+        );
     } else {
         // Fallback to default exporter rules
         extractedConditions = generateDefaultExporterConditions(paymentTermsDays);
         useDefaultRules = true;
-        logger.info(`[CONDITIONS_ENGINE] No specific conditions found for ${invoiceId}. Applying default exporter rules (${paymentTermsDays}d terms).`);
+        logger.info(
+            `[CONDITIONS_ENGINE] No specific conditions found for ${invoiceId}. Applying default exporter rules (${paymentTermsDays}d terms).`
+        );
     }
 
     // Validate total percentages add up to 100%
     const totalPct = extractedConditions.reduce((sum, c) => sum + c.percentage, 0);
     if (Math.abs(totalPct - 100) > 0.01) {
-        logger.warn(`[CONDITIONS_ENGINE] ⚠️ Conditions for ${invoiceId} sum to ${totalPct}% (expected 100%). Normalising...`);
+        logger.warn(
+            `[CONDITIONS_ENGINE] ⚠️ Conditions for ${invoiceId} sum to ${totalPct}% (expected 100%). Normalising...`
+        );
         // Normalise the last step to make total = 100
         if (extractedConditions.length > 0) {
             const diff = 100 - totalPct;
@@ -304,14 +324,16 @@ function createProgrammableConditions(invoice) {
 
     const sagaSteps = conditionsToSagaSteps(extractedConditions, totalAmount, currency);
 
-    logger.info(`[CONDITIONS_ENGINE] ✅ Generated ${sagaSteps.length} saga steps for ${invoiceId}. Escrow required: ${sagaSteps.some(s => s.escrow_required)}`);
+    logger.info(
+        `[CONDITIONS_ENGINE] ✅ Generated ${sagaSteps.length} saga steps for ${invoiceId}. Escrow required: ${sagaSteps.some((s) => s.escrow_required)}`
+    );
 
     return {
         extractedConditions,
         sagaSteps,
         useDefaultRules,
         totalEscrowAmount: sagaSteps
-            .filter(s => s.escrow_required)
+            .filter((s) => s.escrow_required)
             .reduce((sum, s) => sum + s.amountAbsolute, 0),
     };
 }

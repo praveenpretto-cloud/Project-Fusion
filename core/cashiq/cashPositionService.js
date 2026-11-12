@@ -27,21 +27,21 @@ async function getCashSnapshot(pool, businessId, { from, to } = {}) {
 
     // Aggregate balance across all active accounts
     const currentBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0);
-    const totalOdLimit   = accounts.reduce((sum, a) => sum + (a.od_limit || 0), 0);
+    const totalOdLimit = accounts.reduce((sum, a) => sum + (a.od_limit || 0), 0);
 
     // Determine data completeness
-    const hasManual = accounts.some(a => a.data_source === 'MANUAL');
-    const hasAA     = accounts.some(a => a.data_source === 'AA_CONSENT');
+    const hasManual = accounts.some((a) => a.data_source === 'MANUAL');
+    const hasAA = accounts.some((a) => a.data_source === 'AA_CONSENT');
     let dataCompleteness = 'MANUAL_ONLY';
     if (hasAA && hasManual) dataCompleteness = 'PARTIAL';
     if (hasAA && !hasManual) dataCompleteness = 'FULL';
 
     return {
         business: {
-            id:   business.business_id,
+            id: business.business_id,
             name: business.name,
             gstin: business.gstin,
-            city:  business.city,
+            city: business.city,
             ca_name: business.ca_name,
             ca_membership_number: business.ca_membership_number,
             ca_email: business.ca_email,
@@ -49,14 +49,14 @@ async function getCashSnapshot(pool, businessId, { from, to } = {}) {
             ca_firm_name: business.ca_firm_name,
             ca_city: business.ca_city,
         },
-        current_balance:    currentBalance,
-        od_limit:           totalOdLimit,
-        data_completeness:  dataCompleteness,
+        current_balance: currentBalance,
+        od_limit: totalOdLimit,
+        data_completeness: dataCompleteness,
         accounts,
         upcoming_obligations: obligations,
-        monthly_flow:       monthlyFlow,
-        active_alerts:      alerts,
-        snapshot_at:        new Date().toISOString(),
+        monthly_flow: monthlyFlow,
+        active_alerts: alerts,
+        snapshot_at: new Date().toISOString(),
     };
 }
 
@@ -92,15 +92,15 @@ async function getAccountBalances(pool, businessId) {
         [businessId]
     );
 
-    return r.rows.map(row => ({
-        account_id:     row.account_id,
-        bank_name:      row.bank_name,
-        account_type:   row.account_type,
-        data_source:    row.data_source,
-        masked_number:  row.account_number_masked,
-        balance:        parseFloat(row.balance),
+    return r.rows.map((row) => ({
+        account_id: row.account_id,
+        bank_name: row.bank_name,
+        account_type: row.account_type,
+        data_source: row.data_source,
+        masked_number: row.account_number_masked,
+        balance: parseFloat(row.balance),
         last_synced_at: row.last_synced_at,
-        od_limit:       parseFloat(row.od_limit || 0),
+        od_limit: parseFloat(row.od_limit || 0),
     }));
 }
 
@@ -122,16 +122,16 @@ async function getUpcomingObligations(pool, businessId, { from, to } = {}) {
 
     const r = await pool.query(query, params);
 
-    return r.rows.map(row => ({
-        id:          row.obligation_id,
-        type:        row.obligation_type,
+    return r.rows.map((row) => ({
+        id: row.obligation_id,
+        type: row.obligation_type,
         description: row.description,
-        due_date:    row.due_date,
-        amount:      row.amount ? parseFloat(row.amount) : null,
-        currency:    row.currency,
-        status:      row.status,
-        days_until:  Math.ceil((new Date(row.due_date) - new Date()) / (1000 * 60 * 60 * 24)),
-        source:      row.source,
+        due_date: row.due_date,
+        amount: row.amount ? parseFloat(row.amount) : null,
+        currency: row.currency,
+        status: row.status,
+        days_until: Math.ceil((new Date(row.due_date) - new Date()) / (1000 * 60 * 60 * 24)),
+        source: row.source,
     }));
 }
 
@@ -166,18 +166,22 @@ async function getMonthlyFlow(pool, businessId, { from, to } = {}) {
 
     const r = await pool.query(query, params);
 
-    return r.rows.map(row => ({
-        date:    row.date,
-        inflow:  parseFloat(row.inflow),
+    return r.rows.map((row) => ({
+        date: row.date,
+        inflow: parseFloat(row.inflow),
         outflow: parseFloat(row.outflow),
-        net:     parseFloat(row.inflow) - parseFloat(row.outflow),
+        net: parseFloat(row.inflow) - parseFloat(row.outflow),
     }));
 }
 
 /**
  * Returns paginated categorised transactions for a business.
  */
-async function getTransactions(pool, businessId, { category, direction, page = 1, limit = 20 } = {}) {
+async function getTransactions(
+    pool,
+    businessId,
+    { category, direction, page = 1, limit = 20 } = {}
+) {
     const offset = (page - 1) * limit;
     const conditions = ['t.business_id = $1'];
     const params = [businessId];
@@ -206,14 +210,11 @@ async function getTransactions(pool, businessId, { category, direction, page = 1
              LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
             [...params, limit, offset]
         ),
-        pool.query(
-            `SELECT COUNT(*) FROM bank_transactions t WHERE ${where}`,
-            params
-        ),
+        pool.query(`SELECT COUNT(*) FROM bank_transactions t WHERE ${where}`, params),
     ]);
 
     return {
-        data:  dataRes.rows,
+        data: dataRes.rows,
         total: parseInt(countRes.rows[0].count),
         page,
         limit,

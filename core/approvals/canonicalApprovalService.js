@@ -42,7 +42,12 @@ class CanonicalApprovalService {
     }
 
     _getPool(providedPool) {
-        return providedPool || this.pool || (this.makerCheckerService && this.makerCheckerService.pool) || null;
+        return (
+            providedPool ||
+            this.pool ||
+            (this.makerCheckerService && this.makerCheckerService.pool) ||
+            null
+        );
     }
 
     async _resolveOperatorId(operatorIdOrName, client = null) {
@@ -52,16 +57,16 @@ class CanonicalApprovalService {
             return operatorIdOrName;
         }
         const known = {
-            'cfo': '00000000-0000-4000-8000-000000000001',
+            cfo: '00000000-0000-4000-8000-000000000001',
             'dev cfo lead': '00000000-0000-4000-8000-000000000001',
             'dev-cfo': '00000000-0000-4000-8000-000000000001',
-            'ops': '00000000-0000-4000-8000-000000000002',
+            ops: '00000000-0000-4000-8000-000000000002',
             'dev operations engineer': '00000000-0000-4000-8000-000000000002',
             'dev-ops': '00000000-0000-4000-8000-000000000002',
-            'auditor': '00000000-0000-4000-8000-000000000003',
-            'compliance': '00000000-0000-4000-8000-000000000004',
-            'admin': '00000000-0000-4000-8000-000000000005',
-            'system': '00000000-0000-4000-8000-000000000005',
+            auditor: '00000000-0000-4000-8000-000000000003',
+            compliance: '00000000-0000-4000-8000-000000000004',
+            admin: '00000000-0000-4000-8000-000000000005',
+            system: '00000000-0000-4000-8000-000000000005',
         };
         const lower = String(operatorIdOrName).toLowerCase().trim();
         if (known[lower]) return known[lower];
@@ -89,7 +94,9 @@ class CanonicalApprovalService {
         }
 
         const amount = parseFloat(instruction.amount || 0);
-        const currency = String(instruction.currency || 'INR').toUpperCase().trim();
+        const currency = String(instruction.currency || 'INR')
+            .toUpperCase()
+            .trim();
         const purpose = instruction.purpose || 'VENDOR_PAYMENT';
 
         // 1. Sanctions screening check
@@ -151,7 +158,9 @@ class CanonicalApprovalService {
         // 4. General Policy Evaluation
         // Explicit Rule: Routine recurring utility / vendor payments below threshold with known counterparty
         const AUTO_EXECUTE_LIMIT_INR = 10000; // ₹10,000 auto-execute limit for explicit utility policies
-        const isRoutineUtility = ['UTILITY', 'SUBSCRIPTION_RECURRING'].includes(purpose) && amountInINR <= AUTO_EXECUTE_LIMIT_INR;
+        const isRoutineUtility =
+            ['UTILITY', 'SUBSCRIPTION_RECURRING'].includes(purpose) &&
+            amountInINR <= AUTO_EXECUTE_LIMIT_INR;
 
         if (isRoutineUtility && instruction.auto_policy_rule) {
             return {
@@ -264,8 +273,13 @@ class CanonicalApprovalService {
                     );
                     if (instRes.rows.length > 0) {
                         const inst = instRes.rows[0];
-                        if (inst.sender === checkerOperatorId || inst.sender === resolvedCheckerId) {
-                            const err = new Error('Maker cannot approve their own payment instruction (Four-Eyes Principle violation)');
+                        if (
+                            inst.sender === checkerOperatorId ||
+                            inst.sender === resolvedCheckerId
+                        ) {
+                            const err = new Error(
+                                'Maker cannot approve their own payment instruction (Four-Eyes Principle violation)'
+                            );
                             err.statusCode = 403;
                             err.code = 'FOUR_EYES_VIOLATION';
                             throw err;
@@ -279,7 +293,13 @@ class CanonicalApprovalService {
                              (instruction_id, maker_operator_id, status, amount, currency, approval_notes, instruction_version)
                              VALUES ($1, $2, 'PENDING_APPROVAL', $3, $4, 'Auto-registered for Four-Eyes review', COALESCE($5, 1))
                              ON CONFLICT (instruction_id) DO NOTHING`,
-                            [instructionId, makerId, inst.amount || '0', inst.currency || 'INR', inst.version || 1]
+                            [
+                                instructionId,
+                                makerId,
+                                inst.amount || '0',
+                                inst.currency || 'INR',
+                                inst.version || 1,
+                            ]
                         );
                     }
                 }
@@ -343,7 +363,9 @@ class CanonicalApprovalService {
                 dispatchRecord = outboxRes.rows[0];
 
                 await client.query('COMMIT');
-                logger.info(`[CANONICAL_APPROVAL] ✅ Approved instruction ${instructionId} by checker ${resolvedCheckerId} and persisted durable dispatch ${dispatchRecord.dispatch_id}`);
+                logger.info(
+                    `[CANONICAL_APPROVAL] ✅ Approved instruction ${instructionId} by checker ${resolvedCheckerId} and persisted durable dispatch ${dispatchRecord.dispatch_id}`
+                );
             } catch (err) {
                 await client.query('ROLLBACK');
                 throw err;
@@ -441,14 +463,19 @@ class CanonicalApprovalService {
                             );
 
                             // Execute existing Saga Core idempotently
-                            const sagaResult = await processInstructionSagaAtomic(record.instruction_id, dbPool);
+                            const sagaResult = await processInstructionSagaAtomic(
+                                record.instruction_id,
+                                dbPool
+                            );
 
                             const finalStatus =
-                                sagaResult.status === 'SUCCESS' || sagaResult.current_state === 'SETTLED'
+                                sagaResult.status === 'SUCCESS' ||
+                                sagaResult.current_state === 'SETTLED'
                                     ? 'COMPLETED'
-                                    : sagaResult.status === 'MANUAL_CHECK' || sagaResult.current_state === 'MANUAL_CHECK'
-                                    ? 'MANUAL_CHECK'
-                                    : 'FAILED';
+                                    : sagaResult.status === 'MANUAL_CHECK' ||
+                                        sagaResult.current_state === 'MANUAL_CHECK'
+                                      ? 'MANUAL_CHECK'
+                                      : 'FAILED';
 
                             await client.query(
                                 `UPDATE identity.saga_dispatch_outbox
@@ -459,7 +486,9 @@ class CanonicalApprovalService {
 
                             drainedCount++;
                         } catch (itemErr) {
-                            logger.error(`[OUTBOX_DISPATCHER] Failed event ${record.dispatch_id} for ${record.instruction_id}: ${itemErr.message}`);
+                            logger.error(
+                                `[OUTBOX_DISPATCHER] Failed event ${record.dispatch_id} for ${record.instruction_id}: ${itemErr.message}`
+                            );
                             await client.query(
                                 `UPDATE identity.saga_dispatch_outbox
                                  SET status = CASE WHEN attempts >= max_attempts THEN 'FAILED' ELSE 'PENDING' END,
@@ -482,14 +511,20 @@ class CanonicalApprovalService {
 
                         try {
                             // If processInstructionSagaAtomic is mocked or executable:
-                            const sagaResult = await processInstructionSagaAtomic(instructionId, null).catch((e) => ({
+                            const sagaResult = await processInstructionSagaAtomic(
+                                instructionId,
+                                null
+                            ).catch((e) => ({
                                 status: 'FAILED',
                                 reason: e.message,
                             }));
 
-                            record.status = (sagaResult && (sagaResult.status === 'SUCCESS' || sagaResult.current_state === 'SETTLED'))
-                                ? 'COMPLETED'
-                                : 'FAILED';
+                            record.status =
+                                sagaResult &&
+                                (sagaResult.status === 'SUCCESS' ||
+                                    sagaResult.current_state === 'SETTLED')
+                                    ? 'COMPLETED'
+                                    : 'FAILED';
                             record.completed_at = new Date();
                             drainedCount++;
                         } catch (err) {
@@ -555,7 +590,9 @@ class CanonicalApprovalService {
         const dbPool = this._getPool(pool);
         if (!instructionId) throw new Error('instructionId is required');
 
-        logger.info(`[CANONICAL_APPROVAL] ⚡ Explicit automatic execution authorized under policy "${policyName}" for ${instructionId}`);
+        logger.info(
+            `[CANONICAL_APPROVAL] ⚡ Explicit automatic execution authorized under policy "${policyName}" for ${instructionId}`
+        );
 
         // Update instruction state to INITIATED or APPROVED
         if (dbPool) {

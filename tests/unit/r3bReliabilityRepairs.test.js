@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * PROJECT FUSION — RELIABILITY R3B: DEFECT REPAIRS & VERIFICATION TEST SUITE
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Verifies the three targeted defect repairs identified in Milestone R3A:
  * 1. Task 1 (D1): CA Workspace Export Audit SQL Repair (api/cashiq.js)
  * 2. Task 2 (D2): Zoho Reconciliations Primary Key Column Alias (api/zoho.js)
@@ -84,7 +84,7 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
         app.use(express.json());
 
         mockPool = {
-            query: jest.fn()
+            query: jest.fn(),
         };
         app.locals.pool = mockPool;
 
@@ -112,20 +112,22 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '45000.00',
                         balance_after: '1575000.00',
                         currency: 'INR',
-                        category: 'VENDOR_PAYOUT'
-                    }
-                ]
+                        category: 'VENDOR_PAYOUT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
             expect(res.headers['content-type']).toMatch(/text\/csv/);
-            expect(res.headers['content-disposition']).toMatch(/attachment; filename=cashiq_audit_business_/);
-            
+            expect(res.headers['content-disposition']).toMatch(
+                /attachment; filename=cashiq_audit_business_/
+            );
+
             // Verify query enforces strict currency resolution hierarchy with explicit UNKNOWN fallback
             const sqlQuery = mockPool.query.mock.calls[0][0];
             expect(sqlQuery).toMatch(/FROM bank_transactions t/);
@@ -146,9 +148,15 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
             expect(mockPool.query.mock.calls[0][1]).toEqual([validBizId]);
 
             // Verify CSV content
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[0]).toBe('Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category');
-            expect(lines[1]).toContain('txn-1111-2222,HDFC Bank,XXXX5678,2026-11-01,"Vendor Payment Tech Corp",DEBIT,45000.00,1575000.00,INR,VENDOR_PAYOUT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[0]).toBe(
+                'Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category'
+            );
+            expect(lines[1]).toContain(
+                'txn-1111-2222,HDFC Bank,XXXX5678,2026-11-01,"Vendor Payment Tech Corp",DEBIT,45000.00,1575000.00,INR,VENDOR_PAYOUT'
+            );
         });
 
         test('Currency provenance 1: AA consent record with no currency metadata returns UNKNOWN', async () => {
@@ -164,19 +172,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '50000.00',
                         balance_after: '50000.00',
                         currency: 'UNKNOWN',
-                        category: 'CUSTOMER_RECEIPT'
-                    }
-                ]
+                        category: 'CUSTOMER_RECEIPT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-aa-unverified,HDFC Bank,XXXX1111,2026-11-05,"AA Feed Statement Import",CREDIT,50000.00,50000.00,UNKNOWN,CUSTOMER_RECEIPT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-aa-unverified,HDFC Bank,XXXX1111,2026-11-05,"AA Feed Statement Import",CREDIT,50000.00,50000.00,UNKNOWN,CUSTOMER_RECEIPT'
+            );
         });
 
         test('Currency provenance 2: AA consent record representing a foreign-currency account returns explicit currency (USD)', async () => {
@@ -192,19 +204,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '12500.00',
                         balance_after: '37500.00',
                         currency: 'USD',
-                        category: 'CUSTOMER_RECEIPT'
-                    }
-                ]
+                        category: 'CUSTOMER_RECEIPT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-aa-eefc-usd,ICICI Bank EEFC,XXXX2222,2026-11-05,"EEFC Inward Remittance",CREDIT,12500.00,37500.00,USD,CUSTOMER_RECEIPT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-aa-eefc-usd,ICICI Bank EEFC,XXXX2222,2026-11-05,"EEFC Inward Remittance",CREDIT,12500.00,37500.00,USD,CUSTOMER_RECEIPT'
+            );
         });
 
         test('Currency provenance 3: Explicit USD transaction returns USD', async () => {
@@ -220,19 +236,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '50000.00',
                         balance_after: '150000.00',
                         currency: 'USD',
-                        category: 'CUSTOMER_RECEIPT'
-                    }
-                ]
+                        category: 'CUSTOMER_RECEIPT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-explicit-usd,Citibank NA,XXXX8888,2026-11-06,"Export Proceeds Client NY",CREDIT,50000.00,150000.00,USD,CUSTOMER_RECEIPT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-explicit-usd,Citibank NA,XXXX8888,2026-11-06,"Export Proceeds Client NY",CREDIT,50000.00,150000.00,USD,CUSTOMER_RECEIPT'
+            );
         });
 
         test('Currency provenance 4: Explicit EUR transaction returns EUR', async () => {
@@ -248,19 +268,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '35000.00',
                         balance_after: '185000.00',
                         currency: 'EUR',
-                        category: 'CUSTOMER_RECEIPT'
-                    }
-                ]
+                        category: 'CUSTOMER_RECEIPT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-explicit-eur,Deutsche Bank,XXXX9999,2026-11-07,"Consulting Fee Berlin",CREDIT,35000.00,185000.00,EUR,CUSTOMER_RECEIPT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-explicit-eur,Deutsche Bank,XXXX9999,2026-11-07,"Consulting Fee Berlin",CREDIT,35000.00,185000.00,EUR,CUSTOMER_RECEIPT'
+            );
         });
 
         test('Currency provenance 5: Verified INR account-currency metadata returns INR', async () => {
@@ -276,19 +300,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '62000.00',
                         balance_after: '438000.00',
                         currency: 'INR',
-                        category: 'VENDOR_PAYOUT'
-                    }
-                ]
+                        category: 'VENDOR_PAYOUT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-account-inr,Axis Bank Current,XXXX3333,2026-11-08,"Vendor Settlement",DEBIT,62000.00,438000.00,INR,VENDOR_PAYOUT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-account-inr,Axis Bank Current,XXXX3333,2026-11-08,"Vendor Settlement",DEBIT,62000.00,438000.00,INR,VENDOR_PAYOUT'
+            );
         });
 
         test('Currency provenance 6: Domestic-only source with proven INR enforcement returns INR', async () => {
@@ -304,21 +332,25 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '18000.00',
                         balance_after: '82000.00',
                         currency: 'INR',
-                        category: 'GST_PAYMENT'
-                    }
-                ]
+                        category: 'GST_PAYMENT',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
             const sqlQuery = mockPool.query.mock.calls[0][0];
             expect(sqlQuery).toMatch(/domestic_contract/);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-domestic-enforced,State Bank of India,XXXX4444,2026-11-09,"Local GST Payout",DEBIT,18000.00,82000.00,INR,GST_PAYMENT');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-domestic-enforced,State Bank of India,XXXX4444,2026-11-09,"Local GST Payout",DEBIT,18000.00,82000.00,INR,GST_PAYMENT'
+            );
         });
 
         test('Currency provenance 7: Missing currency and missing domestic provenance returns UNKNOWN', async () => {
@@ -334,19 +366,23 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         amount: '75000.00',
                         balance_after: '25000.00',
                         currency: 'UNKNOWN',
-                        category: 'TRANSFER_INTERNAL'
-                    }
-                ]
+                        category: 'TRANSFER_INTERNAL',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
-            const lines = String(res.text || '').trim().split('\n');
-            expect(lines[1]).toContain('txn-missing-provenance,Standard Chartered,XXXX5555,2026-11-09,"Ambiguous internal wire",DEBIT,75000.00,25000.00,UNKNOWN,TRANSFER_INTERNAL');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
+            expect(lines[1]).toContain(
+                'txn-missing-provenance,Standard Chartered,XXXX5555,2026-11-09,"Ambiguous internal wire",DEBIT,75000.00,25000.00,UNKNOWN,TRANSFER_INTERNAL'
+            );
         });
 
         test('Empty export returns HTTP 200 with valid CSV headers and 0 data rows', async () => {
@@ -354,20 +390,24 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(200);
             expect(res.headers['content-type']).toMatch(/text\/csv/);
-            const lines = String(res.text || '').trim().split('\n');
+            const lines = String(res.text || '')
+                .trim()
+                .split('\n');
             expect(lines.length).toBe(1);
-            expect(lines[0]).toBe('Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category');
+            expect(lines[0]).toBe(
+                'Transaction ID,Bank Name,Account Number,Date,Narration,Direction,Amount,Balance After,Currency,Category'
+            );
         });
 
         test('Missing or non-UUID businessId returns HTTP 400', async () => {
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: '/api/cashiq/not-a-valid-uuid/export-audit'
+                url: '/api/cashiq/not-a-valid-uuid/export-audit',
             });
 
             expect(res.status).toBe(400);
@@ -381,7 +421,7 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: `/api/cashiq/${validBizId}/export-audit`
+                url: `/api/cashiq/${validBizId}/export-audit`,
             });
 
             expect(res.status).toBe(500);
@@ -407,14 +447,14 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                         status: 'MATCHED',
                         amount: '25000.00',
                         currency: 'INR',
-                        seller_name: 'Coimbatore Supplies'
-                    }
-                ]
+                        seller_name: 'Coimbatore Supplies',
+                    },
+                ],
             });
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: '/api/zoho/reconciliations'
+                url: '/api/zoho/reconciliations',
             });
 
             expect(res.status).toBe(200);
@@ -441,7 +481,7 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: '/api/zoho/reconciliations'
+                url: '/api/zoho/reconciliations',
             });
 
             expect(res.status).toBe(200);
@@ -450,11 +490,13 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
         });
 
         test('Database query failure returns HTTP 500 error response', async () => {
-            mockPool.query.mockRejectedValueOnce(new Error('relation reconciliation_log does not exist'));
+            mockPool.query.mockRejectedValueOnce(
+                new Error('relation reconciliation_log does not exist')
+            );
 
             const res = await makeRequest(app, {
                 method: 'GET',
-                url: '/api/zoho/reconciliations'
+                url: '/api/zoho/reconciliations',
             });
 
             expect(res.status).toBe(500);
@@ -474,34 +516,38 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                 const s = String(sql);
                 if (s.includes('FROM businesses')) {
                     return Promise.resolve({
-                        rows: [{
-                            business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
-                            name: 'Coimbatore Textile Mills Pvt Ltd',
-                            gstin: '33AABCC1234D1Z5',
-                            incorporation_type: 'PVT_LTD',
-                            industry: 'Textile',
-                            city: 'Coimbatore'
-                        }]
+                        rows: [
+                            {
+                                business_id: PRIMARY_AUTHORIZED_BUSINESS_ID,
+                                name: 'Coimbatore Textile Mills Pvt Ltd',
+                                gstin: '33AABCC1234D1Z5',
+                                incorporation_type: 'PVT_LTD',
+                                industry: 'Textile',
+                                city: 'Coimbatore',
+                            },
+                        ],
                     });
                 }
                 if (s.includes('FROM business_bank_accounts')) {
                     return Promise.resolve({
-                        rows: [{
-                            account_id: 'acc-1',
-                            bank_name: 'HDFC Bank',
-                            account_number_masked: 'XXXX1234',
-                            current_balance: '1920000.00',
-                            sanctioned_od_limit: '4000000.00',
-                            is_primary: true
-                        }]
+                        rows: [
+                            {
+                                account_id: 'acc-1',
+                                bank_name: 'HDFC Bank',
+                                account_number_masked: 'XXXX1234',
+                                current_balance: '1920000.00',
+                                sanctioned_od_limit: '4000000.00',
+                                is_primary: true,
+                            },
+                        ],
                     });
                 }
                 if (s.includes('FROM bank_transactions')) {
                     return Promise.resolve({
                         rows: [
                             { direction: 'CREDIT', amount: '1930000.00' },
-                            { direction: 'DEBIT', amount: '1200000.00' }
-                        ]
+                            { direction: 'DEBIT', amount: '1200000.00' },
+                        ],
                     });
                 }
                 if (s.includes('FROM obligations')) {
@@ -518,8 +564,8 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                 url: '/api/ai/chat',
                 body: {
                     businessId: PRIMARY_AUTHORIZED_BUSINESS_ID,
-                    messages: [{ role: 'user', content: 'What is our current cash position?' }]
-                }
+                    messages: [{ role: 'user', content: 'What is our current cash position?' }],
+                },
             });
 
             expect(res.status).toBe(200);
@@ -533,8 +579,8 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                 url: '/api/ai/chat',
                 body: {
                     businessId: secondaryBizId,
-                    messages: [{ role: 'user', content: 'What is our current cash position?' }]
-                }
+                    messages: [{ role: 'user', content: 'What is our current cash position?' }],
+                },
             });
 
             expect(res.status).toBe(403);
@@ -548,8 +594,8 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                 url: '/api/ai/cashflow-advisor',
                 body: {
                     businessId: secondaryBizId,
-                    horizonWeeks: 4
-                }
+                    horizonWeeks: 4,
+                },
             });
 
             expect(res.status).toBe(403);
@@ -563,8 +609,8 @@ describe('Project Fusion — R3B: Defect Repairs & Security Verification', () =>
                 url: '/api/ai/chat',
                 body: {
                     businessId: PRIMARY_AUTHORIZED_BUSINESS_ID,
-                    messages: [{ role: 'user', content: 'Pay this invoice immediately' }]
-                }
+                    messages: [{ role: 'user', content: 'Pay this invoice immediately' }],
+                },
             });
 
             expect(res.status).toBe(200);

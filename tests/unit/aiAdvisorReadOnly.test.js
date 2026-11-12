@@ -10,7 +10,12 @@ function createMockHttp(body = {}) {
                 pool: {
                     query: jest.fn().mockResolvedValue({
                         rows: [
-                            { invoice_id: 'INV-ZOHO-991', seller_name: 'Acme Supplies', total_amount: 45000, currency: 'INR' },
+                            {
+                                invoice_id: 'INV-ZOHO-991',
+                                seller_name: 'Acme Supplies',
+                                total_amount: 45000,
+                                currency: 'INR',
+                            },
                         ],
                     }),
                 },

@@ -4,10 +4,10 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 /**
  * Tool 6: getReconciliationEvidence
- * 
+ *
  * Retrieves Zoho Books accounting synchronization records.
  * Distinguishes accounting synchronization failures from payment execution failures.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {string} instructionId - Target instruction UUID
  * @returns {Promise<object>} Structured reconciliation evidence
@@ -17,12 +17,16 @@ async function getReconciliationEvidence(client, instructionId) {
         throw new Error('getReconciliationEvidence: client with query method is required');
     }
 
-    if (!instructionId || typeof instructionId !== 'string' || !UUID_REGEX.test(instructionId.trim())) {
+    if (
+        !instructionId ||
+        typeof instructionId !== 'string' ||
+        !UUID_REGEX.test(instructionId.trim())
+    ) {
         return {
             success: false,
             status: 'INVALID_IDENTIFIER',
             message: 'instructionId must be a valid UUID string',
-            reconciliation: null
+            reconciliation: null,
         };
     }
 
@@ -52,7 +56,7 @@ async function getReconciliationEvidence(client, instructionId) {
             success: true,
             status: 'NOT_RECORDED',
             message: `No reconciliation log record found for instruction '${cleanId}'`,
-            reconciliation: null
+            reconciliation: null,
         };
     }
 
@@ -60,7 +64,8 @@ async function getReconciliationEvidence(client, instructionId) {
 
     let finding = null;
     if (row.status === 'FAILED' && row.instruction_state === 'SETTLED') {
-        finding = 'Project Fusion records the instruction state as SETTLED. The Zoho reconciliation record reports FAILED. The available records show an accounting synchronization failure but do not independently establish external settlement finality.';
+        finding =
+            'Project Fusion records the instruction state as SETTLED. The Zoho reconciliation record reports FAILED. The available records show an accounting synchronization failure but do not independently establish external settlement finality.';
     } else if (row.status === 'RECONCILED') {
         finding = 'Zoho accounting synchronization is confirmed as RECONCILED.';
     } else if (row.status === 'PENDING') {
@@ -81,12 +86,11 @@ async function getReconciliationEvidence(client, instructionId) {
             reconciled_at: row.reconciled_at ? new Date(row.reconciled_at).toISOString() : null,
             error_message: row.error_message || null,
             instruction_state: row.instruction_state || null,
-            finding
-        }
+            finding,
+        },
     };
 }
 
 module.exports = {
     getReconciliationEvidence,
 };
-

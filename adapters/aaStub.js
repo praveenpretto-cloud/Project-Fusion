@@ -24,51 +24,73 @@ const { categoriseTransaction } = require('../core/cashiq/transactionCategoriser
  * @returns {{ imported: number, skipped: number, errors: string[] }}
  */
 async function importBankStatementCSV(pool, businessId, accountId, csvText) {
-    const lines = csvText.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = csvText
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
     if (lines.length < 2) {
         return { imported: 0, skipped: 0, errors: ['CSV has no data rows'] };
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
 
     // Flexible header matching for major Indian bank formats
     const idx = {
-        date:      headers.findIndex(h => h.includes('date')),
-        narration: headers.findIndex(h => h.includes('narration') || h.includes('description') || h.includes('particulars')),
-        debit:     headers.findIndex(h => h.includes('debit') || h.includes('withdrawal')),
-        credit:    headers.findIndex(h => h.includes('credit') || h.includes('deposit')),
-        balance:   headers.findIndex(h => h.includes('balance')),
+        date: headers.findIndex((h) => h.includes('date')),
+        narration: headers.findIndex(
+            (h) => h.includes('narration') || h.includes('description') || h.includes('particulars')
+        ),
+        debit: headers.findIndex((h) => h.includes('debit') || h.includes('withdrawal')),
+        credit: headers.findIndex((h) => h.includes('credit') || h.includes('deposit')),
+        balance: headers.findIndex((h) => h.includes('balance')),
     };
 
     if (idx.date === -1 || (idx.debit === -1 && idx.credit === -1)) {
-        return { imported: 0, skipped: 0, errors: ['CSV format unrecognised. Expected columns: Date, Narration, Debit, Credit, Balance'] };
+        return {
+            imported: 0,
+            skipped: 0,
+            errors: [
+                'CSV format unrecognised. Expected columns: Date, Narration, Debit, Credit, Balance',
+            ],
+        };
     }
 
-    let imported = 0, skipped = 0;
+    let imported = 0,
+        skipped = 0;
     const errors = [];
 
     for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.trim().replace(/"/g, ''));
-        if (cols.length < 3) { skipped++; continue; }
+        const cols = lines[i].split(',').map((c) => c.trim().replace(/"/g, ''));
+        if (cols.length < 3) {
+            skipped++;
+            continue;
+        }
 
         try {
-            const rawDate    = cols[idx.date] || '';
-            const narration  = idx.narration !== -1 ? cols[idx.narration] : '';
-            const debitStr   = idx.debit  !== -1 ? (cols[idx.debit]  || '').replace(/,/g, '') : '0';
-            const creditStr  = idx.credit !== -1 ? (cols[idx.credit] || '').replace(/,/g, '') : '0';
-            const balanceStr = idx.balance !== -1 ? (cols[idx.balance] || '').replace(/,/g, '') : null;
+            const rawDate = cols[idx.date] || '';
+            const narration = idx.narration !== -1 ? cols[idx.narration] : '';
+            const debitStr = idx.debit !== -1 ? (cols[idx.debit] || '').replace(/,/g, '') : '0';
+            const creditStr = idx.credit !== -1 ? (cols[idx.credit] || '').replace(/,/g, '') : '0';
+            const balanceStr =
+                idx.balance !== -1 ? (cols[idx.balance] || '').replace(/,/g, '') : null;
 
-            const debit  = parseFloat(debitStr)  || 0;
+            const debit = parseFloat(debitStr) || 0;
             const credit = parseFloat(creditStr) || 0;
 
-            if (debit === 0 && credit === 0) { skipped++; continue; }
+            if (debit === 0 && credit === 0) {
+                skipped++;
+                continue;
+            }
 
-            const amount    = debit > 0 ? debit : credit;
+            const amount = debit > 0 ? debit : credit;
             const direction = debit > 0 ? 'DEBIT' : 'CREDIT';
 
             // Normalise date: handles DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
             const txnDate = normaliseDate(rawDate);
-            if (!txnDate) { skipped++; continue; }
+            if (!txnDate) {
+                skipped++;
+                continue;
+            }
 
             const { category, confidence } = categoriseTransaction(narration);
 
@@ -79,8 +101,14 @@ async function importBankStatementCSV(pool, businessId, accountId, csvText) {
                  VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'MANUAL',$10)
                  ON CONFLICT DO NOTHING`,
                 [
-                    accountId, businessId, txnDate, amount, direction, narration,
-                    category, confidence,
+                    accountId,
+                    businessId,
+                    txnDate,
+                    amount,
+                    direction,
+                    narration,
+                    category,
+                    confidence,
                     balanceStr ? parseFloat(balanceStr) : null,
                     JSON.stringify({ raw_line: lines[i] }),
                 ]
@@ -98,7 +126,9 @@ async function importBankStatementCSV(pool, businessId, accountId, csvText) {
         }
     }
 
-    logger.info(`[AA_STUB] Import complete — Imported: ${imported}, Skipped: ${skipped}, Errors: ${errors.length}`);
+    logger.info(
+        `[AA_STUB] Import complete — Imported: ${imported}, Skipped: ${skipped}, Errors: ${errors.length}`
+    );
     return { imported, skipped, errors };
 }
 
@@ -123,7 +153,7 @@ async function getAccountBalance(pool, accountId) {
 
     return {
         balance: parseFloat(result.rows[0].balance_after),
-        as_of:   result.rows[0].txn_date,
+        as_of: result.rows[0].txn_date,
     };
 }
 

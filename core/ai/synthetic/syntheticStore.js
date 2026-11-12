@@ -2,7 +2,7 @@
 
 /**
  * Synthetic Payment Exception Store & Controlled Boundary Guard
- * 
+ *
  * Manages the in-memory registry of 15 synthetic payment operational exception scenarios.
  * Strict boundary rules:
  * 1. Zero queries to persistent fusion_db.
@@ -46,7 +46,7 @@ class SyntheticStore {
      * @returns {Array<object>}
      */
     listCases() {
-        return SYNTHETIC_CASES.map(c => ({
+        return SYNTHETIC_CASES.map((c) => ({
             id: c.id,
             title: c.title,
             intent: c.intent,
@@ -54,7 +54,7 @@ class SyntheticStore {
             question: c.question,
             expectedStatus: c.expectedStatus,
             groundedFinding: c.groundedFinding,
-            toolsAvailable: Object.keys(c.evidence || {})
+            toolsAvailable: Object.keys(c.evidence || {}),
         }));
     }
 
@@ -94,7 +94,7 @@ class SyntheticStore {
                 throw new Error(
                     'SECURITY_VIOLATION: Direct database query rejected. Synthetic copilot operates strictly in-memory without persistent database access.'
                 );
-            }
+            },
         };
     }
 }
@@ -105,6 +105,5 @@ const syntheticStore = new SyntheticStore();
 module.exports = {
     SyntheticStore,
     syntheticStore,
-    CASE_ID_REGEX
+    CASE_ID_REGEX,
 };
-

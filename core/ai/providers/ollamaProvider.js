@@ -2,20 +2,26 @@
 
 const { BaseModelProvider, PROVIDER_STATUSES } = require('./baseProvider');
 const { Ollama } = require('ollama');
-const { telemetry, SPAN_NAMES, GEN_AI_ATTRIBUTES, FUSION_AI_ATTRIBUTES, classifyError } = require('../observability');
+const {
+    telemetry,
+    SPAN_NAMES,
+    GEN_AI_ATTRIBUTES,
+    FUSION_AI_ATTRIBUTES,
+    classifyError,
+} = require('../observability');
 
 const APPROVED_HOSTS = new Set([
     'http://127.0.0.1:11434',
     'http://localhost:11434',
     '127.0.0.1:11434',
-    'localhost:11434'
+    'localhost:11434',
 ]);
 
 /**
  * Validates that the provided host points exclusively to an approved local loopback endpoint.
  * Prevents SSRF, DNS rebinding, and external model redirection attacks.
- * 
- * @param {string} host 
+ *
+ * @param {string} host
  * @returns {string} Normalized local host URL
  */
 function validateAndNormalizeLocalHost(host) {
@@ -24,7 +30,7 @@ function validateAndNormalizeLocalHost(host) {
     }
 
     const trimmed = host.trim().toLowerCase();
-    
+
     // Check direct match
     if (!APPROVED_HOSTS.has(trimmed)) {
         try {
@@ -37,7 +43,9 @@ function validateAndNormalizeLocalHost(host) {
                 throw new Error(`Non-local or unapproved model host rejected: '${host}'`);
             }
         } catch {
-            throw new Error(`Invalid local model host: '${host}'. Only approved local loopback (127.0.0.1:11434) is permitted.`);
+            throw new Error(
+                `Invalid local model host: '${host}'. Only approved local loopback (127.0.0.1:11434) is permitted.`
+            );
         }
     }
 
@@ -59,7 +67,10 @@ class OllamaProvider extends BaseModelProvider {
         const rawHost = options.host || process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
         this.host = validateAndNormalizeLocalHost(rawHost);
         this.defaultModel = options.defaultModel || process.env.OLLAMA_MODEL || DEFAULT_LOCAL_MODEL;
-        this.timeoutMs = options.timeoutMs !== undefined ? options.timeoutMs : (parseInt(process.env.OLLAMA_TIMEOUT_MS, 10) || DEFAULT_TIMEOUT_MS);
+        this.timeoutMs =
+            options.timeoutMs !== undefined
+                ? options.timeoutMs
+                : parseInt(process.env.OLLAMA_TIMEOUT_MS, 10) || DEFAULT_TIMEOUT_MS;
         this.client = new Ollama({ host: this.host });
     }
 
@@ -72,16 +83,17 @@ class OllamaProvider extends BaseModelProvider {
         try {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 2000);
-            
+
             // Check tags list
             const res = await this.client.list();
             clearTimeout(timer);
-            const installedModels = (res && res.models) ? res.models.map(m => m.name) : [];
+            const installedModels = res && res.models ? res.models.map((m) => m.name) : [];
 
             // Verify that the configured model is installed (exact match or prefix match)
-            const isInstalled = installedModels.some(name => {
+            const isInstalled = installedModels.some((name) => {
                 if (name === this.defaultModel) return true;
-                if (!this.defaultModel.includes(':') && name.split(':')[0] === this.defaultModel) return true;
+                if (!this.defaultModel.includes(':') && name.split(':')[0] === this.defaultModel)
+                    return true;
                 return false;
             });
 
@@ -92,7 +104,7 @@ class OllamaProvider extends BaseModelProvider {
                     latencyMs: Date.now() - start,
                     configuredModel: this.defaultModel,
                     models: installedModels,
-                    error: `Configured model '${this.defaultModel}' is not installed in local Ollama daemon. Missing prerequisite. Installed models: [${installedModels.join(', ')}].`
+                    error: `Configured model '${this.defaultModel}' is not installed in local Ollama daemon. Missing prerequisite. Installed models: [${installedModels.join(', ')}].`,
                 };
             }
 
@@ -101,14 +113,14 @@ class OllamaProvider extends BaseModelProvider {
                 status: PROVIDER_STATUSES.SUCCESS,
                 latencyMs: Date.now() - start,
                 configuredModel: this.defaultModel,
-                models: installedModels
+                models: installedModels,
             };
         } catch (err) {
             return {
                 available: false,
                 status: PROVIDER_STATUSES.AI_UNAVAILABLE,
                 latencyMs: Date.now() - start,
-                error: err.message
+                error: err.message,
             };
         }
     }
@@ -122,7 +134,7 @@ class OllamaProvider extends BaseModelProvider {
         evidenceContext,
         investigationQuestion,
         generationConfig = {},
-        timeoutMs
+        timeoutMs,
     }) {
         const selectedModel = model || this.defaultModel;
         return telemetry.withSpan(SPAN_NAMES.LLM_INFERENCE, async (span) => {
@@ -130,7 +142,10 @@ class OllamaProvider extends BaseModelProvider {
             span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_MODEL, selectedModel);
             span.setAttribute(GEN_AI_ATTRIBUTES.OPERATION_NAME, 'generate');
             if (generationConfig.temperature !== undefined) {
-                span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_TEMPERATURE, generationConfig.temperature);
+                span.setAttribute(
+                    GEN_AI_ATTRIBUTES.REQUEST_TEMPERATURE,
+                    generationConfig.temperature
+                );
             }
             if (generationConfig.maxTokens !== undefined) {
                 span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_MAX_TOKENS, generationConfig.maxTokens);
@@ -147,16 +162,16 @@ class OllamaProvider extends BaseModelProvider {
                 const messages = [
                     {
                         role: 'system',
-                        content: systemInstruction
+                        content: systemInstruction,
                     },
                     {
                         role: 'user',
                         content: `=== OPERATIONAL EVIDENCE (UNTRUSTED DATA) ===\n${
-                            typeof evidenceContext === 'string' 
-                                ? evidenceContext 
+                            typeof evidenceContext === 'string'
+                                ? evidenceContext
                                 : JSON.stringify(evidenceContext, null, 2)
-                        }\n\n=== INVESTIGATION QUESTION ===\n${investigationQuestion}\n\nRespond strictly in valid JSON adhering to the investigation report schema.`
-                    }
+                        }\n\n=== INVESTIGATION QUESTION ===\n${investigationQuestion}\n\nRespond strictly in valid JSON adhering to the investigation report schema.`,
+                    },
                 ];
 
                 const response = await this.client.chat({
@@ -164,7 +179,10 @@ class OllamaProvider extends BaseModelProvider {
                     messages,
                     format: 'json',
                     options: {
-                        temperature: generationConfig.temperature !== undefined ? generationConfig.temperature : 0.1,
+                        temperature:
+                            generationConfig.temperature !== undefined
+                                ? generationConfig.temperature
+                                : 0.1,
                         num_predict: generationConfig.maxTokens || 2048,
                         top_p: generationConfig.topP || 0.9,
                     },
@@ -184,15 +202,19 @@ class OllamaProvider extends BaseModelProvider {
                     model: selectedModel,
                     success: true,
                     promptTokens,
-                    completionTokens
+                    completionTokens,
                 });
 
-                const content = response && response.message && response.message.content 
-                    ? response.message.content.trim() 
-                    : '';
+                const content =
+                    response && response.message && response.message.content
+                        ? response.message.content.trim()
+                        : '';
 
                 if (!content) {
-                    span.setAttribute(FUSION_AI_ATTRIBUTES.STATUS, PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY);
+                    span.setAttribute(
+                        FUSION_AI_ATTRIBUTES.STATUS,
+                        PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY
+                    );
                     return {
                         rawResponse: '',
                         parsedResponse: null,
@@ -202,11 +224,11 @@ class OllamaProvider extends BaseModelProvider {
                             model: selectedModel,
                             tokens: {
                                 prompt: promptTokens,
-                                completion: completionTokens
-                            }
+                                completion: completionTokens,
+                            },
                         },
                         status: PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY,
-                        error: 'Model returned an empty response'
+                        error: 'Model returned an empty response',
                     };
                 }
 
@@ -215,7 +237,10 @@ class OllamaProvider extends BaseModelProvider {
                 try {
                     parsed = JSON.parse(content);
                 } catch (jsonErr) {
-                    span.setAttribute(FUSION_AI_ATTRIBUTES.STATUS, PROVIDER_STATUSES.MODEL_OUTPUT_INVALID);
+                    span.setAttribute(
+                        FUSION_AI_ATTRIBUTES.STATUS,
+                        PROVIDER_STATUSES.MODEL_OUTPUT_INVALID
+                    );
                     span.setAttribute(FUSION_AI_ATTRIBUTES.ERROR_TYPE, 'MODEL_OUTPUT_INVALID');
                     return {
                         rawResponse: content,
@@ -226,11 +251,11 @@ class OllamaProvider extends BaseModelProvider {
                             model: selectedModel,
                             tokens: {
                                 prompt: promptTokens,
-                                completion: completionTokens
-                            }
+                                completion: completionTokens,
+                            },
                         },
                         status: PROVIDER_STATUSES.MODEL_OUTPUT_INVALID,
-                        error: `Model output is not valid JSON: ${jsonErr.message}`
+                        error: `Model output is not valid JSON: ${jsonErr.message}`,
                     };
                 }
 
@@ -243,13 +268,12 @@ class OllamaProvider extends BaseModelProvider {
                         model: selectedModel,
                         tokens: {
                             prompt: promptTokens,
-                            completion: completionTokens
-                        }
+                            completion: completionTokens,
+                        },
                     },
                     status: PROVIDER_STATUSES.SUCCESS,
-                    error: null
+                    error: null,
                 };
-
             } catch (err) {
                 clearTimeout(timer);
                 const latencyMs = Date.now() - startTime;
@@ -261,17 +285,21 @@ class OllamaProvider extends BaseModelProvider {
                     provider: 'ollama',
                     model: selectedModel,
                     success: false,
-                    errorType
+                    errorType,
                 });
 
-                if (err.name === 'AbortError' || err.message.includes('abort') || latencyMs >= effectiveTimeout) {
+                if (
+                    err.name === 'AbortError' ||
+                    err.message.includes('abort') ||
+                    latencyMs >= effectiveTimeout
+                ) {
                     return {
                         rawResponse: null,
                         parsedResponse: null,
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
                         status: PROVIDER_STATUSES.MODEL_TIMEOUT,
-                        error: `Model inference exceeded timeout of ${effectiveTimeout}ms`
+                        error: `Model inference exceeded timeout of ${effectiveTimeout}ms`,
                     };
                 }
 
@@ -282,18 +310,22 @@ class OllamaProvider extends BaseModelProvider {
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
                         status: PROVIDER_STATUSES.AI_UNAVAILABLE,
-                        error: `Model '${selectedModel}' is not installed in local Ollama daemon. Missing prerequisite.`
+                        error: `Model '${selectedModel}' is not installed in local Ollama daemon. Missing prerequisite.`,
                     };
                 }
 
-                if (err.code === 'ECONNREFUSED' || err.message.includes('ECONNREFUSED') || err.message.includes('connect')) {
+                if (
+                    err.code === 'ECONNREFUSED' ||
+                    err.message.includes('ECONNREFUSED') ||
+                    err.message.includes('connect')
+                ) {
                     return {
                         rawResponse: null,
                         parsedResponse: null,
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
                         status: PROVIDER_STATUSES.AI_UNAVAILABLE,
-                        error: `Local Ollama instance unavailable at ${this.host} (${err.message})`
+                        error: `Local Ollama instance unavailable at ${this.host} (${err.message})`,
                     };
                 }
 
@@ -303,7 +335,7 @@ class OllamaProvider extends BaseModelProvider {
                     latencyMs,
                     metadata: { provider: this.providerName, model: selectedModel },
                     status: PROVIDER_STATUSES.MODEL_PROVIDER_ERROR,
-                    error: err.message
+                    error: err.message,
                 };
             }
         });
@@ -311,7 +343,7 @@ class OllamaProvider extends BaseModelProvider {
 
     /**
      * Multi-turn chat completion with native function calling support.
-     * 
+     *
      * @param {object} params
      * @param {string} [params.model]
      * @param {Array<object>} params.messages
@@ -327,7 +359,7 @@ class OllamaProvider extends BaseModelProvider {
         tools = [],
         format = undefined,
         generationConfig = {},
-        timeoutMs
+        timeoutMs,
     }) {
         const selectedModel = model || this.defaultModel;
         return telemetry.withSpan(SPAN_NAMES.LLM_INFERENCE, async (span) => {
@@ -335,7 +367,10 @@ class OllamaProvider extends BaseModelProvider {
             span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_MODEL, selectedModel);
             span.setAttribute(GEN_AI_ATTRIBUTES.OPERATION_NAME, 'chat');
             if (generationConfig.temperature !== undefined) {
-                span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_TEMPERATURE, generationConfig.temperature);
+                span.setAttribute(
+                    GEN_AI_ATTRIBUTES.REQUEST_TEMPERATURE,
+                    generationConfig.temperature
+                );
             }
             if (generationConfig.maxTokens !== undefined) {
                 span.setAttribute(GEN_AI_ATTRIBUTES.REQUEST_MAX_TOKENS, generationConfig.maxTokens);
@@ -355,10 +390,13 @@ class OllamaProvider extends BaseModelProvider {
                     model: selectedModel,
                     messages,
                     options: {
-                        temperature: generationConfig.temperature !== undefined ? generationConfig.temperature : 0.1,
+                        temperature:
+                            generationConfig.temperature !== undefined
+                                ? generationConfig.temperature
+                                : 0.1,
                         num_predict: generationConfig.maxTokens || 2048,
                         top_p: generationConfig.topP || 0.9,
-                    }
+                    },
                 };
 
                 if (Array.isArray(tools) && tools.length > 0) {
@@ -385,11 +423,14 @@ class OllamaProvider extends BaseModelProvider {
                     model: selectedModel,
                     success: true,
                     promptTokens,
-                    completionTokens
+                    completionTokens,
                 });
 
                 if (!response || !response.message) {
-                    span.setAttribute(FUSION_AI_ATTRIBUTES.STATUS, PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY);
+                    span.setAttribute(
+                        FUSION_AI_ATTRIBUTES.STATUS,
+                        PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY
+                    );
                     return {
                         status: PROVIDER_STATUSES.MODEL_RESPONSE_EMPTY,
                         message: null,
@@ -400,10 +441,10 @@ class OllamaProvider extends BaseModelProvider {
                             model: selectedModel,
                             tokens: {
                                 prompt: promptTokens,
-                                completion: completionTokens
-                            }
+                                completion: completionTokens,
+                            },
                         },
-                        error: 'Model returned an empty chat response'
+                        error: 'Model returned an empty chat response',
                     };
                 }
 
@@ -417,12 +458,11 @@ class OllamaProvider extends BaseModelProvider {
                         model: selectedModel,
                         tokens: {
                             prompt: promptTokens,
-                            completion: completionTokens
-                        }
+                            completion: completionTokens,
+                        },
                     },
-                    error: null
+                    error: null,
                 };
-
             } catch (err) {
                 clearTimeout(timer);
                 const latencyMs = Date.now() - startTime;
@@ -434,17 +474,21 @@ class OllamaProvider extends BaseModelProvider {
                     provider: 'ollama',
                     model: selectedModel,
                     success: false,
-                    errorType
+                    errorType,
                 });
 
-                if (err.name === 'AbortError' || err.message.includes('abort') || latencyMs >= effectiveTimeout) {
+                if (
+                    err.name === 'AbortError' ||
+                    err.message.includes('abort') ||
+                    latencyMs >= effectiveTimeout
+                ) {
                     return {
                         status: PROVIDER_STATUSES.MODEL_TIMEOUT,
                         message: null,
                         rawResponse: null,
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
-                        error: `Model inference exceeded timeout of ${effectiveTimeout}ms`
+                        error: `Model inference exceeded timeout of ${effectiveTimeout}ms`,
                     };
                 }
 
@@ -455,18 +499,22 @@ class OllamaProvider extends BaseModelProvider {
                         rawResponse: null,
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
-                        error: `Model '${selectedModel}' is not installed in local Ollama daemon. Missing prerequisite.`
+                        error: `Model '${selectedModel}' is not installed in local Ollama daemon. Missing prerequisite.`,
                     };
                 }
 
-                if (err.code === 'ECONNREFUSED' || err.message.includes('ECONNREFUSED') || err.message.includes('connect')) {
+                if (
+                    err.code === 'ECONNREFUSED' ||
+                    err.message.includes('ECONNREFUSED') ||
+                    err.message.includes('connect')
+                ) {
                     return {
                         status: PROVIDER_STATUSES.AI_UNAVAILABLE,
                         message: null,
                         rawResponse: null,
                         latencyMs,
                         metadata: { provider: this.providerName, model: selectedModel },
-                        error: `Local Ollama instance unavailable at ${this.host} (${err.message})`
+                        error: `Local Ollama instance unavailable at ${this.host} (${err.message})`,
                     };
                 }
 
@@ -476,7 +524,7 @@ class OllamaProvider extends BaseModelProvider {
                     rawResponse: null,
                     latencyMs,
                     metadata: { provider: this.providerName, model: selectedModel },
-                    error: err.message
+                    error: err.message,
                 };
             }
         });
@@ -487,4 +535,3 @@ module.exports = {
     OllamaProvider,
     validateAndNormalizeLocalHost,
 };
-

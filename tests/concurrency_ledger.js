@@ -40,50 +40,60 @@ async function writeLedger(client, instructionId, sender, recipient, amount, cur
         [entryId2, instructionId, recipient, amount, currency, timestamp, hash2, hash1]
     );
 
-    console.log(`[LEDGER_TEST] Wrote entries for ${instructionId.slice(0,8)}. Hash Chain: ${prevHash.slice(0,8)} -> ${hash1.slice(0,8)} -> ${hash2.slice(0,8)}`);
-    
+    console.log(
+        `[LEDGER_TEST] Wrote entries for ${instructionId.slice(0, 8)}. Hash Chain: ${prevHash.slice(0, 8)} -> ${hash1.slice(0, 8)} -> ${hash2.slice(0, 8)}`
+    );
+
     return hash2;
 }
 
 async function runTest() {
-    console.log("Starting Concurrency Ledger Test...");
+    console.log('Starting Concurrency Ledger Test...');
     const numConcurrent = 5;
     const promises = [];
 
     for (let i = 0; i < numConcurrent; i++) {
-        promises.push((async () => {
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-                const id = crypto.randomUUID();
-                await writeLedger(client, id, 'SENDER_CONC', 'RECP_CONC', 100, 'USD', 0);
-                await client.query('COMMIT');
-                console.log(`Transaction ${i} committed.`);
-            } catch (err) {
-                await client.query('ROLLBACK');
-                console.log(`Transaction ${i} failed: ${err.message}`);
-            } finally {
-                client.release();
-            }
-        })());
+        promises.push(
+            (async () => {
+                const client = await pool.connect();
+                try {
+                    await client.query('BEGIN');
+                    const id = crypto.randomUUID();
+                    await writeLedger(client, id, 'SENDER_CONC', 'RECP_CONC', 100, 'USD', 0);
+                    await client.query('COMMIT');
+                    console.log(`Transaction ${i} committed.`);
+                } catch (err) {
+                    await client.query('ROLLBACK');
+                    console.log(`Transaction ${i} failed: ${err.message}`);
+                } finally {
+                    client.release();
+                }
+            })()
+        );
     }
 
     await Promise.all(promises);
 
     // Verify hash chain
-    const res = await pool.query('SELECT hash, prev_hash FROM ledger_journal ORDER BY sequence_id DESC LIMIT 10');
-    console.log("\nRecent Ledger Entries (Hash Chain):");
+    const res = await pool.query(
+        'SELECT hash, prev_hash FROM ledger_journal ORDER BY sequence_id DESC LIMIT 10'
+    );
+    console.log('\nRecent Ledger Entries (Hash Chain):');
     const rows = res.rows;
     for (let i = 0; i < rows.length - 1; i++) {
         const current = rows[i];
-        const prev = rows[i+1];
+        const prev = rows[i + 1];
         if (current.prev_hash === prev.hash) {
-            console.log(`[OK] Entry ${i} (sequence_id: ${current.sequence_id || '?'}) points correctly to ${i+1}`);
+            console.log(
+                `[OK] Entry ${i} (sequence_id: ${current.sequence_id || '?'}) points correctly to ${i + 1}`
+            );
         } else {
-            console.log(`[FAIL] Entry ${i} (prev_hash: ${current.prev_hash.slice(0,8)}) DOES NOT match Entry ${i+1} (hash: ${prev.hash.slice(0,8)})`);
+            console.log(
+                `[FAIL] Entry ${i} (prev_hash: ${current.prev_hash.slice(0, 8)}) DOES NOT match Entry ${i + 1} (hash: ${prev.hash.slice(0, 8)})`
+            );
         }
     }
-    
+
     await pool.end();
 }
 

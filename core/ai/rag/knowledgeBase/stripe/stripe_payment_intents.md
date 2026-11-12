@@ -12,6 +12,7 @@ licensing: Technical Documentation Summary - Permitted Fair Use Attribution
 # Stripe PaymentIntent Lifecycle & Idempotency Specification
 
 ## PaymentIntent State Machine
+
 The PaymentIntent object represents a payment lifecycle from creation to settlement. It transitions through the following definitive states:
 
 - `requires_payment_method`: The PaymentIntent has been initialized and is awaiting customer payment credentials.
@@ -23,6 +24,7 @@ The PaymentIntent object represents a payment lifecycle from creation to settlem
 - `canceled`: The PaymentIntent was explicitly voided prior to capture or failed terminal verification.
 
 ## Idempotency and Retries
+
 Stripe enforces strict request-level idempotency to prevent duplicate charges:
 
 - The `Idempotency-Key` HTTP header accepts an alphanumeric string up to 255 characters.
@@ -30,4 +32,3 @@ Stripe enforces strict request-level idempotency to prevent duplicate charges:
 - Repeated requests transmitting the identical idempotency key and identical request payload return the exact cached response without re-executing charges.
 - If a request is received with an identical idempotency key but differing parameters, Stripe rejects the request with HTTP 400 `idempotency_error`.
 - For transient network drops (HTTP 502/503/504), clients must safely retry with the identical idempotency key using exponential backoff with jitter.
-

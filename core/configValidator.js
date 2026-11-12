@@ -87,13 +87,17 @@ const PROHIBITED_MAINNET_PATTERNS = Object.freeze([
  */
 function assertPermittedProvider(providerId) {
     if (!providerId || typeof providerId !== 'string' || !providerId.trim()) {
-        const err = new Error('Provider identifier must be an explicit non-empty string (fail closed)');
+        const err = new Error(
+            'Provider identifier must be an explicit non-empty string (fail closed)'
+        );
         err.code = 'UNRECOGNIZED_PROVIDER';
         throw err;
     }
     const cleanId = providerId.trim();
     if (!PERMITTED_PROVIDERS.includes(cleanId)) {
-        const err = new Error(`Unrecognized or unauthorized provider identifier: "${cleanId}". Only permitted sandbox/testnet providers are allowed.`);
+        const err = new Error(
+            `Unrecognized or unauthorized provider identifier: "${cleanId}". Only permitted sandbox/testnet providers are allowed.`
+        );
         err.code = 'UNRECOGNIZED_PROVIDER';
         throw err;
     }
@@ -116,7 +120,9 @@ function assertPermittedEndpoint(endpointUrl) {
     const cleanUrl = endpointUrl.trim();
 
     if (!cleanUrl.startsWith('https://')) {
-        const err = new Error(`Insecure or invalid endpoint protocol: "${cleanUrl}". Only HTTPS sandbox endpoints are permitted.`);
+        const err = new Error(
+            `Insecure or invalid endpoint protocol: "${cleanUrl}". Only HTTPS sandbox endpoints are permitted.`
+        );
         err.code = 'INSECURE_ENDPOINT_PROTOCOL';
         throw err;
     }
@@ -124,7 +130,9 @@ function assertPermittedEndpoint(endpointUrl) {
     // Check prohibited mainnet patterns
     for (const pattern of PROHIBITED_MAINNET_PATTERNS) {
         if (pattern.test(cleanUrl)) {
-            const err = new Error(`Prohibited mainnet/production endpoint rejected: "${cleanUrl}". Mainnet operations are strictly forbidden.`);
+            const err = new Error(
+                `Prohibited mainnet/production endpoint rejected: "${cleanUrl}". Mainnet operations are strictly forbidden.`
+            );
             err.code = 'PROHIBITED_MAINNET_ENDPOINT';
             throw err;
         }
@@ -135,7 +143,9 @@ function assertPermittedEndpoint(endpointUrl) {
         (allowed) => cleanUrl === allowed || cleanUrl.startsWith(allowed + '/')
     );
     if (!isPermitted) {
-        const err = new Error(`Unrecognized endpoint URL: "${cleanUrl}". Only permitted sandbox/testnet API endpoints are allowed.`);
+        const err = new Error(
+            `Unrecognized endpoint URL: "${cleanUrl}". Only permitted sandbox/testnet API endpoints are allowed.`
+        );
         err.code = 'ENDPOINT_NOT_PERMITTED';
         throw err;
     }
@@ -151,18 +161,24 @@ function assertPermittedEndpoint(endpointUrl) {
  */
 function assertPermittedEnvironment(environment) {
     if (!environment || typeof environment !== 'string' || !environment.trim()) {
-        const err = new Error('Missing environment classification: environment must be explicitly specified (fail closed)');
+        const err = new Error(
+            'Missing environment classification: environment must be explicitly specified (fail closed)'
+        );
         err.code = 'MISSING_ENVIRONMENT_CLASSIFICATION';
         throw err;
     }
     const cleanEnv = environment.trim().toLowerCase();
     if (PROHIBITED_ENVIRONMENTS.includes(cleanEnv)) {
-        const err = new Error(`Prohibited production environment '${cleanEnv}' rejected: Project Fusion operates strictly in sandbox/testnet mode.`);
+        const err = new Error(
+            `Prohibited production environment '${cleanEnv}' rejected: Project Fusion operates strictly in sandbox/testnet mode.`
+        );
         err.code = 'PROHIBITED_LIVE_ENVIRONMENT';
         throw err;
     }
     if (!PERMITTED_ENVIRONMENTS.includes(cleanEnv)) {
-        const err = new Error(`Unrecognized environment classification: '${environment}'. Permitted: ${PERMITTED_ENVIRONMENTS.join(', ')}`);
+        const err = new Error(
+            `Unrecognized environment classification: '${environment}'. Permitted: ${PERMITTED_ENVIRONMENTS.join(', ')}`
+        );
         err.code = 'INVALID_ENVIRONMENT_CLASSIFICATION';
         throw err;
     }
@@ -196,7 +212,9 @@ function validateProviderCredentialMode({
     const cleanProvider = assertPermittedProvider(provider);
 
     // 2. Environment classification validation (must be valid sandbox/testnet, fails closed if missing or unknown)
-    const cleanEnv = assertPermittedEnvironment(environment || process.env.NETWORK_ENVIRONMENT || 'sandbox');
+    const cleanEnv = assertPermittedEnvironment(
+        environment || process.env.NETWORK_ENVIRONMENT || 'sandbox'
+    );
 
     // 3. Endpoint validation if provided (fails closed, rejects HTTP, must be in allowlist and match HTTPS)
     if (endpoint) {
@@ -210,21 +228,29 @@ function validateProviderCredentialMode({
     if (providerUpper.includes('STRIPE')) {
         const stripeKey = credential || keySecret;
         if (!stripeKey || typeof stripeKey !== 'string' || !stripeKey.trim()) {
-            const err = new Error(`Missing mandatory Stripe credential for provider '${cleanProvider}'`);
+            const err = new Error(
+                `Missing mandatory Stripe credential for provider '${cleanProvider}'`
+            );
             err.code = 'MISSING_CREDENTIAL';
             throw err;
         }
         const trimmedKey = stripeKey.trim();
         for (const livePrefix of PROHIBITED_STRIPE_LIVE_PREFIXES) {
             if (trimmedKey.startsWith(livePrefix)) {
-                const err = new Error(`Live-mode Stripe credential ('${livePrefix}*') detected for provider '${cleanProvider}'! Live credentials are strictly prohibited.`);
+                const err = new Error(
+                    `Live-mode Stripe credential ('${livePrefix}*') detected for provider '${cleanProvider}'! Live credentials are strictly prohibited.`
+                );
                 err.code = 'PROHIBITED_LIVE_CREDENTIAL';
                 throw err;
             }
         }
-        const hasValidTestPrefix = SUPPORTED_STRIPE_TEST_PREFIXES.some((p) => trimmedKey.startsWith(p));
+        const hasValidTestPrefix = SUPPORTED_STRIPE_TEST_PREFIXES.some((p) =>
+            trimmedKey.startsWith(p)
+        );
         if (!hasValidTestPrefix) {
-            const err = new Error(`Invalid Stripe credential for provider '${cleanProvider}': must start with test prefix (${SUPPORTED_STRIPE_TEST_PREFIXES.join(', ')})`);
+            const err = new Error(
+                `Invalid Stripe credential for provider '${cleanProvider}': must start with test prefix (${SUPPORTED_STRIPE_TEST_PREFIXES.join(', ')})`
+            );
             err.code = 'INVALID_TEST_CREDENTIAL';
             throw err;
         }
@@ -234,21 +260,29 @@ function validateProviderCredentialMode({
     if (providerUpper.includes('RAZORPAY')) {
         const rzpKeyId = keyId || credential;
         if (!rzpKeyId || typeof rzpKeyId !== 'string' || !rzpKeyId.trim()) {
-            const err = new Error(`Missing mandatory Razorpay Key ID for provider '${cleanProvider}'`);
+            const err = new Error(
+                `Missing mandatory Razorpay Key ID for provider '${cleanProvider}'`
+            );
             err.code = 'MISSING_CREDENTIAL';
             throw err;
         }
         const trimmedKeyId = rzpKeyId.trim();
         for (const livePrefix of PROHIBITED_RAZORPAY_LIVE_PREFIXES) {
             if (trimmedKeyId.startsWith(livePrefix)) {
-                const err = new Error(`Live-mode Razorpay key identifier ('${livePrefix}*') detected for provider '${cleanProvider}'! Live credentials are strictly prohibited.`);
+                const err = new Error(
+                    `Live-mode Razorpay key identifier ('${livePrefix}*') detected for provider '${cleanProvider}'! Live credentials are strictly prohibited.`
+                );
                 err.code = 'PROHIBITED_LIVE_CREDENTIAL';
                 throw err;
             }
         }
-        const hasValidTestPrefix = SUPPORTED_RAZORPAY_TEST_PREFIXES.some((p) => trimmedKeyId.startsWith(p));
+        const hasValidTestPrefix = SUPPORTED_RAZORPAY_TEST_PREFIXES.some((p) =>
+            trimmedKeyId.startsWith(p)
+        );
         if (!hasValidTestPrefix) {
-            const err = new Error(`Invalid Razorpay key identifier for provider '${cleanProvider}': must start with test prefix (${SUPPORTED_RAZORPAY_TEST_PREFIXES.join(', ')})`);
+            const err = new Error(
+                `Invalid Razorpay key identifier for provider '${cleanProvider}': must start with test prefix (${SUPPORTED_RAZORPAY_TEST_PREFIXES.join(', ')})`
+            );
             err.code = 'INVALID_TEST_CREDENTIAL';
             throw err;
         }
@@ -256,7 +290,9 @@ function validateProviderCredentialMode({
         // Key secret validation: must be bound to explicitly validated test keyId; cannot infer test mode from secret alone
         if (keySecret !== undefined && keySecret !== null) {
             if (typeof keySecret !== 'string' || !keySecret.trim()) {
-                const err = new Error(`Missing or invalid Razorpay Key Secret for provider '${cleanProvider}'`);
+                const err = new Error(
+                    `Missing or invalid Razorpay Key Secret for provider '${cleanProvider}'`
+                );
                 err.code = 'MISSING_CREDENTIAL';
                 throw err;
             }
@@ -264,9 +300,15 @@ function validateProviderCredentialMode({
     }
 
     // Digital asset simulation adapters (BTC, ETH): strictly zero-network isolation
-    if (providerUpper.includes('SIMULAT') || providerUpper.includes('BTC') || providerUpper.includes('ETH')) {
+    if (
+        providerUpper.includes('SIMULAT') ||
+        providerUpper.includes('BTC') ||
+        providerUpper.includes('ETH')
+    ) {
         if (rpcUrl || endpoint) {
-            const err = new Error(`Simulation adapter for provider '${cleanProvider}' cannot resolve or connect to external RPC/network endpoints. Simulation is strictly network-isolated.`);
+            const err = new Error(
+                `Simulation adapter for provider '${cleanProvider}' cannot resolve or connect to external RPC/network endpoints. Simulation is strictly network-isolated.`
+            );
             err.code = 'SIMULATION_RPC_PROHIBITED';
             throw err;
         }
@@ -288,13 +330,17 @@ function validateProviderCredentialMode({
  */
 function assertPermittedNetwork(networkId) {
     if (!networkId || typeof networkId !== 'string' || !networkId.trim()) {
-        const err = new Error('Missing network classification: network environment must be explicitly specified (fail closed)');
+        const err = new Error(
+            'Missing network classification: network environment must be explicitly specified (fail closed)'
+        );
         err.code = 'MISSING_NETWORK_CLASSIFICATION';
         throw err;
     }
     const cleanNetwork = networkId.trim().toLowerCase();
     if (!PERMITTED_BLOCKCHAIN_NETWORKS.includes(cleanNetwork)) {
-        const err = new Error(`Prohibited or unrecognized blockchain network: "${networkId}". Only verified testnet/simulation rails are permitted.`);
+        const err = new Error(
+            `Prohibited or unrecognized blockchain network: "${networkId}". Only verified testnet/simulation rails are permitted.`
+        );
         err.code = 'PROHIBITED_NETWORK';
         throw err;
     }
@@ -311,7 +357,9 @@ function assertPermittedNetwork(networkId) {
  * @param {string} [options.network] - Blockchain network
  */
 function validateSimulationAdapter({ asset, rpcUrl = null, network = null } = {}) {
-    const cleanAsset = String(asset || '').toUpperCase().trim();
+    const cleanAsset = String(asset || '')
+        .toUpperCase()
+        .trim();
     if (!['BTC', 'ETH', 'USDC'].includes(cleanAsset)) {
         const err = new Error(`Invalid asset for simulation adapter check: "${asset}"`);
         err.code = 'INVALID_ASSET';
@@ -350,9 +398,13 @@ function validateEnvironment(env = process.env) {
     if (!stripeKey) {
         errors.push('Missing mandatory environment variable: STRIPE_TEST_SECRET_KEY');
     } else if (stripeKey.startsWith('sk_live_') || stripeKey.startsWith('rk_live_')) {
-        errors.push('CRITICAL: Production Stripe key (sk_live_* or rk_live_*) detected! Project Fusion strictly prohibits live card credentials.');
+        errors.push(
+            'CRITICAL: Production Stripe key (sk_live_* or rk_live_*) detected! Project Fusion strictly prohibits live card credentials.'
+        );
     } else if (!stripeKey.startsWith('sk_test_') && !stripeKey.startsWith('rk_test_')) {
-        errors.push("Invalid STRIPE_TEST_SECRET_KEY: Must start with test prefix 'sk_test_' or 'rk_test_'");
+        errors.push(
+            "Invalid STRIPE_TEST_SECRET_KEY: Must start with test prefix 'sk_test_' or 'rk_test_'"
+        );
     }
 
     // 1b. STRIPE TEST WEBHOOK SECRET VALIDATION (IF PRESENT)
@@ -368,7 +420,9 @@ function validateEnvironment(env = process.env) {
     if (!rzpKeyId) {
         errors.push('Missing mandatory environment variable: RAZORPAY_KEY_ID');
     } else if (rzpKeyId.startsWith('rzp_live_')) {
-        errors.push('CRITICAL: Production Razorpay key (rzp_live_*) detected! Project Fusion strictly prohibits live payout credentials.');
+        errors.push(
+            'CRITICAL: Production Razorpay key (rzp_live_*) detected! Project Fusion strictly prohibits live payout credentials.'
+        );
     } else if (!rzpKeyId.startsWith('rzp_test_')) {
         errors.push("Invalid RAZORPAY_KEY_ID: Must start with test prefix 'rzp_test_'");
     }
@@ -380,46 +434,67 @@ function validateEnvironment(env = process.env) {
     // 2b. RAZORPAYX WEBHOOK SECRET VALIDATION (IF PRESENT)
     const rzpWebhookSecret = (env.RAZORPAYX_WEBHOOK_SECRET || '').trim();
     if (rzpWebhookSecret && rzpSecret && rzpWebhookSecret === rzpSecret) {
-        errors.push('CRITICAL: RAZORPAYX_WEBHOOK_SECRET must NOT match RAZORPAY_KEY_SECRET (dedicated signing secret required).');
+        errors.push(
+            'CRITICAL: RAZORPAYX_WEBHOOK_SECRET must NOT match RAZORPAY_KEY_SECRET (dedicated signing secret required).'
+        );
     }
 
     // 3. STELLAR TESTNET ENFORCEMENT
     if (env.STELLAR_HORIZON_URL && env.STELLAR_HORIZON_URL !== STELLAR_TESTNET_HORIZON) {
-        errors.push(`Prohibited Stellar Horizon URL: Only official Testnet (${STELLAR_TESTNET_HORIZON}) is allowed.`);
+        errors.push(
+            `Prohibited Stellar Horizon URL: Only official Testnet (${STELLAR_TESTNET_HORIZON}) is allowed.`
+        );
     }
 
-    if (env.STELLAR_NETWORK_PASSPHRASE && env.STELLAR_NETWORK_PASSPHRASE !== STELLAR_TESTNET_PASSPHRASE) {
+    if (
+        env.STELLAR_NETWORK_PASSPHRASE &&
+        env.STELLAR_NETWORK_PASSPHRASE !== STELLAR_TESTNET_PASSPHRASE
+    ) {
         errors.push('Prohibited Stellar Network Passphrase: Only Testnet passphrase is permitted.');
     }
 
     // 4. VAULT MASTER SECRET (KEY DERIVATION)
     const masterSecret = (env.VAULT_MASTER_SECRET || '').trim();
     if (!masterSecret) {
-        errors.push('Missing mandatory environment variable: VAULT_MASTER_SECRET (no hardcoded fallback allowed)');
+        errors.push(
+            'Missing mandatory environment variable: VAULT_MASTER_SECRET (no hardcoded fallback allowed)'
+        );
     } else if (masterSecret.length < 16) {
-        errors.push('VAULT_MASTER_SECRET is too short (minimum 16 characters required for HMAC derivation)');
+        errors.push(
+            'VAULT_MASTER_SECRET is too short (minimum 16 characters required for HMAC derivation)'
+        );
     }
 
     // 5. NETWORK ENVIRONMENT CLASSIFICATION (IF CONFIGURED)
     if (env.NETWORK_ENVIRONMENT) {
         const netEnv = env.NETWORK_ENVIRONMENT.trim().toLowerCase();
         if (['production', 'live', 'mainnet'].includes(netEnv)) {
-            errors.push(`CRITICAL: Production network environment (${netEnv}) detected! Project Fusion strictly prohibits live operations.`);
+            errors.push(
+                `CRITICAL: Production network environment (${netEnv}) detected! Project Fusion strictly prohibits live operations.`
+            );
         } else if (!['sandbox', 'testnet', 'development', 'test'].includes(netEnv)) {
-            errors.push(`Invalid NETWORK_ENVIRONMENT: "${env.NETWORK_ENVIRONMENT}". Must be one of: sandbox, testnet, development, test`);
+            errors.push(
+                `Invalid NETWORK_ENVIRONMENT: "${env.NETWORK_ENVIRONMENT}". Must be one of: sandbox, testnet, development, test`
+            );
         }
     }
 
     // 6. SIMULATION RPC REJECTION IN ENVIRONMENT
     if (env.ETH_RPC_URL) {
-        errors.push('CRITICAL: ETH_RPC_URL configured in environment. ETH is strictly simulated with zero RPC network resolution.');
+        errors.push(
+            'CRITICAL: ETH_RPC_URL configured in environment. ETH is strictly simulated with zero RPC network resolution.'
+        );
     }
     if (env.BTC_RPC_URL) {
-        errors.push('CRITICAL: BTC_RPC_URL configured in environment. BTC is strictly simulated with zero RPC network resolution.');
+        errors.push(
+            'CRITICAL: BTC_RPC_URL configured in environment. BTC is strictly simulated with zero RPC network resolution.'
+        );
     }
 
     if (errors.length > 0) {
-        const errorMsg = `[CONFIG-VALIDATION-FAIL] Environment validation failed with ${errors.length} fatal error(s):\n- ` + errors.join('\n- ');
+        const errorMsg =
+            `[CONFIG-VALIDATION-FAIL] Environment validation failed with ${errors.length} fatal error(s):\n- ` +
+            errors.join('\n- ');
         logger.error(errorMsg);
         const err = new Error(errorMsg);
         err.validationErrors = errors;
@@ -459,4 +534,3 @@ module.exports = {
     validateSimulationAdapter,
     validateProviderCredentialMode,
 };
-

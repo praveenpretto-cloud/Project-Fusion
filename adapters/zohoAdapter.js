@@ -33,30 +33,36 @@ async function getAccessToken() {
 
     const postData = querystring.stringify({
         refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id:     process.env.ZOHO_CLIENT_ID,
+        client_id: process.env.ZOHO_CLIENT_ID,
         client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type:    'refresh_token',
+        grant_type: 'refresh_token',
     });
 
     return new Promise((resolve, reject) => {
         const options = {
             hostname: ACCOUNTS_HOST,
-            path:     '/oauth/v2/token',
-            method:   'POST',
+            path: '/oauth/v2/token',
+            method: 'POST',
             headers: {
-                'Content-Type':   'application/x-www-form-urlencoded',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Content-Length': Buffer.byteLength(postData),
             },
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', chunk => { data += chunk; });
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
                     if (json.error || !json.access_token) {
-                        return reject(new Error(`Zoho token refresh failed: ${json.error || 'no access_token'}`));
+                        return reject(
+                            new Error(
+                                `Zoho token refresh failed: ${json.error || 'no access_token'}`
+                            )
+                        );
                     }
                     _cachedToken = json.access_token;
                     _tokenExpiresAt = now + (json.expires_in || 3600) * 1000;
@@ -86,22 +92,28 @@ async function zohoGet(path, params = {}) {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: API_HOST,
-            path:     `/books/v3${path}?${qs}`,
-            method:   'GET',
+            path: `/books/v3${path}?${qs}`,
+            method: 'GET',
             headers: {
-                'Authorization': `Zoho-oauthtoken ${token}`,
-                'Content-Type':  'application/json',
+                Authorization: `Zoho-oauthtoken ${token}`,
+                'Content-Type': 'application/json',
             },
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', chunk => { data += chunk; });
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
                     if (res.statusCode >= 400 || (json.code !== undefined && json.code !== 0)) {
-                        return reject(new Error(`Zoho API error [${json.code || res.statusCode}]: ${json.message || data}`));
+                        return reject(
+                            new Error(
+                                `Zoho API error [${json.code || res.statusCode}]: ${json.message || data}`
+                            )
+                        );
                     }
                     resolve(json);
                 } catch (e) {
@@ -125,23 +137,29 @@ async function zohoPost(path, body, method = 'POST') {
     return new Promise((resolve, reject) => {
         const options = {
             hostname: API_HOST,
-            path:     `/books/v3${path}?organization_id=${orgId}`,
+            path: `/books/v3${path}?organization_id=${orgId}`,
             method,
             headers: {
-                'Authorization':  `Zoho-oauthtoken ${token}`,
-                'Content-Type':   'application/json',
+                Authorization: `Zoho-oauthtoken ${token}`,
+                'Content-Type': 'application/json',
                 'Content-Length': Buffer.byteLength(bodyStr),
             },
         };
 
         const req = https.request(options, (res) => {
             let data = '';
-            res.on('data', chunk => { data += chunk; });
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
                     if (res.statusCode >= 400 || (json.code !== undefined && json.code !== 0)) {
-                        return reject(new Error(`Zoho API error [${json.code || res.statusCode}]: ${json.message || data}`));
+                        return reject(
+                            new Error(
+                                `Zoho API error [${json.code || res.statusCode}]: ${json.message || data}`
+                            )
+                        );
                     }
                     resolve(json);
                 } catch (e) {
@@ -162,7 +180,11 @@ async function zohoPost(path, body, method = 'POST') {
 async function fetchPendingInvoices() {
     logger.info('[ZOHO] Fetching pending invoices from Zoho Books...');
     // Status 'unpaid' in Zoho Books captures sent, overdue, and partially_paid invoices
-    const response = await zohoGet('/invoices', { status: 'unpaid', sort_column: 'due_date', sort_order: 'A' });
+    const response = await zohoGet('/invoices', {
+        status: 'unpaid',
+        sort_column: 'due_date',
+        sort_order: 'A',
+    });
 
     if (!response.invoices) {
         logger.warn('[ZOHO] No invoices returned from Zoho API');
@@ -199,20 +221,22 @@ async function markInvoicePaid(zohoInvoiceId, paymentDetails) {
             const inv = await fetchInvoiceById(zohoInvoiceId);
             customerId = inv.customer_id;
         } catch (fetchErr) {
-            logger.warn(`[ZOHO] Could not pre-fetch customer_id for invoice ${zohoInvoiceId}: ${fetchErr.message}`);
+            logger.warn(
+                `[ZOHO] Could not pre-fetch customer_id for invoice ${zohoInvoiceId}: ${fetchErr.message}`
+            );
         }
     }
 
     const payload = {
-        customer_id:     customerId,
-        payment_mode:    paymentDetails.mode || 'bank_transfer',
-        amount:          paymentDetails.amount,
-        date:            paymentDetails.date || new Date().toISOString().split('T')[0],
+        customer_id: customerId,
+        payment_mode: paymentDetails.mode || 'bank_transfer',
+        amount: paymentDetails.amount,
+        date: paymentDetails.date || new Date().toISOString().split('T')[0],
         reference_number: paymentDetails.reference || '',
-        description:     `Settled via Project Fusion | Ref: ${paymentDetails.reference}`,
+        description: `Settled via Project Fusion | Ref: ${paymentDetails.reference}`,
         invoices: [
             {
-                invoice_id:     zohoInvoiceId,
+                invoice_id: zohoInvoiceId,
                 amount_applied: paymentDetails.amount,
             },
         ],
@@ -224,7 +248,9 @@ async function markInvoicePaid(zohoInvoiceId, paymentDetails) {
         throw new Error(`Zoho mark-paid failed: ${response.message}`);
     }
 
-    logger.info(`[ZOHO] ✅ Invoice ${zohoInvoiceId} marked as paid. Payment ID: ${response.payment?.payment_id}`);
+    logger.info(
+        `[ZOHO] ✅ Invoice ${zohoInvoiceId} marked as paid. Payment ID: ${response.payment?.payment_id}`
+    );
     return response.payment;
 }
 
@@ -238,55 +264,55 @@ async function markInvoicePaid(zohoInvoiceId, paymentDetails) {
 function normalizeZohoInvoice(zohoInvoice) {
     // Default to INR for Indian businesses (not USD)
     const currency = (zohoInvoice.currency_code || 'INR').toUpperCase();
-    const total    = parseFloat(zohoInvoice.total || zohoInvoice.balance || 0);
+    const total = parseFloat(zohoInvoice.total || zohoInvoice.balance || 0);
 
     return {
         // Core identifiers
-        invoiceId:       `ZOHO-${zohoInvoice.invoice_id}`,
-        zohoInvoiceId:   zohoInvoice.invoice_id,
-        invoiceNumber:   zohoInvoice.invoice_number || zohoInvoice.invoice_id,
-        sourceType:      'zoho',
+        invoiceId: `ZOHO-${zohoInvoice.invoice_id}`,
+        zohoInvoiceId: zohoInvoice.invoice_id,
+        invoiceNumber: zohoInvoice.invoice_number || zohoInvoice.invoice_id,
+        sourceType: 'zoho',
 
         // Dates
-        invoiceDate:     zohoInvoice.date || new Date().toISOString().split('T')[0],
-        dueDate:         zohoInvoice.due_date || null,
+        invoiceDate: zohoInvoice.date || new Date().toISOString().split('T')[0],
+        dueDate: zohoInvoice.due_date || null,
         paymentTermsDays: zohoInvoice.payment_terms || 30,
 
         // Financials
-        totalAmount:     total,
+        totalAmount: total,
         currency,
-        balance:         parseFloat(zohoInvoice.balance || total),
+        balance: parseFloat(zohoInvoice.balance || total),
 
         // Parties
         seller: {
-            name:    process.env.ZOHO_ORG_NAME || 'Fusion Seller',
-            gstPan:  zohoInvoice.gst_no || null,
+            name: process.env.ZOHO_ORG_NAME || 'Fusion Seller',
+            gstPan: zohoInvoice.gst_no || null,
         },
         buyer: {
-            name:    zohoInvoice.customer_name || 'Unknown Buyer',
-            email:   zohoInvoice.email || null,
-            zohoId:  zohoInvoice.customer_id || null,
+            name: zohoInvoice.customer_name || 'Unknown Buyer',
+            email: zohoInvoice.email || null,
+            zohoId: zohoInvoice.customer_id || null,
         },
 
         // Line items
-        lineItems: (zohoInvoice.line_items || []).map(li => ({
+        lineItems: (zohoInvoice.line_items || []).map((li) => ({
             description: li.description || li.name,
-            quantity:    li.quantity || 1,
-            rate:        parseFloat(li.rate || 0),
-            amount:      parseFloat(li.item_total || 0),
+            quantity: li.quantity || 1,
+            rate: parseFloat(li.rate || 0),
+            amount: parseFloat(li.item_total || 0),
         })),
 
         // Instruction fields (maps into Fusion's instruction schema)
-        amount:    total,
-        sender:    zohoInvoice.customer_name || 'ZOHO_BUYER',
+        amount: total,
+        sender: zohoInvoice.customer_name || 'ZOHO_BUYER',
         recipient: process.env.ZOHO_ORG_NAME || 'FUSION_SELLER',
-        purpose:   currency === 'INR' ? 'DOMESTIC_PAYMENT' : 'EXPORT_INVOICE',
+        purpose: currency === 'INR' ? 'DOMESTIC_PAYMENT' : 'EXPORT_INVOICE',
 
         // Raw Zoho metadata preserved for audit
         _zohoRaw: {
-            status:         zohoInvoice.status,
+            status: zohoInvoice.status,
             invoice_number: zohoInvoice.invoice_number,
-            reference:      zohoInvoice.reference_number,
+            reference: zohoInvoice.reference_number,
         },
     };
 }
@@ -407,7 +433,9 @@ async function syncObligationsFromZoho(pool, businessId) {
         }
     }
 
-    logger.info(`[ZOHO_CASHIQ] Sync complete — ${synced} obligations upserted, ${errors.length} errors`);
+    logger.info(
+        `[ZOHO_CASHIQ] Sync complete — ${synced} obligations upserted, ${errors.length} errors`
+    );
     return { synced, errors };
 }
 
@@ -419,4 +447,3 @@ module.exports = {
     // CashIQ sync entrypoint
     syncObligationsFromZoho,
 };
-

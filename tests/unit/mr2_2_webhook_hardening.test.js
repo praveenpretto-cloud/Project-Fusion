@@ -18,13 +18,22 @@ const {
 } = require('../../core/orchestrator/financialDecimal');
 const { toStripeMinorUnits } = require('../../adapters/paymentsAdapters');
 const { processWebhookEvent } = require('../../core/webhooks/webhookProcessor');
-const { writeLedger, writeCompensatingLedger, verifyLedgerIntegrity } = require('../../core/orchestrator/ledgerUtils');
+const {
+    writeLedger,
+    writeCompensatingLedger,
+    verifyLedgerIntegrity,
+} = require('../../core/orchestrator/ledgerUtils');
 
 function createMockPool(initialState = {}) {
     const db = {
-        instructions: new Map((initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])),
+        instructions: new Map(
+            (initialState.instructions || []).map((i) => [i.instruction_id, { ...i }])
+        ),
         processed_webhook_events: new Map(
-            (initialState.processed_webhook_events || []).map((e) => [`${e.provider}:${e.event_id}`, { ...e }])
+            (initialState.processed_webhook_events || []).map((e) => [
+                `${e.provider}:${e.event_id}`,
+                { ...e },
+            ])
         ),
         ledger_journal: [],
     };
@@ -57,15 +66,18 @@ function createMockPool(initialState = {}) {
                         stagedInstructions = new Map();
                         for (const [k, v] of db.instructions) stagedInstructions.set(k, { ...v });
                         stagedEvents = new Map();
-                        for (const [k, v] of db.processed_webhook_events) stagedEvents.set(k, { ...v });
+                        for (const [k, v] of db.processed_webhook_events)
+                            stagedEvents.set(k, { ...v });
                         stagedJournal = [...db.ledger_journal];
                         return { rows: [] };
                     }
 
                     if (normalized === 'COMMIT') {
                         if (inTxn) {
-                            for (const [k, v] of stagedInstructions) db.instructions.set(k, { ...v });
-                            for (const [k, v] of stagedEvents) db.processed_webhook_events.set(k, { ...v });
+                            for (const [k, v] of stagedInstructions)
+                                db.instructions.set(k, { ...v });
+                            for (const [k, v] of stagedEvents)
+                                db.processed_webhook_events.set(k, { ...v });
                             db.ledger_journal = stagedJournal;
                             inTxn = false;
                         }
@@ -91,7 +103,17 @@ function createMockPool(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO LEDGER_JOURNAL')) {
-                        const [entryId, instructionId, accountId, direction, amount, currency, timestamp, hash, prevHash] = params;
+                        const [
+                            entryId,
+                            instructionId,
+                            accountId,
+                            direction,
+                            amount,
+                            currency,
+                            timestamp,
+                            hash,
+                            prevHash,
+                        ] = params;
                         const targetJournal = inTxn ? stagedJournal : db.ledger_journal;
                         targetJournal.push({
                             entry_id: entryId,
@@ -123,7 +145,8 @@ function createMockPool(initialState = {}) {
                     }
 
                     if (normalized.startsWith('INSERT INTO PROCESSED_WEBHOOK_EVENTS')) {
-                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] = params;
+                        const [eventId, provider, eventType, instructionId, intentId, payloadHash] =
+                            params;
                         const key = `${provider}:${eventId}`;
                         const targetStore = inTxn ? stagedEvents : db.processed_webhook_events;
 
@@ -142,17 +165,23 @@ function createMockPool(initialState = {}) {
                         return { rows: [{ event_id: eventId }] };
                     }
 
-                    if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')) {
+                    if (
+                        normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE EXTERNAL_INTENT_ID')
+                    ) {
                         const intentId = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.external_intent_id === intentId);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.external_intent_id === intentId
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
                     if (normalized.startsWith('SELECT * FROM INSTRUCTIONS WHERE INSTRUCTION_ID')) {
                         const id = params[0];
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
-                        const found = Array.from(targetStore.values()).filter((i) => i.instruction_id === id);
+                        const found = Array.from(targetStore.values()).filter(
+                            (i) => i.instruction_id === id
+                        );
                         return { rows: found.map((f) => ({ ...f })) };
                     }
 
@@ -165,14 +194,21 @@ function createMockPool(initialState = {}) {
                         return { rows: [] };
                     }
 
-                    if (normalized.includes("UPDATE INSTRUCTIONS SET STATE = $1") || normalized.includes("UPDATE INSTRUCTIONS SET STATUS = $1")) {
+                    if (
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATE = $1') ||
+                        normalized.includes('UPDATE INSTRUCTIONS SET STATUS = $1')
+                    ) {
                         const [targetState, metaStr, instructionId] = params;
                         const targetStore = inTxn ? stagedInstructions : db.instructions;
                         if (targetStore.has(instructionId)) {
                             const inst = targetStore.get(instructionId);
                             inst.state = targetState;
                             inst.status = targetState;
-                            try { inst.metadata = JSON.parse(metaStr); } catch { inst.metadata = metaStr; }
+                            try {
+                                inst.metadata = JSON.parse(metaStr);
+                            } catch {
+                                inst.metadata = metaStr;
+                            }
                         }
                         return { rows: [] };
                     }
@@ -294,7 +330,9 @@ describe('Project Fusion — Milestone MR2.2 Webhook Hardening & Compensating Le
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('CONVERSION_FAILURE');
             expect(mockPool.getLedgerWriteCount()).toBe(0);
-            expect(mockPool.getDb().instructions.get('inst_unsupported_curr').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_unsupported_curr').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
 
         test('3. Non-positive amount (0.00) fails closed to MANUAL_CHECK with zero ledger postings', async () => {
@@ -378,7 +416,9 @@ describe('Project Fusion — Milestone MR2.2 Webhook Hardening & Compensating Le
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('CONVERSION_FAILURE');
             expect(mockPool.getLedgerWriteCount()).toBe(0);
-            expect(mockPool.getDb().instructions.get('inst_excess_prec').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_excess_prec').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
 
         test('5. Missing amount in webhook payload transitions to MANUAL_CHECK', async () => {
@@ -420,7 +460,9 @@ describe('Project Fusion — Milestone MR2.2 Webhook Hardening & Compensating Le
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('MISSING_AMOUNT');
             expect(mockPool.getLedgerWriteCount()).toBe(0);
-            expect(mockPool.getDb().instructions.get('inst_missing_amt').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_missing_amt').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
     });
 
@@ -731,7 +773,9 @@ describe('Project Fusion — Milestone MR2.2 Webhook Hardening & Compensating Le
             expect(res.body.mismatch).toBe(true);
             expect(res.body.reason).toBe('OVER_REFUND_ATTEMPT');
             expect(mockPool.getCompensatingLedgerWriteCount()).toBe(0);
-            expect(mockPool.getDb().instructions.get('inst_over_refund').state).toBe('MANUAL_CHECK');
+            expect(mockPool.getDb().instructions.get('inst_over_refund').state).toBe(
+                'MANUAL_CHECK'
+            );
         });
 
         test('5. Pending or failed refunds are recorded in metadata but NEVER post to ledger', async () => {
@@ -803,8 +847,12 @@ describe('Project Fusion — Milestone MR2.2 Webhook Hardening & Compensating Le
             const inst = mockPool.getDb().instructions.get('inst_pending_refund');
             expect(inst.state).toBe('SETTLED');
             expect(inst.metadata.refunds.length).toBe(2);
-            expect(inst.metadata.refunds.find((r) => r.refund_id === 're_pending_001').status).toBe('PENDING');
-            expect(inst.metadata.refunds.find((r) => r.refund_id === 're_failed_001').status).toBe('FAILED');
+            expect(inst.metadata.refunds.find((r) => r.refund_id === 're_pending_001').status).toBe(
+                'PENDING'
+            );
+            expect(inst.metadata.refunds.find((r) => r.refund_id === 're_failed_001').status).toBe(
+                'FAILED'
+            );
         });
     });
 });

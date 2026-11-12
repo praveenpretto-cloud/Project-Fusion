@@ -12,6 +12,7 @@ licensing: Technical Documentation Summary - Permitted Fair Use Attribution
 # Stripe Refunds Lifecycle & Webhook Event Semantics
 
 ## Refund Lifecycle and Statuses
+
 Refunds return funds to the customer account from a settled charge. Refunds transition through the following states:
 
 - `pending`: The refund request is queued for processing at the banking network (common for ACH and SEPA direct debit refunds, taking up to 5-10 business days).
@@ -20,6 +21,7 @@ Refunds return funds to the customer account from a settled charge. Refunds tran
 - `canceled`: The refund was canceled by the merchant before execution.
 
 ## Inbound Webhook Event Semantics
+
 Stripe notifies merchant backends asynchronously via signed HTTP POST webhooks. Key events include:
 
 - `payment_intent.succeeded`: The payment was captured and funds are confirmed settled.
@@ -28,8 +30,8 @@ Stripe notifies merchant backends asynchronously via signed HTTP POST webhooks. 
 - `charge.refund.updated`: A refund status transitioned (e.g. from `pending` to `succeeded` or `failed`).
 
 ## Webhook Signature Verification and Duplicate Delivery
+
 - Webhooks transmit the `Stripe-Signature` header containing a timestamp (`t=...`) and HMAC-SHA256 signature (`v1=...`).
 - Verification computes HMAC-SHA256 over `${timestamp}.${raw_body}` using `STRIPE_WEBHOOK_SECRET` and performs constant-time comparison to prevent timing attacks.
 - At-least-once delivery: Stripe guarantees delivery by retrying dropped webhooks up to 72 hours.
 - Applications must record processed event IDs (`evt_...`) in a unique database column (`ON CONFLICT DO NOTHING`) to ensure strict idempotency across duplicate deliveries.
-

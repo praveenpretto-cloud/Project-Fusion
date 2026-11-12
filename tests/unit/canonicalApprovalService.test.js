@@ -21,11 +21,7 @@
 process.env.NODE_ENV = 'test';
 
 const crypto = require('crypto');
-const {
-    ROLES,
-    PERMISSIONS,
-    RbacService,
-} = require('../../core/identity/rbacService');
+const { ROLES, PERMISSIONS, RbacService } = require('../../core/identity/rbacService');
 const {
     WebAuthnService,
     computePaymentContextDigest,
@@ -34,12 +30,8 @@ const {
     MakerCheckerService,
     APPROVAL_STATUS,
 } = require('../../core/approvals/makerCheckerService');
-const {
-    CanonicalApprovalService,
-} = require('../../core/approvals/canonicalApprovalService');
-const {
-    runScheduledPaymentsSweep,
-} = require('../../core/cashiq/paymentScheduler');
+const { CanonicalApprovalService } = require('../../core/approvals/canonicalApprovalService');
+const { runScheduledPaymentsSweep } = require('../../core/cashiq/paymentScheduler');
 
 describe('Project Fusion — ADR-002: Canonical Payment Approval and Saga Execution', () => {
     let rbacService;
@@ -59,7 +51,10 @@ describe('Project Fusion — ADR-002: Canonical Payment Approval and Saga Execut
         rbacService.inMemoryAssignments.set(CHECKER_CFO_ID, new Set([ROLES.TREASURY_ANALYST]));
         rbacService.inMemoryAssignments.set(AUDITOR_ID, new Set([ROLES.AUDITOR]));
 
-        webauthnService = new WebAuthnService({ rpId: 'localhost', origin: 'http://localhost:3000' });
+        webauthnService = new WebAuthnService({
+            rpId: 'localhost',
+            origin: 'http://localhost:3000',
+        });
 
         makerCheckerService = new MakerCheckerService({
             rbacService,
@@ -252,7 +247,9 @@ describe('Project Fusion — ADR-002: Canonical Payment Approval and Saga Execut
                     checkerOperatorId: CHECKER_CFO_ID,
                 },
             })
-        ).rejects.toThrow(/Payment context mismatch|Cryptographic context binding verification failed/i);
+        ).rejects.toThrow(
+            /Payment context mismatch|Cryptographic context binding verification failed/i
+        );
     });
 
     // ─────────────────────────────────────────────────────────────────────────

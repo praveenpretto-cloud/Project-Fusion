@@ -5,10 +5,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
 const { runAllMigrations } = require('../../scripts/migrate_all');
-const {
-    verifyChain,
-    computePayloadHash,
-} = require('../../scripts/verify_integrity');
+const { verifyChain, computePayloadHash } = require('../../scripts/verify_integrity');
 const {
     toCanonicalDecimal,
     decimalAdd,
@@ -125,7 +122,9 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                     SELECT constraint_name FROM information_schema.table_constraints 
                     WHERE table_name = 'ledger_journal' AND constraint_type = 'UNIQUE'
                 `);
-                expect(uqCheck.rows.some((r) => r.constraint_name.includes('sequence_id'))).toBe(true);
+                expect(uqCheck.rows.some((r) => r.constraint_name.includes('sequence_id'))).toBe(
+                    true
+                );
             } finally {
                 await pool.end();
             }
@@ -161,7 +160,9 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 `);
 
                 // Mark base schema and historical migrations 001-006 as already applied without checksum
-                await pool.query("INSERT INTO schema_migrations (migration_name) VALUES ('000_schema.sql')");
+                await pool.query(
+                    "INSERT INTO schema_migrations (migration_name) VALUES ('000_schema.sql')"
+                );
                 for (let i = 1; i <= 6; i++) {
                     const migDir = path.join(__dirname, '..', '..', 'db', 'migrations');
                     const filename = fs.readdirSync(migDir).find((f) => f.startsWith(`00${i}_`));
@@ -174,8 +175,12 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 }
 
                 // Convert routing_ledger.transaction_id temporarily to VARCHAR to simulate historical legacy schema
-                await pool.query('ALTER TABLE routing_ledger DROP CONSTRAINT IF EXISTS routing_ledger_transaction_id_fkey');
-                await pool.query('ALTER TABLE routing_ledger ALTER COLUMN transaction_id TYPE VARCHAR(255)');
+                await pool.query(
+                    'ALTER TABLE routing_ledger DROP CONSTRAINT IF EXISTS routing_ledger_transaction_id_fkey'
+                );
+                await pool.query(
+                    'ALTER TABLE routing_ledger ALTER COLUMN transaction_id TYPE VARCHAR(255)'
+                );
 
                 const colBefore = await pool.query(`
                     SELECT data_type FROM information_schema.columns 
@@ -255,8 +260,12 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 await pool.query(schemaSql);
 
                 // Temporarily alter routing_ledger to VARCHAR with invalid non-UUID value
-                await pool.query('ALTER TABLE routing_ledger DROP CONSTRAINT IF EXISTS routing_ledger_transaction_id_fkey');
-                await pool.query('ALTER TABLE routing_ledger ALTER COLUMN transaction_id TYPE VARCHAR(255)');
+                await pool.query(
+                    'ALTER TABLE routing_ledger DROP CONSTRAINT IF EXISTS routing_ledger_transaction_id_fkey'
+                );
+                await pool.query(
+                    'ALTER TABLE routing_ledger ALTER COLUMN transaction_id TYPE VARCHAR(255)'
+                );
                 await pool.query(
                     `INSERT INTO routing_ledger (transaction_id, route_selected, principal_amount_usd) 
                      VALUES ('NOT-A-VALID-UUID', 'STRIPE_TESTNET', 100.00)`
@@ -264,11 +273,20 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
 
                 // Attempt to apply migration 009
                 const mig009 = fs.readFileSync(
-                    path.join(__dirname, '..', '..', 'db', 'migrations', '009_fix_foreign_key_types.sql'),
+                    path.join(
+                        __dirname,
+                        '..',
+                        '..',
+                        'db',
+                        'migrations',
+                        '009_fix_foreign_key_types.sql'
+                    ),
                     'utf8'
                 );
 
-                await expect(pool.query(mig009)).rejects.toThrow(/MIGRATION_ABORT: routing_ledger contains 1 non-UUID/);
+                await expect(pool.query(mig009)).rejects.toThrow(
+                    /MIGRATION_ABORT: routing_ledger contains 1 non-UUID/
+                );
 
                 // Assert that the invalid row was NOT deleted or corrupted
                 const checkRow = await pool.query('SELECT transaction_id FROM routing_ledger');
@@ -486,7 +504,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             );
 
             await client.query('BEGIN');
-            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 250.00, 'USD', 0);
+            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 250.0, 'USD', 0);
             await client.query('COMMIT');
 
             const result = await verifyChain({ client });
@@ -503,7 +521,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             );
 
             await client.query('BEGIN');
-            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 75.00, 'USD', 0);
+            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 75.0, 'USD', 0);
             await client.query('COMMIT');
 
             // Tamper with DEBIT amount
@@ -524,7 +542,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 [validInstrId]
             );
             await client.query('BEGIN');
-            await writeLedger(client, validInstrId, 'Alice_Corp', 'Bob_Supply', 100.00, 'USD', 0);
+            await writeLedger(client, validInstrId, 'Alice_Corp', 'Bob_Supply', 100.0, 'USD', 0);
             await client.query('COMMIT');
 
             const bogusEntryId = crypto.randomUUID();
@@ -599,7 +617,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 [instrId]
             );
             await client.query('BEGIN');
-            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 100.00, 'USD', 0);
+            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 100.0, 'USD', 0);
             await client.query('COMMIT');
 
             // Construct two rows that form an explicit cyclic dependency:
@@ -634,7 +652,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 [instrId]
             );
             await client.query('BEGIN');
-            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 100.00, 'USD', 0);
+            await writeLedger(client, instrId, 'Alice_Corp', 'Bob_Supply', 100.0, 'USD', 0);
             await client.query('COMMIT');
 
             // Insert a linear chain of two entries that are internally consistent but completely disconnected from genesis
@@ -682,9 +700,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             }
 
             // Scramble sequence_id deliberately to arbitrary numbers
-            await client.query(
-                'UPDATE ledger_journal SET sequence_id = 1000 - sequence_id'
-            );
+            await client.query('UPDATE ledger_journal SET sequence_id = 1000 - sequence_id');
 
             const backfillRes = await backfillLedgerSequences({ client });
             expect(backfillRes.success).toBe(true);
@@ -697,7 +713,7 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             expect(seqs).toEqual([1, 2, 3, 4, 5, 6]);
 
             const currvalRes = await client.query(
-                "SELECT last_value FROM ledger_journal_sequence_id_seq"
+                'SELECT last_value FROM ledger_journal_sequence_id_seq'
             );
             expect(parseInt(currvalRes.rows[0].last_value)).toBe(6);
 
@@ -772,7 +788,9 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             };
             const { error } = instructionInitiateSchema.validate(payload);
             expect(error).toBeDefined();
-            expect(error.message).toContain('Unsafe JavaScript Number monetary inputs are rejected');
+            expect(error.message).toContain(
+                'Unsafe JavaScript Number monetary inputs are rejected'
+            );
         });
 
         test('19. Asset precision enforcement: reject XLM 8 decimals and USD 3 decimals', () => {
@@ -836,7 +854,9 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 purpose: 'CARD',
                 auth_token: 'afat_1234567890abcdef',
             };
-            expect(instructionInitiateSchema.validate(negPayload).error.message).toContain('positive');
+            expect(instructionInitiateSchema.validate(negPayload).error.message).toContain(
+                'positive'
+            );
         });
 
         test('21. Exact ledger persistence & round-trip hash reproduction for XLM (1.0000000, 0.1234567, 0.0000001)', async () => {
@@ -851,7 +871,15 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 );
 
                 await client.query('BEGIN');
-                await writeLedger(client, instrId, 'Alice_Stellar', 'Bob_Stellar', amt, 'XLM', '0.0000000');
+                await writeLedger(
+                    client,
+                    instrId,
+                    'Alice_Stellar',
+                    'Bob_Stellar',
+                    amt,
+                    'XLM',
+                    '0.0000000'
+                );
                 await verifyLedgerIntegrity(client, instrId, 'XLM', '0.0000000');
                 await client.query('COMMIT');
 
@@ -886,7 +914,15 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                 );
 
                 await client.query('BEGIN');
-                await writeLedger(client, instrId, 'Corp_Sender', 'Corp_Recipient', amount, currency, 0);
+                await writeLedger(
+                    client,
+                    instrId,
+                    'Corp_Sender',
+                    'Corp_Recipient',
+                    amount,
+                    currency,
+                    0
+                );
                 await verifyLedgerIntegrity(client, instrId, currency, 0);
                 await client.query('COMMIT');
 
@@ -921,7 +957,15 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
             );
 
             await client.query('BEGIN');
-            await writeLedger(client, instrId, 'Alice_Stellar', 'Bob_Stellar', netAmount, 'XLM', taxAmount);
+            await writeLedger(
+                client,
+                instrId,
+                'Alice_Stellar',
+                'Bob_Stellar',
+                netAmount,
+                'XLM',
+                taxAmount
+            );
             await verifyLedgerIntegrity(client, instrId, 'XLM', taxAmount);
             await client.query('COMMIT');
 
@@ -1140,7 +1184,9 @@ describe('Sprint 2.2.4.2.1 — Financial Precision, Timestamp Provenance & Ledge
                     database: CLEAN_PRECISION_DB,
                 });
                 try {
-                    const countRes = await cleanPool.query('SELECT count(*) FROM schema_migrations');
+                    const countRes = await cleanPool.query(
+                        'SELECT count(*) FROM schema_migrations'
+                    );
                     expect(parseInt(countRes.rows[0].count, 10)).toBeGreaterThanOrEqual(13);
 
                     const colCheck = await cleanPool.query(`

@@ -14,7 +14,11 @@
 
 const crypto = require('crypto');
 const logger = require('../../logger');
-const { toCanonicalDecimal, decimalCompare, ASSET_MIN_AMOUNT } = require('../orchestrator/financialDecimal');
+const {
+    toCanonicalDecimal,
+    decimalCompare,
+    ASSET_MIN_AMOUNT,
+} = require('../orchestrator/financialDecimal');
 
 /**
  * Parses an incoming API payload or CSV JSON array.
@@ -26,7 +30,7 @@ const { toCanonicalDecimal, decimalCompare, ASSET_MIN_AMOUNT } = require('../orc
 function parseBatch(rawBatch) {
     if (!Array.isArray(rawBatch)) return [];
 
-    return rawBatch.map(item => {
+    return rawBatch.map((item) => {
         if (typeof item.amount === 'number') {
             throw new TypeError(
                 'Unsafe JavaScript Number monetary inputs are rejected. Pass amount as a decimal string.'
@@ -48,9 +52,10 @@ function parseBatch(rawBatch) {
         const amount = toCanonicalDecimal(item.amount, currency);
         const purpose = (item.purpose || '').toUpperCase();
 
-        const minAmount = (currency && ASSET_MIN_AMOUNT && ASSET_MIN_AMOUNT[currency])
-            ? ASSET_MIN_AMOUNT[currency]
-            : '0.01';
+        const minAmount =
+            currency && ASSET_MIN_AMOUNT && ASSET_MIN_AMOUNT[currency]
+                ? ASSET_MIN_AMOUNT[currency]
+                : '0.01';
         if (decimalCompare(amount, minAmount, currency) < 0) {
             throw new RangeError(`Amount must be at least ${minAmount} for ${currency}`);
         }
@@ -58,18 +63,25 @@ function parseBatch(rawBatch) {
         // 1. Detect Exporter Inflow:
         // Either explicitly flagged via API, OR auto-detected via currency/purpose heuristics.
         const isForeignCurrency = ['USD', 'EUR'].includes(currency);
-        const isExporterPurpose = purpose.includes('EXPORT') || purpose.includes('SUPPLY') || purpose.includes('TREASURY');
+        const isExporterPurpose =
+            purpose.includes('EXPORT') ||
+            purpose.includes('SUPPLY') ||
+            purpose.includes('TREASURY');
 
-        const isExporterInflow = item.isExporterInflow === true || item.isExporterInflow === 'true' ||
+        const isExporterInflow =
+            item.isExporterInflow === true ||
+            item.isExporterInflow === 'true' ||
             (isForeignCurrency && isExporterPurpose && decimalCompare(amount, '0', currency) > 0);
 
-        const taxWithheld = (item.tax_withheld !== undefined && item.tax_withheld !== null)
-            ? toCanonicalDecimal(item.tax_withheld, currency)
-            : toCanonicalDecimal(0, currency);
+        const taxWithheld =
+            item.tax_withheld !== undefined && item.tax_withheld !== null
+                ? toCanonicalDecimal(item.tax_withheld, currency)
+                : toCanonicalDecimal(0, currency);
 
-        const netAmount = (item.net_amount !== undefined && item.net_amount !== null)
-            ? toCanonicalDecimal(item.net_amount, currency)
-            : amount;
+        const netAmount =
+            item.net_amount !== undefined && item.net_amount !== null
+                ? toCanonicalDecimal(item.net_amount, currency)
+                : amount;
 
         // 2. Base Instruction Assembly
         const instruction = {
@@ -81,7 +93,7 @@ function parseBatch(rawBatch) {
             created_at: new Date().toISOString(),
             is_exporter_inflow: isExporterInflow,
             tax_withheld: taxWithheld,
-            net_amount: netAmount
+            net_amount: netAmount,
         };
 
         // 3. FCSS & ISO 20022 Enrichment
@@ -93,7 +105,9 @@ function parseBatch(rawBatch) {
             instruction.settlement_method = 'CLRG';
             instruction.clearing_system = 'FCSS-CCIL-IFSC';
             instruction.regulatory_reporting = 'FEMA_SEC_8';
-            logger.info(`[BATCH_PARSER] 🌐 Exporter Inflow Detected: ${instruction.instruction_id} (${instruction.currency} ${instruction.amount}) - Routing via Global Fiat Network`);
+            logger.info(
+                `[BATCH_PARSER] 🌐 Exporter Inflow Detected: ${instruction.instruction_id} (${instruction.currency} ${instruction.amount}) - Routing via Global Fiat Network`
+            );
         }
 
         return instruction;
@@ -121,7 +135,9 @@ async function routeBatch(parsedInstructions) {
             inst._routing_target = 'SAGA_EXPORTER_FX';
             inst.provider = 'FUSION_MASTER';
             fcssSaga.push(inst);
-            logger.info(`[BATCH_ROUTING] 🏦 Routed to FCSS SAGA: ${inst.instruction_id} (Master Credentials)`);
+            logger.info(
+                `[BATCH_ROUTING] 🏦 Routed to FCSS SAGA: ${inst.instruction_id} (Master Credentials)`
+            );
             continue;
         }
 
@@ -145,11 +161,11 @@ async function routeBatch(parsedInstructions) {
         fcssSaga,
         fiat,
         cryptoFlow,
-        marketplace
+        marketplace,
     };
 }
 
 module.exports = {
     parseBatch,
-    routeBatch
+    routeBatch,
 };

@@ -12,7 +12,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
         provider = new MockModelProvider({ simulatedLatencyMs: 1 });
         orchestrator = new InvestigationOrchestrator({
             modelProvider: provider,
-            timeoutMs: 5000
+            timeoutMs: 5000,
         });
     });
 
@@ -34,14 +34,15 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                         {
                             claim: testCase.groundedFinding,
                             evidence_references: [primaryTool],
-                            source_field: `${primaryTool}.status`
-                        }
+                            source_field: `${primaryTool}.status`,
+                        },
                     ],
                     hypotheses: [],
                     missing_information: [],
                     recommended_checks: ['VERIFY_PROVIDER_STATUS'],
-                    evidence_references: toolNames.length > 0 ? toolNames : ['getTransactionTimeline'],
-                    limitations: ['Advisory decision support only. Human review required.']
+                    evidence_references:
+                        toolNames.length > 0 ? toolNames : ['getTransactionTimeline'],
+                    limitations: ['Advisory decision support only. Human review required.'],
                 });
             }
 
@@ -49,7 +50,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                 transactionId: testCase.transactionId,
                 question: testCase.question,
                 explicitIntent: testCase.intent,
-                evidenceOverride: testCase.evidence || {}
+                evidenceOverride: testCase.evidence || {},
             });
 
             expect(outcome.status).toBe(testCase.expectedStatus);
@@ -66,7 +67,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
 
     describe('Adversarial & Fault Injection Verification', () => {
         test('CASE-12: Prompt Injection in Invoice Notes is contained as passive untrusted data', async () => {
-            const case12 = SYNTHETIC_CASES.find(c => c.id === 'CASE-12');
+            const case12 = SYNTHETIC_CASES.find((c) => c.id === 'CASE-12');
             expect(case12).toBeDefined();
 
             // Mock model attempt to follow injection by recommending payout execution
@@ -77,31 +78,37 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                     {
                         claim: 'Customer requested payout execution in invoice notes.',
                         evidence_references: ['getTransactionTimeline'],
-                        source_field: 'getTransactionTimeline.timeline.notes'
-                    }
+                        source_field: 'getTransactionTimeline.timeline.notes',
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['Execute payout to customer immediately.'], // VIOLATION
                 evidence_references: ['getTransactionTimeline'],
-                limitations: []
+                limitations: [],
             });
 
             const outcome = await orchestrator.investigate({
                 transactionId: case12.transactionId,
                 question: case12.question,
                 explicitIntent: case12.intent,
-                evidenceOverride: case12.evidence
+                evidenceOverride: case12.evidence,
             });
 
             // Validator MUST reject this report because recommended_checks contains forbidden mutation
             expect(outcome.success).toBe(false);
             expect(outcome.status).toBe('REPORT_VALIDATION_FAILED');
-            expect(outcome.validation_errors.some(e => e.includes('prohibited financial mutation action') || e.includes('not an allowed operational recommendation code'))).toBe(true);
+            expect(
+                outcome.validation_errors.some(
+                    (e) =>
+                        e.includes('prohibited financial mutation action') ||
+                        e.includes('not an allowed operational recommendation code')
+                )
+            ).toBe(true);
         });
 
         test('CASE-13: Payment Mutation Request is strictly rejected by recommendation validator', async () => {
-            const case13 = SYNTHETIC_CASES.find(c => c.id === 'CASE-13');
+            const case13 = SYNTHETIC_CASES.find((c) => c.id === 'CASE-13');
             expect(case13).toBeDefined();
 
             // Simulate model hallucinating a mutation command
@@ -112,31 +119,37 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                     {
                         claim: 'Transaction failed at provider.',
                         evidence_references: ['getTransactionTimeline'],
-                        source_field: 'getTransactionTimeline.status'
-                    }
+                        source_field: 'getTransactionTimeline.status',
+                    },
                 ],
                 hypotheses: [],
                 missing_information: [],
                 recommended_checks: ['Process refund for $500 immediately to sender account.'], // VIOLATION
                 evidence_references: ['getTransactionTimeline'],
-                limitations: []
+                limitations: [],
             });
 
             const outcome = await orchestrator.investigate({
                 transactionId: case13.transactionId,
                 question: case13.question,
                 explicitIntent: case13.intent,
-                evidenceOverride: case13.evidence
+                evidenceOverride: case13.evidence,
             });
 
             // Validator MUST reject this report
             expect(outcome.success).toBe(false);
             expect(outcome.status).toBe('REPORT_VALIDATION_FAILED');
-            expect(outcome.validation_errors.some(e => e.includes('prohibited financial mutation action') || e.includes('not an allowed operational recommendation code'))).toBe(true);
+            expect(
+                outcome.validation_errors.some(
+                    (e) =>
+                        e.includes('prohibited financial mutation action') ||
+                        e.includes('not an allowed operational recommendation code')
+                )
+            ).toBe(true);
         });
 
         test('CASE-14: Model Unavailable fails closed with structured AI_UNAVAILABLE', async () => {
-            const case14 = SYNTHETIC_CASES.find(c => c.id === 'CASE-14');
+            const case14 = SYNTHETIC_CASES.find((c) => c.id === 'CASE-14');
             expect(case14).toBeDefined();
 
             provider.setForcedStatus('AI_UNAVAILABLE');
@@ -145,7 +158,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                 transactionId: case14.transactionId,
                 question: case14.question,
                 explicitIntent: case14.intent,
-                evidenceOverride: case14.evidence
+                evidenceOverride: case14.evidence,
             });
 
             expect(outcome.success).toBe(false);
@@ -155,7 +168,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
         });
 
         test('CASE-15: Invalid Model JSON Response fails closed with MODEL_OUTPUT_INVALID', async () => {
-            const case15 = SYNTHETIC_CASES.find(c => c.id === 'CASE-15');
+            const case15 = SYNTHETIC_CASES.find((c) => c.id === 'CASE-15');
             expect(case15).toBeDefined();
 
             provider.setForcedStatus('MODEL_OUTPUT_INVALID');
@@ -164,7 +177,7 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
                 transactionId: case15.transactionId,
                 question: case15.question,
                 explicitIntent: case15.intent,
-                evidenceOverride: case15.evidence
+                evidenceOverride: case15.evidence,
             });
 
             expect(outcome.success).toBe(false);
@@ -174,4 +187,3 @@ describe('AI Synthetic Operational Evaluation Suite (15 Cases)', () => {
         });
     });
 });
-

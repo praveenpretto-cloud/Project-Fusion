@@ -30,13 +30,19 @@ describe('Reliability R3C.2.1 — Synthetic Fixture Visual Display', () => {
     });
 
     test('InstructionRow renders amber badge for canonical R3C.1 synthetic fixture ID', () => {
-        expect(pageContent).toContain("inst.instruction_id === '99999999-9999-4999-8999-999999999999'");
+        expect(pageContent).toContain(
+            "inst.instruction_id === '99999999-9999-4999-8999-999999999999'"
+        );
         expect(pageContent).toContain('SYNTHETIC DEMO FIXTURE — NOT A REAL PAYMENT');
     });
 
     test('TransactionDetailModal renders prominent watermarked warning card', () => {
-        expect(pageContent).toContain("instruction.instruction_id === '99999999-9999-4999-8999-999999999999'");
-        expect(pageContent).toContain('Deterministic test fixture for transaction annotation and audit qualification');
+        expect(pageContent).toContain(
+            "instruction.instruction_id === '99999999-9999-4999-8999-999999999999'"
+        );
+        expect(pageContent).toMatch(
+            /Deterministic test fixture for transaction annotation and audit\s+qualification/
+        );
     });
 
     // Helper mirror of the frontend predicate for unit testing edge cases
@@ -55,15 +61,27 @@ describe('Reliability R3C.2.1 — Synthetic Fixture Visual Display', () => {
             instruction_id: '99999999-9999-4999-8999-999999999999',
             amount: '150000.00',
             currency: 'INR',
-            state: 'COMPLETED'
+            state: 'COMPLETED',
         };
         expect(isSyntheticFixture(fixture)).toBe(true);
     });
 
     test('Predicate correctly tags synthetic fixtures by prefix or sender or note marker', () => {
-        expect(isSyntheticFixture({ instruction_id: '99999999-aaaa-4999-8999-000000000001' })).toBe(true);
-        expect(isSyntheticFixture({ instruction_id: '12345678-0000-0000-0000-000000000000', sender: 'SYNTHETIC_SENDER' })).toBe(true);
-        expect(isSyntheticFixture({ instruction_id: '12345678-0000-0000-0000-000000000000', metadata: { notes: 'Verified in R3C.1' } })).toBe(true);
+        expect(isSyntheticFixture({ instruction_id: '99999999-aaaa-4999-8999-000000000001' })).toBe(
+            true
+        );
+        expect(
+            isSyntheticFixture({
+                instruction_id: '12345678-0000-0000-0000-000000000000',
+                sender: 'SYNTHETIC_SENDER',
+            })
+        ).toBe(true);
+        expect(
+            isSyntheticFixture({
+                instruction_id: '12345678-0000-0000-0000-000000000000',
+                metadata: { notes: 'Verified in R3C.1' },
+            })
+        ).toBe(true);
     });
 
     test('Predicate does NOT tag real or unflagged instructions', () => {
@@ -73,9 +91,8 @@ describe('Reliability R3C.2.1 — Synthetic Fixture Visual Display', () => {
             currency: 'INR',
             state: 'SETTLED',
             sender: 'CFO_OFFICE',
-            metadata: { notes: 'Standard vendor disbursement' }
+            metadata: { notes: 'Standard vendor disbursement' },
         };
         expect(isSyntheticFixture(legitimateInstruction)).toBe(false);
     });
 });
-

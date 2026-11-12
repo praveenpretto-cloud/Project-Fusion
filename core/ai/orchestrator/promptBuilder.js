@@ -4,7 +4,7 @@ const { sanitizeEvidenceObject, sanitizeString } = require('../validators/saniti
 
 /**
  * Hardened Prompt Builder for Fusion Operations Intelligence
- * 
+ *
  * Enforces strict boundary segregation between trusted system instructions and untrusted operational evidence.
  * Explicitly guards against prompt injection, hallucinated citations, and financial mutations.
  */
@@ -68,7 +68,9 @@ Do not output markdown code fences or conversational text outside the JSON objec
      * Builds the user prompt containing sanitized evidence context and investigation inquiry.
      */
     static buildUserContent({ investigationId, transactionId, intent, rawEvidence, question }) {
-        const cleanQuestion = sanitizeString(question || 'Investigate transaction status and report anomalies.');
+        const cleanQuestion = sanitizeString(
+            question || 'Investigate transaction status and report anomalies.'
+        );
         const sanitizedEvidence = sanitizeEvidenceObject(rawEvidence);
 
         return {
@@ -80,8 +82,8 @@ Do not output markdown code fences or conversational text outside the JSON objec
                 transaction_id: transactionId,
                 intent,
                 evidence: sanitizedEvidence,
-                operator_question: cleanQuestion
-            }
+                operator_question: cleanQuestion,
+            },
         };
     }
 }
@@ -89,4 +91,3 @@ Do not output markdown code fences or conversational text outside the JSON objec
 module.exports = {
     PromptBuilder,
 };
-

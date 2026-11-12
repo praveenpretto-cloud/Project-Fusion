@@ -4,7 +4,7 @@ const stripe = require('stripe')(stripeKey);
 
 async function run() {
     try {
-        console.log("Fetching recent Stripe PaymentIntents...");
+        console.log('Fetching recent Stripe PaymentIntents...');
         const paymentIntents = await stripe.paymentIntents.list({ limit: 10 });
         for (const pi of paymentIntents.data) {
             console.log({
@@ -15,11 +15,11 @@ async function run() {
                 instructionId: pi.metadata.instructionId,
                 sender: pi.metadata.sender,
                 recipient: pi.metadata.recipient,
-                created: new Date(pi.created * 1000).toISOString()
+                created: new Date(pi.created * 1000).toISOString(),
             });
         }
     } catch (e) {
-        console.error("Error fetching PaymentIntents:", e.message);
+        console.error('Error fetching PaymentIntents:', e.message);
     }
 }
 run();

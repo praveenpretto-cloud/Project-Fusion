@@ -83,17 +83,30 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(eurRes.isTrusted).toBe(true);
 
             // Rejects bank rail claims (SWIFT, ISO 20022, Nium) claiming Stripe card execution
-            const swiftRes = resolveServerTrust(stripeAdapter, { currency: 'USD', purpose: 'SWIFT' });
+            const swiftRes = resolveServerTrust(stripeAdapter, {
+                currency: 'USD',
+                purpose: 'SWIFT',
+            });
             expect(swiftRes.isTrusted).toBe(false);
-            expect(swiftRes.reason).toMatch(/Stripe test-card simulation cannot authorize bank-rail/);
+            expect(swiftRes.reason).toMatch(
+                /Stripe test-card simulation cannot authorize bank-rail/
+            );
 
-            const isoRes = resolveServerTrust(stripeAdapter, { currency: 'USD', purpose: 'ISO20022' });
+            const isoRes = resolveServerTrust(stripeAdapter, {
+                currency: 'USD',
+                purpose: 'ISO20022',
+            });
             expect(isoRes.isTrusted).toBe(false);
             expect(isoRes.reason).toMatch(/Stripe test-card simulation cannot authorize bank-rail/);
 
-            const niumRes = resolveServerTrust(stripeAdapter, { currency: 'USD', route_selected: 'NIUM_SWIFT' });
+            const niumRes = resolveServerTrust(stripeAdapter, {
+                currency: 'USD',
+                route_selected: 'NIUM_SWIFT',
+            });
             expect(niumRes.isTrusted).toBe(false);
-            expect(niumRes.reason).toMatch(/Stripe test-card simulation cannot authorize bank-rail/);
+            expect(niumRes.reason).toMatch(
+                /Stripe test-card simulation cannot authorize bank-rail/
+            );
 
             // Rejects unsupported fiat like CNY entering Stripe
             const cnyRes = resolveServerTrust(stripeAdapter, { currency: 'CNY' });
@@ -108,7 +121,11 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
                 is_sandbox: true, // Self-asserted flag
             };
 
-            const result = resolveServerTrust(selfAssertingAdapter, { currency: 'USD', purpose: 'CARD' }, { isInjectedOverride: true });
+            const result = resolveServerTrust(
+                selfAssertingAdapter,
+                { currency: 'USD', purpose: 'CARD' },
+                { isInjectedOverride: true }
+            );
             expect(result.isTrusted).toBe(false);
             expect(result.reason).toMatch(/Injected adapter.*untrusted/i);
         });
@@ -118,11 +135,17 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
                 id: 'core_stripe',
             };
 
-            const result = resolveServerTrust(injectedAdapter, { currency: 'USD', purpose: 'CARD' }, {
-                isInjectedOverride: true,
-            });
+            const result = resolveServerTrust(
+                injectedAdapter,
+                { currency: 'USD', purpose: 'CARD' },
+                {
+                    isInjectedOverride: true,
+                }
+            );
             expect(result.isTrusted).toBe(false);
-            expect(result.reason).toMatch(/Injected adapter overrides are untrusted and disallowed/);
+            expect(result.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed/
+            );
         });
 
         test('6. Normalizer clamps untrusted executions to UNKNOWN with explicit reason', () => {
@@ -139,7 +162,9 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
 
             expect(normalized.status).toBe('UNKNOWN');
             expect(normalized.untrusted_execution).toBe(true);
-            expect(normalized.error).toMatch(/Stellar Testnet adapter is not authorized for asset 'BTC'/);
+            expect(normalized.error).toMatch(
+                /Stellar Testnet adapter is not authorized for asset 'BTC'/
+            );
         });
     });
 
@@ -163,27 +188,30 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
 
                     if (sql.includes('SELECT * FROM instructions')) {
                         return {
-                            rows: [{
-                                instruction_id: instructionId,
-                                sender: 'ACC_SENDER_01',
-                                recipient: 'ACC_RECIPIENT_01',
-                                amount,
-                                currency,
-                                purpose,
-                                route_selected,
-                                state: instructionState,
-                                provider: 'FIAT',
-                                execution_attempts: 0,
-                                net_amount: amount,
-                                tax_withheld: 0,
-                            }],
+                            rows: [
+                                {
+                                    instruction_id: instructionId,
+                                    sender: 'ACC_SENDER_01',
+                                    recipient: 'ACC_RECIPIENT_01',
+                                    amount,
+                                    currency,
+                                    purpose,
+                                    route_selected,
+                                    state: instructionState,
+                                    provider: 'FIAT',
+                                    execution_attempts: 0,
+                                    net_amount: amount,
+                                    tax_withheld: 0,
+                                },
+                            ],
                         };
                     }
 
                     if (sql.includes('SELECT state FROM instructions')) {
-                        const updateQuery = mockQueries.slice().reverse().find(q =>
-                            q.sql.includes('UPDATE instructions SET state')
-                        );
+                        const updateQuery = mockQueries
+                            .slice()
+                            .reverse()
+                            .find((q) => q.sql.includes('UPDATE instructions SET state'));
                         let finalState = 'UNKNOWN';
                         if (updateQuery) {
                             const match = updateQuery.sql.match(/state = '([A-Z_]+)'/);
@@ -196,7 +224,10 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
                         return { rows: [{ hash: 'PREV_HASH_123' }] };
                     }
 
-                    if (sql.includes('SELECT \n            SUM(CASE WHEN direction=\'DEBIT\'') || sql.includes('SELECT \n            SUM(CASE')) {
+                    if (
+                        sql.includes("SELECT \n            SUM(CASE WHEN direction='DEBIT'") ||
+                        sql.includes('SELECT \n            SUM(CASE')
+                    ) {
                         return { rows: [{ total_debit: amount, total_credit: amount }] };
                     }
 
@@ -219,7 +250,10 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
 
         test('7. BTC does NOT initiate an XLM payment; returns explicit SIMULATED', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'BTC' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'BTC',
+            });
 
             const result = await processInstructionSagaAtomic(instId, mockPool);
 
@@ -227,58 +261,76 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(result.current_state).not.toBe('SETTLED');
 
             // Verify SIMULATED state update recorded without ledger write
-            const simUpdate = mockQueries.find(q => q.sql.includes("state = 'SIMULATED'"));
+            const simUpdate = mockQueries.find((q) => q.sql.includes("state = 'SIMULATED'"));
             expect(simUpdate).toBeDefined();
             expect(simUpdate.params[1]).toMatch(/Simulated BTC transfer/);
             expect(simUpdate.params[2]).toBe(instId);
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeUndefined();
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('8. ETH does NOT initiate an XLM payment; returns explicit SIMULATED', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'ETH' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'ETH',
+            });
 
             const result = await processInstructionSagaAtomic(instId, mockPool);
 
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('9. USDC does NOT initiate a native XLM payment; returns explicit SIMULATED', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'USDC' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'USDC',
+            });
 
             const result = await processInstructionSagaAtomic(instId, mockPool);
 
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('10. CNY without verified Alipay sandbox returns explicit SIMULATED and does not route to Stripe', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'CNY', purpose: 'ALIPAY_PAY' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'CNY',
+                purpose: 'ALIPAY_PAY',
+            });
 
             const result = await processInstructionSagaAtomic(instId, mockPool);
 
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const simUpdate = mockQueries.find(q => q.sql.includes("state = 'SIMULATED'"));
+            const simUpdate = mockQueries.find((q) => q.sql.includes("state = 'SIMULATED'"));
             expect(simUpdate).toBeDefined();
             expect(simUpdate.params[1]).toMatch(/Simulated CNY\/Alipay payment/);
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
@@ -296,17 +348,22 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const simUpdate = mockQueries.find(q => q.sql.includes("state = 'SIMULATED'"));
+            const simUpdate = mockQueries.find((q) => q.sql.includes("state = 'SIMULATED'"));
             expect(simUpdate).toBeDefined();
             expect(simUpdate.params[1]).toMatch(/Simulated SWIFT transfer/);
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('12. Injected adapter with self-asserted is_verified_sandbox cannot settle (diverts to MANUAL_CHECK)', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             const rogueAdapter = {
                 id: 'core_stripe', // Reusing approved id
@@ -325,16 +382,22 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(result.current_state).toBe('MANUAL_CHECK');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeUndefined();
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('13. Genuine server-owned adapter establishes settlement on approved rails via Jest module substitution', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'USD', purpose: 'CARD' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'USD',
+                purpose: 'CARD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -355,16 +418,21 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
 
             expect(result.current_state).toBe('SETTLED');
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeDefined();
 
-            const ledgerInserts = mockQueries.filter(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInserts = mockQueries.filter((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInserts.length).toBe(2);
         });
 
         test('14. SQL updates in SIMULATED and MANUAL_CHECK have matching placeholders and valid UUID params', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -382,7 +450,9 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
 
             await isolatedSaga.processInstructionSagaAtomic(instId, mockPool);
 
-            const manualCheckQuery = mockQueries.find(q => q.sql.includes("state = 'MANUAL_CHECK'"));
+            const manualCheckQuery = mockQueries.find((q) =>
+                q.sql.includes("state = 'MANUAL_CHECK'")
+            );
             expect(manualCheckQuery).toBeDefined();
 
             // Check SQL has 3 placeholders
@@ -396,13 +466,17 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(manualCheckQuery.params[2]).toBe(instId);
 
             // Validate instruction ID format is valid UUID RFC 4122
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            const uuidRegex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
             expect(uuidRegex.test(manualCheckQuery.params[2])).toBe(true);
         });
 
         test('15. PENDING status sets state to PENDING_SETTLEMENT and does not trigger retry or ledger', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'INR' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'INR',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -425,13 +499,18 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(result.current_state).not.toBe('SETTLED');
             expect(result.current_state).not.toBe('FAILED');
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('16. Reversal state (SIMULATED_REVERSED) records simulation and does not write fresh settlement', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockSagaDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockSagaDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -452,7 +531,9 @@ describe('Sprint 2.2.2 — Provider-Specific Trust and Asset Routing Hardening',
             expect(result.current_state).toBe('SIMULATED');
             expect(result.current_state).not.toBe('SETTLED');
 
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
     });

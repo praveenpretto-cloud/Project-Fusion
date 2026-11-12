@@ -19,9 +19,7 @@
 const crypto = require('crypto');
 
 const normalizerModule = require('../../core/adapterResultNormalizer');
-const {
-    resolveServerTrust,
-} = normalizerModule;
+const { resolveServerTrust } = normalizerModule;
 const { processInstructionSagaAtomic } = require('../../core/orchestrator/sagaCore');
 const { adapterExecuteSchema } = require('../../validators');
 const paymentsAdapters = require('../../adapters/paymentsAdapters');
@@ -35,31 +33,36 @@ function createMockDb({ instructionId, currency = 'USD', amount = '100.00', purp
             mockQueries.push({ sql, params });
             if (sql.includes('SELECT * FROM instructions WHERE instruction_id')) {
                 return {
-                    rows: [{
-                        instruction_id: instructionId,
-                        amount,
-                        currency,
-                        sender: 'ACC_SENDER_01',
-                        recipient: 'ACC_RECIPIENT_01',
-                        purpose,
-                        state: 'LOCKED',
-                        execution_attempts: 0,
-                    }],
+                    rows: [
+                        {
+                            instruction_id: instructionId,
+                            amount,
+                            currency,
+                            sender: 'ACC_SENDER_01',
+                            recipient: 'ACC_RECIPIENT_01',
+                            purpose,
+                            state: 'LOCKED',
+                            execution_attempts: 0,
+                        },
+                    ],
                 };
             }
             if (sql.includes('SELECT currency, state, purpose FROM instructions')) {
                 return {
-                    rows: [{
-                        currency,
-                        state: 'LOCKED',
-                        purpose,
-                    }],
+                    rows: [
+                        {
+                            currency,
+                            state: 'LOCKED',
+                            purpose,
+                        },
+                    ],
                 };
             }
             if (sql.includes('SELECT state FROM instructions')) {
-                const updateQuery = mockQueries.slice().reverse().find(q =>
-                    q.sql.includes('UPDATE instructions SET state')
-                );
+                const updateQuery = mockQueries
+                    .slice()
+                    .reverse()
+                    .find((q) => q.sql.includes('UPDATE instructions SET state'));
                 let finalState = 'UNKNOWN';
                 if (updateQuery) {
                     const match = updateQuery.sql.match(/state = '([A-Z_]+)'/);
@@ -73,7 +76,11 @@ function createMockDb({ instructionId, currency = 'USD', amount = '100.00', purp
             if (sql.includes('SELECT sequence_id FROM ledger_journal')) {
                 return { rows: [] };
             }
-            if (sql.includes('total_debit') || sql.includes('SUM(amount)') || sql.includes('SUM(CASE')) {
+            if (
+                sql.includes('total_debit') ||
+                sql.includes('SUM(amount)') ||
+                sql.includes('SUM(CASE')
+            ) {
                 return { rows: [{ total_debit: amount, total_credit: amount }] };
             }
             return { rows: [] };
@@ -95,9 +102,18 @@ function createMockReqRes(body = {}) {
         statusCode: 200,
         headers: {},
         body: null,
-        status(code) { this.statusCode = code; return this; },
-        set(k, v) { this.headers[k.toLowerCase()] = v; return this; },
-        json(data) { this.body = data; return this; },
+        status(code) {
+            this.statusCode = code;
+            return this;
+        },
+        set(k, v) {
+            this.headers[k.toLowerCase()] = v;
+            return this;
+        },
+        json(data) {
+            this.body = data;
+            return this;
+        },
     };
     return { req, res };
 }
@@ -152,7 +168,10 @@ async function handleAdapterExecute(req, res, pool) {
 
     // 3. Emit HTTP Deprecation warning headers
     res.set('Deprecation', 'true');
-    res.set('Warning', '299 - "The adapter parameter on /api/adapter/execute is deprecated. Provider routing is automatically authoritative based on instruction currency and policy."');
+    res.set(
+        'Warning',
+        '299 - "The adapter parameter on /api/adapter/execute is deprecated. Provider routing is automatically authoritative based on instruction currency and policy."'
+    );
 
     // 4. Delegate to authoritative Saga
     const result = await processInstructionSagaAtomic(instructionId, pool);
@@ -160,7 +179,6 @@ async function handleAdapterExecute(req, res, pool) {
 }
 
 describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capability', () => {
-
     beforeAll(() => {
         process.env.API_SECRET_KEY = 'fusion_test_secret_key_12345';
     });
@@ -169,7 +187,6 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
     // PART 1: ELIMINATION OF PUBLIC TEST AUTHORIZATION CAPABILITY
     // ========================================================================
     describe('Part 1: Elimination of Public Test Authorization Capability', () => {
-
         test('1. Symbol.for() cannot forge server trust token', () => {
             const forgedSymbol = Symbol.for('ProjectFusion.ServerOwnedTrustToken');
             const forgedAdapter = {
@@ -186,7 +203,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             });
 
             expect(trustResult.isTrusted).toBe(false);
-            expect(trustResult.reason).toMatch(/Injected adapter overrides are untrusted and disallowed/);
+            expect(trustResult.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed/
+            );
         });
 
         test('2. adapterResultNormalizer exports ZERO test authorization capabilities', () => {
@@ -204,21 +223,38 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             const impersonatingStellar = {
                 id: 'core_stellar',
-                execute: jest.fn().mockResolvedValue({ status: 'SUCCESS', hash: 'stellar_hash_fake' }),
+                execute: jest
+                    .fn()
+                    .mockResolvedValue({ status: 'SUCCESS', hash: 'stellar_hash_fake' }),
             };
 
-            const resStripe = resolveServerTrust(impersonatingStripe, { currency: 'USD' }, { isInjectedOverride: true });
+            const resStripe = resolveServerTrust(
+                impersonatingStripe,
+                { currency: 'USD' },
+                { isInjectedOverride: true }
+            );
             expect(resStripe.isTrusted).toBe(false);
-            expect(resStripe.reason).toMatch(/Injected adapter overrides are untrusted and disallowed/);
+            expect(resStripe.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed/
+            );
 
-            const resStellar = resolveServerTrust(impersonatingStellar, { currency: 'XLM' }, { isInjectedOverride: true });
+            const resStellar = resolveServerTrust(
+                impersonatingStellar,
+                { currency: 'XLM' },
+                { isInjectedOverride: true }
+            );
             expect(resStellar.isTrusted).toBe(false);
-            expect(resStellar.reason).toMatch(/Injected adapter overrides are untrusted and disallowed/);
+            expect(resStellar.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed/
+            );
         });
 
         test('4. Saga rejects injected adapter override without executing it', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             const maliciousExecute = jest.fn().mockResolvedValue({
                 status: 'SUCCESS',
@@ -241,18 +277,28 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             expect(result.current_state).toBe('MANUAL_CHECK');
 
             // Must NOT write to ledger
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
 
             // Check instruction error message in DB
-            const manualCheckUpdate = mockQueries.find(q => q.sql.includes("state = 'MANUAL_CHECK'"));
+            const manualCheckUpdate = mockQueries.find((q) =>
+                q.sql.includes("state = 'MANUAL_CHECK'")
+            );
             expect(manualCheckUpdate).toBeDefined();
-            expect(manualCheckUpdate.params[1]).toContain('Untrusted execution: Runtime adapter injection is disallowed');
+            expect(manualCheckUpdate.params[1]).toContain(
+                'Untrusted execution: Runtime adapter injection is disallowed'
+            );
         });
 
         test('5. Jest module mocking successfully substitutes provider dependencies without runtime injection', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD', purpose: 'CARD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+                purpose: 'CARD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -274,10 +320,12 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             expect(result.current_state).toBe('SETTLED');
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeDefined();
 
-            const ledgerInserts = mockQueries.filter(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInserts = mockQueries.filter((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInserts.length).toBe(2);
         });
 
@@ -287,12 +335,18 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
                 execute: jest.fn(),
             };
 
-            const trustResult = resolveServerTrust(mockAdapter, { currency: 'USD', purpose: 'CARD' }, {
-                isInjectedOverride: true,
-            });
+            const trustResult = resolveServerTrust(
+                mockAdapter,
+                { currency: 'USD', purpose: 'CARD' },
+                {
+                    isInjectedOverride: true,
+                }
+            );
 
             expect(trustResult.isTrusted).toBe(false);
-            expect(trustResult.reason).toMatch(/Injected adapter overrides are untrusted and disallowed in execution architecture/);
+            expect(trustResult.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed in execution architecture/
+            );
         });
 
         test('7. Fake Razorpay cannot impersonate core_razorpay', () => {
@@ -302,12 +356,18 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
                 execute: jest.fn(),
             };
 
-            const trustResult = resolveServerTrust(fakeRazorpay, { currency: 'INR' }, {
-                isInjectedOverride: true,
-            });
+            const trustResult = resolveServerTrust(
+                fakeRazorpay,
+                { currency: 'INR' },
+                {
+                    isInjectedOverride: true,
+                }
+            );
 
             expect(trustResult.isTrusted).toBe(false);
-            expect(trustResult.reason).toMatch(/Injected adapter overrides are untrusted and disallowed/);
+            expect(trustResult.reason).toMatch(
+                /Injected adapter overrides are untrusted and disallowed/
+            );
         });
     });
 
@@ -315,7 +375,6 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
     // PART 2: VALIDATOR & LEGACY ENDPOINT CONTRACT
     // ========================================================================
     describe('Part 2: Validator & Legacy Endpoint Contract', () => {
-
         test('8. adapterExecuteSchema makes adapter parameter optional', () => {
             const validWithoutAdapter = {
                 instructionId: '47d3d179-8809-4089-a29d-ee2f1c841804',
@@ -348,49 +407,70 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
         test('11. Rejects contradictory adapter request (ADAPTER_STRIPE for INR)', async () => {
             const instId = crypto.randomUUID();
             const { mockPool } = createMockDb({ instructionId: instId, currency: 'INR' });
-            const { req, res } = createMockReqRes({ instructionId: instId, adapter: 'ADAPTER_STRIPE' });
+            const { req, res } = createMockReqRes({
+                instructionId: instId,
+                adapter: 'ADAPTER_STRIPE',
+            });
 
             await handleAdapterExecute(req, res, mockPool);
 
             expect(res.statusCode).toBe(400);
             expect(res.body.error).toBe('Contradictory adapter request');
-            expect(res.body.detail).toContain("Adapter 'ADAPTER_STRIPE' cannot execute currency 'INR'");
+            expect(res.body.detail).toContain(
+                "Adapter 'ADAPTER_STRIPE' cannot execute currency 'INR'"
+            );
         });
 
         test('12. Rejects contradictory adapter request (ADAPTER_RAZORPAY for USD)', async () => {
             const instId = crypto.randomUUID();
             const { mockPool } = createMockDb({ instructionId: instId, currency: 'USD' });
-            const { req, res } = createMockReqRes({ instructionId: instId, adapter: 'ADAPTER_RAZORPAY' });
+            const { req, res } = createMockReqRes({
+                instructionId: instId,
+                adapter: 'ADAPTER_RAZORPAY',
+            });
 
             await handleAdapterExecute(req, res, mockPool);
 
             expect(res.statusCode).toBe(400);
             expect(res.body.error).toBe('Contradictory adapter request');
-            expect(res.body.detail).toContain("Adapter 'ADAPTER_RAZORPAY' cannot execute currency 'USD'");
+            expect(res.body.detail).toContain(
+                "Adapter 'ADAPTER_RAZORPAY' cannot execute currency 'USD'"
+            );
         });
 
         test('13. Rejects contradictory adapter request (ADAPTER_CRYPTO_CUSTODIAN for USD)', async () => {
             const instId = crypto.randomUUID();
             const { mockPool } = createMockDb({ instructionId: instId, currency: 'USD' });
-            const { req, res } = createMockReqRes({ instructionId: instId, adapter: 'ADAPTER_CRYPTO_CUSTODIAN' });
+            const { req, res } = createMockReqRes({
+                instructionId: instId,
+                adapter: 'ADAPTER_CRYPTO_CUSTODIAN',
+            });
 
             await handleAdapterExecute(req, res, mockPool);
 
             expect(res.statusCode).toBe(400);
             expect(res.body.error).toBe('Contradictory adapter request');
-            expect(res.body.detail).toContain("Adapter 'ADAPTER_CRYPTO_CUSTODIAN' cannot execute asset 'USD'");
+            expect(res.body.detail).toContain(
+                "Adapter 'ADAPTER_CRYPTO_CUSTODIAN' cannot execute asset 'USD'"
+            );
         });
 
         test('14. Rejects unsupported legacy adapters (ADAPTER_PAYNOW, ADAPTER_MOCK_HFT)', async () => {
             const instId = crypto.randomUUID();
             const { mockPool } = createMockDb({ instructionId: instId, currency: 'USD' });
 
-            const { req: req1, res: res1 } = createMockReqRes({ instructionId: instId, adapter: 'ADAPTER_PAYNOW' });
+            const { req: req1, res: res1 } = createMockReqRes({
+                instructionId: instId,
+                adapter: 'ADAPTER_PAYNOW',
+            });
             await handleAdapterExecute(req1, res1, mockPool);
             expect(res1.statusCode).toBe(400);
             expect(res1.body.error).toBe('Unsupported adapter');
 
-            const { req: req2, res: res2 } = createMockReqRes({ instructionId: instId, adapter: 'ADAPTER_MOCK_HFT' });
+            const { req: req2, res: res2 } = createMockReqRes({
+                instructionId: instId,
+                adapter: 'ADAPTER_MOCK_HFT',
+            });
             await handleAdapterExecute(req2, res2, mockPool);
             expect(res2.statusCode).toBe(400);
             expect(res2.body.error).toBe('Unsupported adapter');
@@ -405,7 +485,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             expect(res.statusCode).toBe(200);
             expect(res.headers['deprecation']).toBe('true');
-            expect(res.headers['warning']).toContain('The adapter parameter on /api/adapter/execute is deprecated');
+            expect(res.headers['warning']).toContain(
+                'The adapter parameter on /api/adapter/execute is deprecated'
+            );
             expect(res.body.current_state).toBeDefined();
         });
     });
@@ -435,7 +517,10 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
         test('17. Under NODE_ENV=production, runtime adapter injection cannot execute or settle', async () => {
             expect(process.env.NODE_ENV).toBe('production');
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             const injectedExecute = jest.fn().mockResolvedValue({
                 status: 'SUCCESS',
@@ -458,37 +543,58 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             expect(result.current_state).toBe('MANUAL_CHECK');
 
             // No ledger journal writes
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
         test('18. Under NODE_ENV=production, genuine static adapters remain authorized for approved rails', () => {
             expect(process.env.NODE_ENV).toBe('production');
 
-            const legitStellar = resolveServerTrust({ id: 'core_stellar', instance: cryptoAdapters }, { currency: 'XLM' });
+            const legitStellar = resolveServerTrust(
+                { id: 'core_stellar', instance: cryptoAdapters },
+                { currency: 'XLM' }
+            );
             expect(legitStellar.isTrusted).toBe(true);
             expect(legitStellar.provider).toBe('STELLAR_TESTNET');
 
-            const legitRazorpay = resolveServerTrust({ id: 'core_razorpay', instance: razorpayAdapter }, { currency: 'INR' });
+            const legitRazorpay = resolveServerTrust(
+                { id: 'core_razorpay', instance: razorpayAdapter },
+                { currency: 'INR' }
+            );
             expect(legitRazorpay.isTrusted).toBe(true);
             expect(legitRazorpay.provider).toBe('RAZORPAYX_SANDBOX');
 
-            const legitStripe = resolveServerTrust({ id: 'core_stripe', instance: paymentsAdapters }, { currency: 'USD', purpose: 'CARD' });
+            const legitStripe = resolveServerTrust(
+                { id: 'core_stripe', instance: paymentsAdapters },
+                { currency: 'USD', purpose: 'CARD' }
+            );
             expect(legitStripe.isTrusted).toBe(true);
             expect(legitStripe.provider).toBe('STRIPE_TESTNET');
 
             // Simulated assets remain untrusted for settlement
-            const btcTrust = resolveServerTrust({ id: 'core_stellar', instance: cryptoAdapters }, { currency: 'BTC' });
+            const btcTrust = resolveServerTrust(
+                { id: 'core_stellar', instance: cryptoAdapters },
+                { currency: 'BTC' }
+            );
             expect(btcTrust.isTrusted).toBe(false);
 
-            const swiftTrust = resolveServerTrust({ id: 'core_stripe', instance: paymentsAdapters }, { currency: 'USD', purpose: 'SWIFT' });
+            const swiftTrust = resolveServerTrust(
+                { id: 'core_stripe', instance: paymentsAdapters },
+                { currency: 'USD', purpose: 'SWIFT' }
+            );
             expect(swiftTrust.isTrusted).toBe(false);
         });
 
         test('19. Under NODE_ENV=production, genuine static adapter execution succeeds and writes ledger via Jest module mocking', async () => {
             expect(process.env.NODE_ENV).toBe('production');
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD', purpose: 'CARD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+                purpose: 'CARD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -510,10 +616,12 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             expect(result.current_state).toBe('SETTLED');
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeDefined();
 
-            const ledgerInserts = mockQueries.filter(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInserts = mockQueries.filter((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInserts.length).toBe(2);
         });
     });
@@ -530,7 +638,10 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             // Direct assignment throws TypeError in strict mode
             expect(() => {
-                cryptoAdapters.executeCryptoRail = async () => ({ status: 'SUCCESS', intent_id: 'tampered' });
+                cryptoAdapters.executeCryptoRail = async () => ({
+                    status: 'SUCCESS',
+                    intent_id: 'tampered',
+                });
             }).toThrow(TypeError);
 
             // Object.defineProperty throws TypeError
@@ -548,7 +659,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             };
             const result = resolveServerTrust(tamperedStellar, { currency: 'XLM' });
             expect(result.isTrusted).toBe(false);
-            expect(result.reason).toMatch(/Execution integrity check failed.*replaced or tampered with/i);
+            expect(result.reason).toMatch(
+                /Execution integrity check failed.*replaced or tampered with/i
+            );
 
             const tamperedExecute = {
                 id: 'core_stellar',
@@ -556,7 +669,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             };
             const resultExecute = resolveServerTrust(tamperedExecute, { currency: 'XLM' });
             expect(resultExecute.isTrusted).toBe(false);
-            expect(resultExecute.reason).toMatch(/Execution integrity check failed.*replaced or tampered with/i);
+            expect(resultExecute.reason).toMatch(
+                /Execution integrity check failed.*replaced or tampered with/i
+            );
         });
 
         // 2. Stripe executePaymentRail Replacement Protection
@@ -588,15 +703,22 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             };
             const result = resolveServerTrust(tamperedStripe, { currency: 'USD', purpose: 'CARD' });
             expect(result.isTrusted).toBe(false);
-            expect(result.reason).toMatch(/Execution integrity check failed.*replaced or tampered with/i);
+            expect(result.reason).toMatch(
+                /Execution integrity check failed.*replaced or tampered with/i
+            );
 
             const tamperedExecute = {
                 id: 'core_stripe',
                 execute: async () => ({ status: 'SUCCESS' }),
             };
-            const resultExecute = resolveServerTrust(tamperedExecute, { currency: 'USD', purpose: 'CARD' });
+            const resultExecute = resolveServerTrust(tamperedExecute, {
+                currency: 'USD',
+                purpose: 'CARD',
+            });
             expect(resultExecute.isTrusted).toBe(false);
-            expect(resultExecute.reason).toMatch(/Execution integrity check failed.*replaced or tampered with/i);
+            expect(resultExecute.reason).toMatch(
+                /Execution integrity check failed.*replaced or tampered with/i
+            );
         });
 
         // 3. RazorpayX executeRazorpayRail Replacement Protection
@@ -621,7 +743,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             };
             const result = resolveServerTrust(tamperedRazorpay, { currency: 'INR' });
             expect(result.isTrusted).toBe(false);
-            expect(result.reason).toMatch(/Execution integrity check failed.*replaced or tampered with/i);
+            expect(result.reason).toMatch(
+                /Execution integrity check failed.*replaced or tampered with/i
+            );
         });
 
         // 4. Fake Adapter Impersonation
@@ -631,7 +755,10 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
                 name: 'Impersonated Stripe',
                 instance: { executePaymentRail: async () => ({ status: 'SUCCESS' }) },
             };
-            const result1 = resolveServerTrust(fakeForeignStripe, { currency: 'USD', purpose: 'CARD' });
+            const result1 = resolveServerTrust(fakeForeignStripe, {
+                currency: 'USD',
+                purpose: 'CARD',
+            });
             expect(result1.isTrusted).toBe(false);
             expect(result1.reason).toMatch(/Execution integrity check failed/i);
 
@@ -693,7 +820,11 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
         // 6. Test-Specific Provider Substitution via Jest Module Mocking
         test('29. Test-specific provider substitution in isolated module environment does not mutate production singletons', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD', purpose: 'CARD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+                purpose: 'CARD',
+            });
 
             let isolatedSaga;
             jest.isolateModules(() => {
@@ -713,7 +844,7 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             const result = await isolatedSaga.processInstructionSagaAtomic(instId, mockPool);
             expect(result.current_state).toBe('SETTLED');
 
-            const settledUpdate = mockQueries.find(q => q.sql.includes("state = 'SETTLED'"));
+            const settledUpdate = mockQueries.find((q) => q.sql.includes("state = 'SETTLED'"));
             expect(settledUpdate).toBeDefined();
 
             // Production module outside the isolation remains strictly frozen
@@ -755,7 +886,10 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
 
             for (const curr of currencies) {
                 const instId = crypto.randomUUID();
-                const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: curr });
+                const { mockPool, mockQueries } = createMockDb({
+                    instructionId: instId,
+                    currency: curr,
+                });
 
                 const result = await processInstructionSagaAtomic(instId, mockPool);
 
@@ -763,31 +897,47 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
                 expect(result.current_state).not.toBe('SETTLED');
 
                 // Zero ledger writes
-                const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+                const ledgerInsert = mockQueries.find((q) =>
+                    q.sql.includes('INSERT INTO ledger_journal')
+                );
                 expect(ledgerInsert).toBeUndefined();
             }
         });
 
         test('32. Bank rails (SWIFT, ISO 20022, Nium, NEFT) execute to SIMULATED and bypass ledger', async () => {
-            const bankRailPurposes = ['SWIFT_TRANSFER', 'ISO20022_PAYMENT', 'NIUM_CROSS_BORDER', 'NEFT_DISBURSEMENT'];
+            const bankRailPurposes = [
+                'SWIFT_TRANSFER',
+                'ISO20022_PAYMENT',
+                'NIUM_CROSS_BORDER',
+                'NEFT_DISBURSEMENT',
+            ];
 
             for (const purpose of bankRailPurposes) {
                 const instId = crypto.randomUUID();
-                const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD', purpose });
+                const { mockPool, mockQueries } = createMockDb({
+                    instructionId: instId,
+                    currency: 'USD',
+                    purpose,
+                });
 
                 const result = await processInstructionSagaAtomic(instId, mockPool);
 
                 expect(result.current_state).toBe('SIMULATED');
                 expect(result.current_state).not.toBe('SETTLED');
 
-                const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+                const ledgerInsert = mockQueries.find((q) =>
+                    q.sql.includes('INSERT INTO ledger_journal')
+                );
                 expect(ledgerInsert).toBeUndefined();
             }
         });
 
         test('33. Mutated adapter attempting to execute via Saga is blocked and leaves ledger uncommitted', async () => {
             const instId = crypto.randomUUID();
-            const { mockPool, mockQueries } = createMockDb({ instructionId: instId, currency: 'USD' });
+            const { mockPool, mockQueries } = createMockDb({
+                instructionId: instId,
+                currency: 'USD',
+            });
 
             const hijackedAdapter = {
                 id: 'core_stripe',
@@ -806,15 +956,15 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             expect(result.current_state).toBe('MANUAL_CHECK');
 
             // Zero ledger journal writes
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
     });
 
     describe('Sprint 2.2.4.2.10: Immutable Payment Rail Policy Enforcement', () => {
-        const {
-            verifyProviderIntegrity,
-        } = require('../../core/orchestrator/providerDispatcher');
+        const { verifyProviderIntegrity } = require('../../core/orchestrator/providerDispatcher');
 
         test('34. paymentsAdapters does not export mutable BANK_RAILS and rejects external injection', () => {
             // Must not be exported
@@ -862,7 +1012,9 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
                 expect(res.settlement_confirmed).toBe(false);
                 expect(res.adapter_type).toBe('SIMULATED_BANK_RAIL');
                 expect(res.rail).toBe(rail);
-                expect(res.reason).toContain(`Unsupported bank rail '${rail}' cannot be processed via Stripe card adapter`);
+                expect(res.reason).toContain(
+                    `Unsupported bank rail '${rail}' cannot be processed via Stripe card adapter`
+                );
             }
         });
 
@@ -963,13 +1115,16 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             expect(result.current_state).not.toBe('SETTLED');
 
             // Verify instruction updated to SIMULATED state in SQL query
-            const updateStateQuery = mockQueries.find(q =>
-                q.sql.includes('UPDATE instructions') && q.sql.includes("state = 'SIMULATED'")
+            const updateStateQuery = mockQueries.find(
+                (q) =>
+                    q.sql.includes('UPDATE instructions') && q.sql.includes("state = 'SIMULATED'")
             );
             expect(updateStateQuery).toBeDefined();
 
             // Zero ledger journal writes
-            const ledgerInsert = mockQueries.find(q => q.sql.includes('INSERT INTO ledger_journal'));
+            const ledgerInsert = mockQueries.find((q) =>
+                q.sql.includes('INSERT INTO ledger_journal')
+            );
             expect(ledgerInsert).toBeUndefined();
         });
 
@@ -1014,6 +1169,39 @@ describe('Sprint 2.2.4.2.8 — Elimination of Production Test-Authorization Capa
             const razorpayIntegrity = verifyProviderIntegrity(razorpayMeta);
             expect(razorpayIntegrity.isIntact).toBe(true);
             expect(razorpayIntegrity.binding.id).toBe('core_razorpay');
+        });
+
+        test('43. Bank rail simulation succeeds without requiring STRIPE_KEY, but card rail requires it', async () => {
+            const savedStripeKey = process.env.STRIPE_TEST_SECRET_KEY;
+            try {
+                delete process.env.STRIPE_TEST_SECRET_KEY;
+
+                // 1. Bank rail execution succeeds with SIMULATED when STRIPE_TEST_SECRET_KEY is absent
+                const bankResult = await paymentsAdapters.executePaymentRail({
+                    instruction_id: 'test-bank-no-key',
+                    amount: '100.00',
+                    currency: 'USD',
+                    purpose: 'ACH',
+                });
+                expect(bankResult.status).toBe('SIMULATED');
+                expect(bankResult.adapter_type).toBe('SIMULATED_BANK_RAIL');
+
+                // 2. Card rail execution fails closed when STRIPE_TEST_SECRET_KEY is absent
+                await expect(
+                    paymentsAdapters.executePaymentRail({
+                        instruction_id: 'test-card-no-key',
+                        amount: '100.00',
+                        currency: 'USD',
+                        purpose: 'CARD',
+                    })
+                ).rejects.toThrow(/\[VAULT\] Mandatory credential 'STRIPE_KEY' is not set/);
+            } finally {
+                if (savedStripeKey !== undefined) {
+                    process.env.STRIPE_TEST_SECRET_KEY = savedStripeKey;
+                } else {
+                    delete process.env.STRIPE_TEST_SECRET_KEY;
+                }
+            }
         });
     });
 });

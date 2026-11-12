@@ -13,7 +13,7 @@ const TECHNICAL_IDENTIFIER_PATTERNS = [
     // CamelCase field names (e.g. streetName, townName, EndToEndId, Idempotency-Key)
     /\b([a-z]+[A-Z0-9][a-zA-Z0-9]*)\b/g,
     // Header names with hyphens (e.g. Idempotency-Key, Stripe-Signature)
-    /\b([A-Z][a-zA-Z0-9]+-[A-Z][a-zA-Z0-9]+)\b/g
+    /\b([A-Z][a-zA-Z0-9]+-[A-Z][a-zA-Z0-9]+)\b/g,
 ];
 
 /**
@@ -29,7 +29,21 @@ function extractTechnicalIdentifiers(text) {
         while ((match = pattern.exec(text)) !== null) {
             const token = match[1].trim();
             // Filter common English words or short tokens
-            if (token.length >= 3 && !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'have', 'been', 'which'].includes(token.toLowerCase())) {
+            if (
+                token.length >= 3 &&
+                ![
+                    'the',
+                    'and',
+                    'for',
+                    'with',
+                    'from',
+                    'this',
+                    'that',
+                    'have',
+                    'been',
+                    'which',
+                ].includes(token.toLowerCase())
+            ) {
                 codes.add(token);
             }
         }
@@ -41,7 +55,7 @@ function extractTechnicalIdentifiers(text) {
 class TextChunker {
     /**
      * Splits a document into section-aware chunks.
-     * 
+     *
      * @param {object} document - Output from DocumentLoader.loadFile
      * @returns {object[]} Array of structured chunk objects
      */
@@ -58,7 +72,10 @@ class TextChunker {
             const cleanContent = sectionContent.trim();
             if (!cleanContent) return;
 
-            const contentHash = crypto.createHash('sha256').update(cleanContent, 'utf8').digest('hex');
+            const contentHash = crypto
+                .createHash('sha256')
+                .update(cleanContent, 'utf8')
+                .digest('hex');
             const providerKey = document.provider.toLowerCase().replace(/[^a-z0-9]/g, '');
             const sourceKey = document.source_id.toLowerCase().replace(/[^a-z0-9-]/g, '');
             const chunkId = `docs:${providerKey}:${sourceKey}:chunk-${String(chunkIndex).padStart(3, '0')}`;
@@ -77,7 +94,7 @@ class TextChunker {
                 document_version: document.document_version,
                 content_hash: contentHash,
                 last_verified_at: document.last_verified_at,
-                error_codes: errorCodes
+                error_codes: errorCodes,
             });
         }
 
@@ -110,6 +127,5 @@ class TextChunker {
 
 module.exports = {
     TextChunker,
-    extractTechnicalIdentifiers
+    extractTechnicalIdentifiers,
 };
-

@@ -11,7 +11,7 @@ jest.mock('ioredis', () => {
         setnx: jest.fn().mockResolvedValue(1),
         get: jest.fn().mockResolvedValue(null),
         setex: jest.fn().mockResolvedValue('OK'),
-        del: jest.fn().mockResolvedValue(1)
+        del: jest.fn().mockResolvedValue(1),
     }));
 });
 
@@ -147,7 +147,7 @@ describe('Full Flow Integration', () => {
 
     test('3. Evaluate Policy (Approve)', async () => {
         expect(instructionId).toBeDefined();
-        // Skip actual evaluate policy test because in the new async flow, 
+        // Skip actual evaluate policy test because in the new async flow,
         // the background worker evaluates the policy, not a synchronous API call.
         // We will just assume success for the legacy test boundary.
         expect(true).toBe(true);

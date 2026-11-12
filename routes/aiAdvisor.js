@@ -89,8 +89,8 @@ const MUTATION_PATTERNS = [
 
 /**
  * Classifies whether a user query is an action mutation request or an analytical inquiry.
- * 
- * @param {string} input 
+ *
+ * @param {string} input
  * @returns {{ isMutation: boolean, intentType: string, matchedPattern: string|null }}
  */
 function classifyFinancialIntent(input = '') {
@@ -100,11 +100,22 @@ function classifyFinancialIntent(input = '') {
         if (pattern.test(text)) {
             // Distinguish past/current inquiries from active imperative commands
             // e.g. "Why did the system execute a refund?" vs "Execute a refund."
-            const isHistoricalInquiry = /\b(why\s+(did|was|has)|who\s+(executed|authorized)|when\s+was|explain\s+why|status\s+of)\b/i.test(text);
+            const isHistoricalInquiry =
+                /\b(why\s+(did|was|has)|who\s+(executed|authorized)|when\s+was|explain\s+why|status\s+of)\b/i.test(
+                    text
+                );
             if (isHistoricalInquiry) {
-                return { isMutation: false, intentType: 'HISTORICAL_INQUIRY', matchedPattern: pattern.toString() };
+                return {
+                    isMutation: false,
+                    intentType: 'HISTORICAL_INQUIRY',
+                    matchedPattern: pattern.toString(),
+                };
             }
-            return { isMutation: true, intentType: 'MUTATION_REQUEST', matchedPattern: pattern.toString() };
+            return {
+                isMutation: true,
+                intentType: 'MUTATION_REQUEST',
+                matchedPattern: pattern.toString(),
+            };
         }
     }
 
@@ -115,8 +126,8 @@ function classifyFinancialIntent(input = '') {
 /**
  * Determines whether a query is a general financial education / conceptual inquiry
  * rather than a request for business-specific financial numbers or ledger metrics.
- * 
- * @param {string} input 
+ *
+ * @param {string} input
  * @returns {boolean}
  */
 function isEducationalOrConceptualQuery(input = '') {
@@ -129,19 +140,30 @@ function isEducationalOrConceptualQuery(input = '') {
     }
 
     // Business-specific pronouns/terms indicating user is asking about their specific financial state
-    const hasBusinessSpecificTarget = /\b(our|my|this\s+company|current\s+balance|our\s+balance|our\s+runway|our\s+invoices|our\s+cash|our\s+payables|our\s+obligations|our\s+spend|my\s+balance|my\s+spend|can\s+we\s+afford|can\s+i\s+spend|why\s+has\s+the\s+payment|explain\s+our)\b/i.test(text);
+    const hasBusinessSpecificTarget =
+        /\b(our|my|this\s+company|current\s+balance|our\s+balance|our\s+runway|our\s+invoices|our\s+cash|our\s+payables|our\s+obligations|our\s+spend|my\s+balance|my\s+spend|can\s+we\s+afford|can\s+i\s+spend|why\s+has\s+the\s+payment|explain\s+our)\b/i.test(
+            text
+        );
 
     if (hasBusinessSpecificTarget) {
         return false;
     }
 
     // Conceptual definitions and inquiries
-    if (/\b(what\s+is|what\s+are|how\s+is\s+.*(calculated|computed|defined)|how\s+does\s+.*work|define|difference\s+between|explain\s+(the\s+concept\s+of|what\s+is))\b/i.test(text)) {
+    if (
+        /\b(what\s+is|what\s+are|how\s+is\s+.*(calculated|computed|defined)|how\s+does\s+.*work|define|difference\s+between|explain\s+(the\s+concept\s+of|what\s+is))\b/i.test(
+            text
+        )
+    ) {
         return true;
     }
 
     // Standards, protocols, and conceptual terminology
-    if (/\b(pacs\.008|pacs\.002|camt\.053|iso\s*20022|maker-checker|dual\s+authorization|working\s+capital|overdraft\s+facility)\b/i.test(text)) {
+    if (
+        /\b(pacs\.008|pacs\.002|camt\.053|iso\s*20022|maker-checker|dual\s+authorization|working\s+capital|overdraft\s+facility)\b/i.test(
+            text
+        )
+    ) {
         return true;
     }
 
@@ -166,7 +188,12 @@ function generateEducationalReply(query = '') {
     if (q.includes('camt.053')) {
         return `camt.053 is the ISO 20022 standard message for Bank-to-Customer Statement reporting, providing end-of-day electronic statements with detailed transaction postings and closing balances for automated bank reconciliation.`;
     }
-    if (q.includes('maker-checker') || q.includes('dual auth') || q.includes('dual-auth') || q.includes('dual authorization')) {
+    if (
+        q.includes('maker-checker') ||
+        q.includes('dual auth') ||
+        q.includes('dual-auth') ||
+        q.includes('dual authorization')
+    ) {
         return `Maker-checker (four-eyes principle) is an institutional governance control policy requiring two distinct authorized operators to complete high-risk financial transactions: one operator drafts or initiates the instruction (the maker), and a separate authorized operator reviews and approves it (the checker).`;
     }
     if (q.includes('working capital')) {
@@ -181,7 +208,7 @@ function generateEducationalReply(query = '') {
 // ── 3. BUSINESS ACCESS AUTHORISATION & TRUST BOUNDARY ───────────────────────
 /**
  * Enforces operator session validation and strict multi-business fail-closed boundaries.
- * 
+ *
  * Mandates:
  * 1. Validates operator session via SessionManager if cookies present.
  * 2. In single-tenant demo deployment, only the canonical authorized business
@@ -195,7 +222,8 @@ function generateEducationalReply(query = '') {
  */
 async function verifyBusinessAccess(req, pool = null) {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const rawPayload = body.contextPayload && typeof body.contextPayload === 'object' ? body.contextPayload : body;
+    const rawPayload =
+        body.contextPayload && typeof body.contextPayload === 'object' ? body.contextPayload : body;
 
     const isExplicitDemo = Boolean(
         body.isDemoMode ||
@@ -207,18 +235,24 @@ async function verifyBusinessAccess(req, pool = null) {
         (!req.headers && Boolean(body.contextPayload && body.contextPayload.balance !== undefined))
     );
 
-    const hasExplicitBizKey = Object.prototype.hasOwnProperty.call(body, 'businessId') ||
-                              Object.prototype.hasOwnProperty.call(rawPayload, 'businessId');
+    const hasExplicitBizKey =
+        Object.prototype.hasOwnProperty.call(body, 'businessId') ||
+        Object.prototype.hasOwnProperty.call(rawPayload, 'businessId');
     const requestedBizId = body.businessId !== undefined ? body.businessId : rawPayload.businessId;
 
     // 1. Session verification if cookie is present
     const rawToken = extractSessionToken(req);
     if (rawToken) {
-        const sessionMgr = (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
+        const sessionMgr =
+            (req.app && req.app.locals && req.app.locals.sessionManager) || defaultSessionManager;
         let validation = await sessionMgr.validateSession(rawToken, { pool });
 
         // Fallback to in-memory session validation if DB didn't find it
-        if (!validation.valid && sessionMgr.inMemorySessions && sessionMgr.inMemorySessions.size > 0) {
+        if (
+            !validation.valid &&
+            sessionMgr.inMemorySessions &&
+            sessionMgr.inMemorySessions.size > 0
+        ) {
             const memValidation = await sessionMgr.validateSession(rawToken, { pool: null });
             if (memValidation.valid) {
                 validation = memValidation;
@@ -247,11 +281,13 @@ async function verifyBusinessAccess(req, pool = null) {
         // No session token present: check perimeter access
         const isLocalOnly = process.env.LOCAL_ONLY === 'true';
         const isDirectTestCall = process.env.NODE_ENV === 'test' && !req.headers;
-        const isLoopback = ['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost'].includes(req.ip) ||
-                           ['127.0.0.1', '::1', 'localhost'].includes(req.hostname);
+        const isLoopback =
+            ['127.0.0.1', '::1', '::ffff:127.0.0.1', 'localhost'].includes(req.ip) ||
+            ['127.0.0.1', '::1', 'localhost'].includes(req.hostname);
         const hasApiKey = Boolean(
             process.env.API_SECRET_KEY &&
-            (req.headers && req.headers['x-api-key'] || '').trim() === process.env.API_SECRET_KEY.trim()
+            ((req.headers && req.headers['x-api-key']) || '').trim() ===
+                process.env.API_SECRET_KEY.trim()
         );
 
         if (!isLocalOnly && !isDirectTestCall && !isLoopback && !hasApiKey) {
@@ -329,19 +365,38 @@ async function verifyBusinessAccess(req, pool = null) {
  * Safely parse a financial numeric input.
  * Handles strings with currency symbols or commas, numbers, null/undefined, and flags invalid values.
  */
-function parseSafeFinancialNumber(val, fieldName, options = { allowNegative: false, defaultValue: 0 }) {
+function parseSafeFinancialNumber(
+    val,
+    fieldName,
+    options = { allowNegative: false, defaultValue: 0 }
+) {
     if (val === null || val === undefined) {
         return { value: options.defaultValue, isDefault: true, isValid: true };
     }
     if (typeof val === 'number') {
         if (!Number.isFinite(val)) {
-            return { value: options.defaultValue, isDefault: true, isValid: false, reason: `${fieldName} is not finite (NaN or Infinity)` };
+            return {
+                value: options.defaultValue,
+                isDefault: true,
+                isValid: false,
+                reason: `${fieldName} is not finite (NaN or Infinity)`,
+            };
         }
         if (!options.allowNegative && val < 0) {
-            return { value: 0, isDefault: false, isValid: false, reason: `${fieldName} was negative (${val}), clamped to 0` };
+            return {
+                value: 0,
+                isDefault: false,
+                isValid: false,
+                reason: `${fieldName} was negative (${val}), clamped to 0`,
+            };
         }
         if (val > 1e12) {
-            return { value: 1e12, isDefault: false, isValid: false, reason: `${fieldName} exceeds maximum safety ceiling (1 Trillion)` };
+            return {
+                value: 1e12,
+                isDefault: false,
+                isValid: false,
+                reason: `${fieldName} exceeds maximum safety ceiling (1 Trillion)`,
+            };
         }
         return { value: val, isDefault: false, isValid: true };
     }
@@ -352,17 +407,37 @@ function parseSafeFinancialNumber(val, fieldName, options = { allowNegative: fal
         }
         const parsed = Number(cleaned);
         if (!Number.isFinite(parsed)) {
-            return { value: options.defaultValue, isDefault: true, isValid: false, reason: `${fieldName} could not be parsed as a finite number: "${val}"` };
+            return {
+                value: options.defaultValue,
+                isDefault: true,
+                isValid: false,
+                reason: `${fieldName} could not be parsed as a finite number: "${val}"`,
+            };
         }
         if (!options.allowNegative && parsed < 0) {
-            return { value: 0, isDefault: false, isValid: false, reason: `${fieldName} was negative (${parsed}), clamped to 0` };
+            return {
+                value: 0,
+                isDefault: false,
+                isValid: false,
+                reason: `${fieldName} was negative (${parsed}), clamped to 0`,
+            };
         }
         if (parsed > 1e12) {
-            return { value: 1e12, isDefault: false, isValid: false, reason: `${fieldName} exceeds maximum safety ceiling (1 Trillion)` };
+            return {
+                value: 1e12,
+                isDefault: false,
+                isValid: false,
+                reason: `${fieldName} exceeds maximum safety ceiling (1 Trillion)`,
+            };
         }
         return { value: parsed, isDefault: false, isValid: true };
     }
-    return { value: options.defaultValue, isDefault: true, isValid: false, reason: `${fieldName} has invalid type: ${typeof val}` };
+    return {
+        value: options.defaultValue,
+        isDefault: true,
+        isValid: false,
+        reason: `${fieldName} has invalid type: ${typeof val}`,
+    };
 }
 
 /**
@@ -382,35 +457,60 @@ function formatINR(val) {
 function computeTreasuryMetrics(telemetry = {}) {
     const warnings = [...(telemetry.validationWarnings || [])];
 
-    const balanceParsed = parseSafeFinancialNumber(telemetry.balance, 'balance', { allowNegative: true, defaultValue: 0 });
+    const balanceParsed = parseSafeFinancialNumber(telemetry.balance, 'balance', {
+        allowNegative: true,
+        defaultValue: 0,
+    });
     if (!balanceParsed.isValid) warnings.push(balanceParsed.reason);
     const balance = balanceParsed.value;
 
-    const odLimitParsed = parseSafeFinancialNumber(telemetry.odLimit, 'odLimit', { allowNegative: false, defaultValue: 0 });
+    const odLimitParsed = parseSafeFinancialNumber(telemetry.odLimit, 'odLimit', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     if (!odLimitParsed.isValid) warnings.push(odLimitParsed.reason);
     const odLimit = odLimitParsed.value;
 
-    const inflowParsed = parseSafeFinancialNumber(telemetry.totalInflow, 'totalInflow', { allowNegative: false, defaultValue: 0 });
+    const inflowParsed = parseSafeFinancialNumber(telemetry.totalInflow, 'totalInflow', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     if (!inflowParsed.isValid) warnings.push(inflowParsed.reason);
     const totalInflow = inflowParsed.value;
 
-    const outflowParsed = parseSafeFinancialNumber(telemetry.totalOutflow, 'totalOutflow', { allowNegative: false, defaultValue: 0 });
+    const outflowParsed = parseSafeFinancialNumber(telemetry.totalOutflow, 'totalOutflow', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     if (!outflowParsed.isValid) warnings.push(outflowParsed.reason);
     const totalOutflow = outflowParsed.value;
 
-    const overdueParsed = parseSafeFinancialNumber(telemetry.overdueAmount, 'overdueAmount', { allowNegative: false, defaultValue: 0 });
+    const overdueParsed = parseSafeFinancialNumber(telemetry.overdueAmount, 'overdueAmount', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     if (!overdueParsed.isValid) warnings.push(overdueParsed.reason);
     const overdueAmount = overdueParsed.value;
 
-    const upcomingParsed = parseSafeFinancialNumber(telemetry.upcomingAmount, 'upcomingAmount', { allowNegative: false, defaultValue: 0 });
+    const upcomingParsed = parseSafeFinancialNumber(telemetry.upcomingAmount, 'upcomingAmount', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     if (!upcomingParsed.isValid) warnings.push(upcomingParsed.reason);
     const upcomingAmount = upcomingParsed.value;
 
-    const alertsParsed = parseSafeFinancialNumber(telemetry.highSeverityAlerts, 'highSeverityAlerts', { allowNegative: false, defaultValue: 0 });
+    const alertsParsed = parseSafeFinancialNumber(
+        telemetry.highSeverityAlerts,
+        'highSeverityAlerts',
+        { allowNegative: false, defaultValue: 0 }
+    );
     if (!alertsParsed.isValid) warnings.push(alertsParsed.reason);
     const highSeverityAlerts = alertsParsed.value;
 
-    const txCountParsed = parseSafeFinancialNumber(telemetry.transactionCount, 'transactionCount', { allowNegative: false, defaultValue: 0 });
+    const txCountParsed = parseSafeFinancialNumber(telemetry.transactionCount, 'transactionCount', {
+        allowNegative: false,
+        defaultValue: 0,
+    });
     const transactionCount = txCountParsed.value;
 
     // Overdraft facility & Total Liquidity
@@ -423,7 +523,8 @@ function computeTreasuryMetrics(telemetry = {}) {
     const netOperatingCashflow = totalInflow - totalOutflow;
     const observationPeriodDays = 30;
     const averageDailyGrossSpend = totalOutflow > 0 ? totalOutflow / observationPeriodDays : 0;
-    const averageDailyNetBurn = netOperatingCashflow < 0 ? Math.abs(netOperatingCashflow) / observationPeriodDays : 0;
+    const averageDailyNetBurn =
+        netOperatingCashflow < 0 ? Math.abs(netOperatingCashflow) / observationPeriodDays : 0;
 
     // Historical Runway
     let runwayDays = null;
@@ -487,7 +588,7 @@ function computeTreasuryMetrics(telemetry = {}) {
             'Observation window is 30 calendar days.',
             'Available overdraft credit is assumed fully accessible for immediate liquidity.',
             'Average daily gross spend assumes constant trailing 30-day outflow run-rate.',
-            'Runway reflects total available liquidity divided by average daily gross spend.'
+            'Runway reflects total available liquidity divided by average daily gross spend.',
         ],
     };
 }
@@ -495,7 +596,7 @@ function computeTreasuryMetrics(telemetry = {}) {
 // ── 6. AUTHORITATIVE CONTEXT RESOLVER ─────────────────────────────────────────
 /**
  * Resolves authoritative financial context from database when available.
- * 
+ *
  * Strict Trust Boundaries:
  * 1. When DB is online and snapshot resolves: returns AUTHORITATIVE_VERIFIED context,
  *    overriding any client-supplied balance manipulations.
@@ -506,7 +607,10 @@ function computeTreasuryMetrics(telemetry = {}) {
 async function resolveAuthoritativeContext(pool, reqBody = {}, targetBizId = null) {
     const rawPayload = reqBody.contextPayload || reqBody;
     const isExplicitDemo = Boolean(
-        reqBody.isDemoMode || reqBody.demoScenario || rawPayload.isDemoMode || rawPayload.demoScenario
+        reqBody.isDemoMode ||
+        reqBody.demoScenario ||
+        rawPayload.isDemoMode ||
+        rawPayload.demoScenario
     );
 
     const businessId = targetBizId || reqBody.businessId || rawPayload.businessId;
@@ -539,12 +643,16 @@ async function resolveAuthoritativeContext(pool, reqBody = {}, targetBizId = nul
         const upcomingAmount = (snapshot.upcoming_obligations || [])
             .filter((o) => o.days_until !== null && o.days_until <= 7 && o.status !== 'OVERDUE')
             .reduce((s, o) => s + (Number(o.amount) || 0), 0);
-        const highSeverityAlerts = (snapshot.active_alerts || [])
-            .filter((a) => a.severity === 'HIGH').length;
+        const highSeverityAlerts = (snapshot.active_alerts || []).filter(
+            (a) => a.severity === 'HIGH'
+        ).length;
 
         const warnings = [];
         // Detect client manipulation
-        if (rawPayload.balance !== undefined && Number(rawPayload.balance) !== snapshot.current_balance) {
+        if (
+            rawPayload.balance !== undefined &&
+            Number(rawPayload.balance) !== snapshot.current_balance
+        ) {
             warnings.push(
                 `Client-supplied balance (₹${rawPayload.balance}) rejected in favor of authoritative server ledger balance (₹${snapshot.current_balance})`
             );
@@ -563,7 +671,8 @@ async function resolveAuthoritativeContext(pool, reqBody = {}, targetBizId = nul
             highSeverityAlerts,
             transactionCount: (snapshot.accounts || []).length,
             dataSource: 'SERVER_AUTHORITATIVE_DB',
-            completeness: (snapshot.monthly_flow && snapshot.monthly_flow.length > 0) ? 'FULL' : 'PARTIAL',
+            completeness:
+                snapshot.monthly_flow && snapshot.monthly_flow.length > 0 ? 'FULL' : 'PARTIAL',
             reconciledAt: snapshot.snapshot_at || new Date().toISOString(),
             validationWarnings: warnings,
             isDemoMode: false,
@@ -587,7 +696,9 @@ async function resolveAuthoritativeContext(pool, reqBody = {}, targetBizId = nul
             dataSource: 'CLIENT_DEMO_SIMULATION',
             completeness: 'SIMULATED',
             reconciledAt: null,
-            validationWarnings: ['[UNVERIFIED DEMO SIMULATION] Operating on simulated client telemetry for demonstration purposes.'],
+            validationWarnings: [
+                '[UNVERIFIED DEMO SIMULATION] Operating on simulated client telemetry for demonstration purposes.',
+            ],
             isDemoMode: true,
         };
     }
@@ -611,14 +722,18 @@ async function resolveAuthoritativeContext(pool, reqBody = {}, targetBizId = nul
         validationWarnings: [
             dbErrMessage
                 ? `Database query failed: ${dbErrMessage}. Client-supplied telemetry rejected.`
-                : 'Authoritative database connection unavailable. Client-supplied telemetry rejected.'
+                : 'Authoritative database connection unavailable. Client-supplied telemetry rejected.',
         ],
         isDemoMode: false,
     };
 }
 
 // ── 7. OLLAMA INFERENCE WITH AUTHORITATIVE TIMEOUT ───────────────────────────
-async function callOllamaWithTimeout(messages, model = OLLAMA_MODEL, timeoutMs = INFERENCE_TIMEOUT_MS) {
+async function callOllamaWithTimeout(
+    messages,
+    model = OLLAMA_MODEL,
+    timeoutMs = INFERENCE_TIMEOUT_MS
+) {
     const timeoutPromise = new Promise((_, reject) => {
         const timer = setTimeout(() => {
             reject(new Error(`Ollama inference timed out after ${timeoutMs}ms`));
@@ -646,17 +761,20 @@ function generateFallbackAdvice(metrics) {
     const upcoming = formatINR(metrics.upcomingObligations7d);
     const commitments = formatINR(metrics.immediateCommitments7d);
     const alerts = metrics.highSeverityAlerts;
-    const netFlowText = metrics.netOperatingCashflow >= 0
-        ? `surplus of ₹${formatINR(metrics.netOperatingCashflow)}`
-        : `deficit of ₹${formatINR(Math.abs(metrics.netOperatingCashflow))}`;
+    const netFlowText =
+        metrics.netOperatingCashflow >= 0
+            ? `surplus of ₹${formatINR(metrics.netOperatingCashflow)}`
+            : `deficit of ₹${formatINR(Math.abs(metrics.netOperatingCashflow))}`;
 
-    const gapText = metrics.cashDeficit7d > 0
-        ? `Cash shortfall of ₹${formatINR(metrics.cashDeficit7d)} before overdraft facilities. Net headroom after OD: ₹${formatINR(metrics.netHeadroom7d)}.`
-        : `No cash shortfall; available cash covers all 7-day commitments with ₹${formatINR(metrics.netHeadroom7d)} in total liquidity headroom.`;
+    const gapText =
+        metrics.cashDeficit7d > 0
+            ? `Cash shortfall of ₹${formatINR(metrics.cashDeficit7d)} before overdraft facilities. Net headroom after OD: ₹${formatINR(metrics.netHeadroom7d)}.`
+            : `No cash shortfall; available cash covers all 7-day commitments with ₹${formatINR(metrics.netHeadroom7d)} in total liquidity headroom.`;
 
-    const odAdvice = metrics.cashDeficit7d > 0
-        ? `Utilize up to ₹${formatINR(metrics.cashDeficit7d)} of your ₹${od} available Overdraft limit if next week's collections are delayed.`
-        : `Maintain cash buffer; preserve the ₹${od} available Overdraft limit for unexpected liquidity shocks.`;
+    const odAdvice =
+        metrics.cashDeficit7d > 0
+            ? `Utilize up to ₹${formatINR(metrics.cashDeficit7d)} of your ₹${od} available Overdraft limit if next week's collections are delayed.`
+            : `Maintain cash buffer; preserve the ₹${od} available Overdraft limit for unexpected liquidity shocks.`;
 
     return `**Executive Summary**
 The business is maintaining total spendable liquidity of ₹${totalLiq} (Cash: ₹${bal}, Available OD: ₹${od}). The 30-day operating cash flow reflects a net ${netFlowText}, with near-term outflows requiring active working capital management.
@@ -706,7 +824,11 @@ function generateFallbackChatReply(lastUserMsg, metrics, invoices = []) {
         return `Reconciliation discrepancies typically occur when internal ledger postings differ from external provider webhook confirmations or accounting synchronization with Zoho. Detailed ledger entries and webhook delivery receipts should be audited in the Reconciliation console.`;
     }
 
-    if (lastUserMsg.includes('spend') || lastUserMsg.includes('buy') || lastUserMsg.includes('afford')) {
+    if (
+        lastUserMsg.includes('spend') ||
+        lastUserMsg.includes('buy') ||
+        lastUserMsg.includes('afford')
+    ) {
         return `To make that purchase, you have ₹${bal} in available cash and ₹${od} in available overdraft facility. However, with ₹${commitments} in immediate 7-day commitments, discretionary expenditures should be held until overdue receivables clear.`;
     }
 
@@ -761,7 +883,11 @@ async function handleCashflowAdvisor(req, res) {
         }
 
         // 2. Resolve Authoritative Financial Context
-        const authoritativeContext = await resolveAuthoritativeContext(pool, req.body, authCheck.businessId);
+        const authoritativeContext = await resolveAuthoritativeContext(
+            pool,
+            req.body,
+            authCheck.businessId
+        );
 
         // 3. Database Unavailable Handling
         if (authoritativeContext.status === 'DATA_UNAVAILABLE') {
@@ -847,7 +973,8 @@ ${verifiedTelemetryTable}`;
             const response = await callOllamaWithTimeout([
                 {
                     role: 'system',
-                    content: 'You are an elite corporate treasury AI operating in strictly read-only advisory mode.',
+                    content:
+                        'You are an elite corporate treasury AI operating in strictly read-only advisory mode.',
                 },
                 { role: 'user', content: systemPrompt },
             ]);
@@ -856,7 +983,10 @@ ${verifiedTelemetryTable}`;
                 adviceText = response.message.content;
             }
         } catch (modelErr) {
-            console.warn('[AI ADVISOR WARN] Local Ollama execution failed. Error:', modelErr.message);
+            console.warn(
+                '[AI ADVISOR WARN] Local Ollama execution failed. Error:',
+                modelErr.message
+            );
         }
 
         if (!adviceText || adviceText.trim().length === 0) {
@@ -889,7 +1019,12 @@ ${verifiedTelemetryTable}`;
             advice: 'An internal error occurred while generating treasury advice. Please try again.',
             metrics: null,
             unverified_hypotheses: [],
-            data_provenance: { source: 'NONE', status: 'ERROR', completeness: 'UNAVAILABLE', reconciled: false },
+            data_provenance: {
+                source: 'NONE',
+                status: 'ERROR',
+                completeness: 'UNAVAILABLE',
+                reconciled: false,
+            },
         });
     }
 }
@@ -919,18 +1054,14 @@ async function handleChat(req, res) {
         }));
 
         const lastUserMessage =
-            sanitizedMessages
-                .filter((m) => m.role === 'user')
-                .pop()
-                ?.content || '';
+            sanitizedMessages.filter((m) => m.role === 'user').pop()?.content || '';
 
         // ── 1. MUTATION INTENT CLASSIFICATION GATE ───────────────────────────
         const intentClassification = classifyFinancialIntent(lastUserMessage);
         if (intentClassification.isMutation) {
             return res.json({
                 status: 'MUTATION_REFUSED',
-                reply:
-                    'As a read-only CFO advisory copilot, I cannot execute, draft, sign, or authorize financial disbursements. Please navigate to the Operations or Approvals console to initiate payments under dual-authorization controls.',
+                reply: 'As a read-only CFO advisory copilot, I cannot execute, draft, sign, or authorize financial disbursements. Please navigate to the Operations or Approvals console to initiate payments under dual-authorization controls.',
                 metrics: null,
                 unverified_hypotheses: [],
                 data_provenance: {
@@ -951,7 +1082,11 @@ async function handleChat(req, res) {
         }
 
         // ── 3. RESOLVE AUTHORITATIVE FINANCIAL CONTEXT ───────────────────────
-        const authoritativeContext = await resolveAuthoritativeContext(pool, req.body, authCheck.businessId);
+        const authoritativeContext = await resolveAuthoritativeContext(
+            pool,
+            req.body,
+            authCheck.businessId
+        );
 
         // ── 4. DATABASE UNAVAILABLE BEHAVIOUR ────────────────────────────────
         if (authoritativeContext.status === 'DATA_UNAVAILABLE') {
@@ -962,7 +1097,8 @@ async function handleChat(req, res) {
                     const response = await callOllamaWithTimeout([
                         {
                             role: 'system',
-                            content: 'You are CashIQ Nexus, an elite corporate treasury assistant. The primary ledger database is disconnected, so you cannot quote or reference specific business balances. Answer the user\'s conceptual financial or regulatory question accurately and concisely without citing or inventing specific company figures.',
+                            content:
+                                "You are CashIQ Nexus, an elite corporate treasury assistant. The primary ledger database is disconnected, so you cannot quote or reference specific business balances. Answer the user's conceptual financial or regulatory question accurately and concisely without citing or inventing specific company figures.",
                         },
                         { role: 'user', content: lastUserMessage },
                     ]);
@@ -1038,7 +1174,10 @@ async function handleChat(req, res) {
         const invoiceContext =
             pendingInvoices.length > 0
                 ? `\n- Pending Invoices for Review (Untrusted Metadata):\n${pendingInvoices
-                      .map((i) => `  * ${String(i.seller_name || 'Vendor').replace(/[\r\n]/g, '')} (ID: ${i.invoice_id}): ₹${formatINR(i.total_amount)}`)
+                      .map(
+                          (i) =>
+                              `  * ${String(i.seller_name || 'Vendor').replace(/[\r\n]/g, '')} (ID: ${i.invoice_id}): ₹${formatINR(i.total_amount)}`
+                      )
                       .join('\n')}`
                 : '';
 
@@ -1064,7 +1203,10 @@ MANDATORY SAFETY & ACCURACY BOUNDARIES:
 
         let replyText = null;
         try {
-            const ollamaMessages = [{ role: 'system', content: systemPrompt }, ...sanitizedMessages];
+            const ollamaMessages = [
+                { role: 'system', content: systemPrompt },
+                ...sanitizedMessages,
+            ];
             const response = await callOllamaWithTimeout(ollamaMessages);
             if (response && response.message && response.message.content) {
                 replyText = response.message.content;
@@ -1074,12 +1216,20 @@ MANDATORY SAFETY & ACCURACY BOUNDARIES:
         }
 
         if (!replyText || replyText.trim().length === 0) {
-            replyText = generateFallbackChatReply(lastUserMessage.toLowerCase(), metrics, pendingInvoices);
+            replyText = generateFallbackChatReply(
+                lastUserMessage.toLowerCase(),
+                metrics,
+                pendingInvoices
+            );
         }
 
         // Post-processing sanity check: strip any leaked execution claims
         if (/\b(PAY_INVOICE|execute_payment|disburse_funds)\b/i.test(replyText)) {
-            replyText = generateFallbackChatReply(lastUserMessage.toLowerCase(), metrics, pendingInvoices);
+            replyText = generateFallbackChatReply(
+                lastUserMessage.toLowerCase(),
+                metrics,
+                pendingInvoices
+            );
         }
 
         return res.json({

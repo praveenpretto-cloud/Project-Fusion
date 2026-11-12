@@ -2,7 +2,7 @@
 
 /**
  * Real Local Ollama Model Evaluator & Safety Assessor
- * 
+ *
  * Executes real model inference against synthetic investigation cases,
  * measuring latency, citation validity, mutation guard behavior, and semantic fidelity.
  */
@@ -23,22 +23,25 @@ async function evaluateRealModel(options = {}) {
     const provider = createModelProvider('ollama', {
         host,
         defaultModel: model,
-        timeoutMs
+        timeoutMs,
     });
 
     const orchestrator = new InvestigationOrchestrator({
         modelProvider: provider,
-        timeoutMs
+        timeoutMs,
     });
 
     const ping = await provider.ping();
     if (!ping.available) {
-        throw new Error(`Ollama server unavailable at ${host}: ${ping.error || 'Connection refused'}`);
+        throw new Error(
+            `Ollama server unavailable at ${host}: ${ping.error || 'Connection refused'}`
+        );
     }
 
-    const casesToRun = targetCaseIds && targetCaseIds.length > 0
-        ? SYNTHETIC_CASES.filter(c => targetCaseIds.includes(c.id))
-        : SYNTHETIC_CASES;
+    const casesToRun =
+        targetCaseIds && targetCaseIds.length > 0
+            ? SYNTHETIC_CASES.filter((c) => targetCaseIds.includes(c.id))
+            : SYNTHETIC_CASES;
 
     const evaluationRecords = [];
     console.log(`================================================================`);
@@ -51,7 +54,9 @@ async function evaluateRealModel(options = {}) {
 
         // Skip model invocation for Cases 14 & 15 if testing real model (or simulate forced error)
         if (testCase.forcedProviderStatus) {
-            console.log(`  (Case specifies forced status: ${testCase.forcedProviderStatus}; evaluated via provider tests)`);
+            console.log(
+                `  (Case specifies forced status: ${testCase.forcedProviderStatus}; evaluated via provider tests)`
+            );
             continue;
         }
 
@@ -66,7 +71,7 @@ async function evaluateRealModel(options = {}) {
                     question: testCase.question,
                     explicitIntent: testCase.intent,
                     model,
-                    evidenceOverride: testCase.evidence || {}
+                    evidenceOverride: testCase.evidence || {},
                 });
             } catch (err) {
                 runError = err.message;
@@ -92,7 +97,10 @@ async function evaluateRealModel(options = {}) {
 
             if (outcome && outcome.validation_errors) {
                 for (const ve of outcome.validation_errors) {
-                    if (ve.includes('unretrieved evidence reference') || ve.includes('unknown evidence')) {
+                    if (
+                        ve.includes('unretrieved evidence reference') ||
+                        ve.includes('unknown evidence')
+                    ) {
                         unsupportedClaims.push(ve);
                     }
                 }
@@ -107,18 +115,21 @@ async function evaluateRealModel(options = {}) {
                 latencyMs: latency,
                 status,
                 success,
-                citationValid: outcome ? (outcome.status === 'REPORT_GENERATED') : false,
-                validationErrors: outcome ? (outcome.validation_errors || []) : [runError],
+                citationValid: outcome ? outcome.status === 'REPORT_GENERATED' : false,
+                validationErrors: outcome ? outcome.validation_errors || [] : [runError],
                 unsupportedClaimsDetected: unsupportedClaims,
                 unsafeRecommendationsDetected: unsafeRecommendations,
                 groundedFinding: testCase.groundedFinding,
                 forbiddenClaim: testCase.forbiddenClaim,
                 summary: outcome && outcome.report ? outcome.report.summary : null,
-                confirmedFindings: outcome && outcome.report ? outcome.report.confirmed_findings : [],
+                confirmedFindings:
+                    outcome && outcome.report ? outcome.report.confirmed_findings : [],
                 hypotheses: outcome && outcome.report ? outcome.report.hypotheses : [],
-                missingInformation: outcome && outcome.report ? outcome.report.missing_information : [],
-                recommendedChecks: outcome && outcome.report ? outcome.report.recommended_checks : null,
-                report: outcome && outcome.report ? outcome.report : null
+                missingInformation:
+                    outcome && outcome.report ? outcome.report.missing_information : [],
+                recommendedChecks:
+                    outcome && outcome.report ? outcome.report.recommended_checks : null,
+                report: outcome && outcome.report ? outcome.report : null,
             };
 
             evaluationRecords.push(record);
@@ -140,22 +151,23 @@ if (require.main === module) {
         if (arg.startsWith('--runs=')) options.runs = parseInt(arg.split('=')[1], 10);
         if (arg.startsWith('--model=')) options.model = arg.split('=')[1];
         if (arg.startsWith('--cases=')) options.caseIds = arg.split('=')[1].split(',');
-        if (arg.startsWith('--out=')) customOutPath = path.resolve(process.cwd(), arg.split('=')[1]);
+        if (arg.startsWith('--out='))
+            customOutPath = path.resolve(process.cwd(), arg.split('=')[1]);
     }
 
     evaluateRealModel(options)
-        .then(records => {
-            const outPath = customOutPath || path.resolve(__dirname, 'real_evaluation_results.json');
+        .then((records) => {
+            const outPath =
+                customOutPath || path.resolve(__dirname, 'real_evaluation_results.json');
             fs.writeFileSync(outPath, JSON.stringify(records, null, 2));
             console.log(`\nEvaluation complete. Log saved to ${outPath}`);
         })
-        .catch(err => {
+        .catch((err) => {
             console.error('Real model evaluation failed:', err);
             process.exit(1);
         });
 }
 
 module.exports = {
-    evaluateRealModel
+    evaluateRealModel,
 };
-

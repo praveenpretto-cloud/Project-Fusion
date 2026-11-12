@@ -12,6 +12,7 @@ licensing: Project Fusion Internal Engineering Manual - Proprietary Architecture
 # Project Fusion Payment State Machine & Saga Orchestration Model
 
 ## Internal Canonical Payment State Machine
+
 Payment instructions in Project Fusion transition through authoritative, constrained state machine phases:
 
 - `SUBMITTED`: Payment instruction ingested, validated against input schema, and recorded in PostgreSQL `instructions` table.
@@ -24,6 +25,7 @@ Payment instructions in Project Fusion transition through authoritative, constra
 - `VOIDED`: Instruction canceled prior to execution dispatch under governance controls.
 
 ## Saga Orchestration and Compensations
+
 The Saga orchestrator executes multi-step distributed payment workflows with backward compensating transactions:
 
 - Step 1: Pre-Execution Balance Reservation (Internal Ledger hold).
@@ -32,4 +34,3 @@ The Saga orchestrator executes multi-step distributed payment workflows with bac
 - Step 4: Final Settlement Posting and Zoho Invoice Reconciliation.
 - Compensating Actions on Failure: If step 2 fails with a confirmed rejection, the orchestrator triggers Step 1 Compensation (`REVERSE_BALANCE_RESERVATION`), releasing ledger holds and marking instruction `FAILED`.
 - Incomplete History for Generic Instructions: In Project Fusion, generic payment instructions without invoice attachments do not persist intermediate Saga step history in PostgreSQL; full step history is persisted exclusively for associated invoice payment flows.
-

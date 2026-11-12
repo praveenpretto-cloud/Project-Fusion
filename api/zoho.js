@@ -13,13 +13,23 @@
  */
 
 const express = require('express');
-const router  = express.Router();
-const crypto  = require('crypto');
-const logger  = require('../logger');
+const router = express.Router();
+const crypto = require('crypto');
+const logger = require('../logger');
 
-const { fetchPendingInvoices, fetchInvoiceById, normalizeZohoInvoice } = require('../adapters/zohoAdapter');
-const { evaluateInvoice, applyDecisionToInstruction } = require('../core/decisioning/decisionEngine');
-const { runDailyReconciliationSweep, getReconciliationStatus } = require('../core/reconciliation/reconciliationService');
+const {
+    fetchPendingInvoices,
+    fetchInvoiceById,
+    normalizeZohoInvoice,
+} = require('../adapters/zohoAdapter');
+const {
+    evaluateInvoice,
+    applyDecisionToInstruction,
+} = require('../core/decisioning/decisionEngine');
+const {
+    runDailyReconciliationSweep,
+    getReconciliationStatus,
+} = require('../core/reconciliation/reconciliationService');
 const InvoiceProcessor = require('../core/invoice/InvoiceProcessor');
 
 const processor = new InvoiceProcessor();
@@ -30,7 +40,9 @@ function ok(res, data, status = 200) {
     return res.status(status).json({ success: true, timestamp: new Date().toISOString(), ...data });
 }
 function fail(res, message, detail = null, status = 400) {
-    return res.status(status).json({ success: false, error: message, detail, timestamp: new Date().toISOString() });
+    return res
+        .status(status)
+        .json({ success: false, error: message, detail, timestamp: new Date().toISOString() });
 }
 
 /**
@@ -125,10 +137,13 @@ async function processZohoInvoice(pool, rawZohoInvoice) {
     if (decision.autoApprove) {
         const { processInstructionSagaAtomic } = require('../core/orchestrator/sagaCore');
         for (const inst of result.sagaConfig.instructions || []) {
-            processInstructionSagaAtomic(inst.instruction_id, pool)
-                .catch(e => logger.error(`[ZOHO_AUTO] SAGA error for ${inst.instruction_id}: ${e.message}`));
+            processInstructionSagaAtomic(inst.instruction_id, pool).catch((e) =>
+                logger.error(`[ZOHO_AUTO] SAGA error for ${inst.instruction_id}: ${e.message}`)
+            );
         }
-        logger.info(`[ZOHO] ✅ Auto-approved and triggered SAGA for ${result.sagaConfig.instructions?.length} instruction(s)`);
+        logger.info(
+            `[ZOHO] ✅ Auto-approved and triggered SAGA for ${result.sagaConfig.instructions?.length} instruction(s)`
+        );
     }
 
     return { result, decision, normalized };
@@ -147,7 +162,7 @@ router.post('/webhook', async (req, res) => {
 
         // Verify webhook secret if configured
         const webhookSecret = process.env.ZOHO_WEBHOOK_SECRET;
-        const incoming      = req.headers['x-zoho-webhook-secret'] || req.headers['authorization'];
+        const incoming = req.headers['x-zoho-webhook-secret'] || req.headers['authorization'];
         if (webhookSecret && incoming && incoming !== webhookSecret) {
             logger.warn('[ZOHO_WEBHOOK] Invalid webhook secret — rejected');
             return fail(res, 'Unauthorized', null, 401);
@@ -168,23 +183,30 @@ router.post('/webhook', async (req, res) => {
         try {
             fullInvoice = await fetchInvoiceById(invoiceData.invoice_id);
         } catch (fetchErr) {
-            logger.warn(`[ZOHO_WEBHOOK] Could not fetch full invoice — using webhook payload: ${fetchErr.message}`);
+            logger.warn(
+                `[ZOHO_WEBHOOK] Could not fetch full invoice — using webhook payload: ${fetchErr.message}`
+            );
             fullInvoice = invoiceData;
         }
 
         const { result, decision } = await processZohoInvoice(pool, fullInvoice);
 
-        logger.info(`[ZOHO_WEBHOOK] ✅ Processed invoice ${fullInvoice.invoice_id} → ${decision.action}`);
+        logger.info(
+            `[ZOHO_WEBHOOK] ✅ Processed invoice ${fullInvoice.invoice_id} → ${decision.action}`
+        );
 
-        return ok(res, {
-            message:     'Invoice processed',
-            invoiceId:   result.invoice.invoiceId,
-            decision:    decision.action,
-            urgency:     decision.urgency,
-            autoApprove: decision.autoApprove,
-            instructions: result.sagaConfig?.instructions?.map(i => i.instruction_id) || [],
-        }, 202);
-
+        return ok(
+            res,
+            {
+                message: 'Invoice processed',
+                invoiceId: result.invoice.invoiceId,
+                decision: decision.action,
+                urgency: decision.urgency,
+                autoApprove: decision.autoApprove,
+                instructions: result.sagaConfig?.instructions?.map((i) => i.instruction_id) || [],
+            },
+            202
+        );
     } catch (err) {
         logger.error(`[ZOHO_WEBHOOK] Error: ${err.message}`);
         return fail(res, 'Webhook processing failed', err.message, 500);
@@ -212,26 +234,29 @@ router.get('/pull', async (req, res) => {
                 const { result, decision } = await processZohoInvoice(pool, invoice);
                 results.push({
                     zohoInvoiceId: invoice.invoice_id,
-                    fusionId:      result.invoice.invoiceId,
-                    decision:      decision.action,
-                    urgency:       decision.urgency,
-                    amount:        invoice.total,
-                    currency:      invoice.currency_code,
-                    success:       true,
+                    fusionId: result.invoice.invoiceId,
+                    decision: decision.action,
+                    urgency: decision.urgency,
+                    amount: invoice.total,
+                    currency: invoice.currency_code,
+                    success: true,
                 });
             } catch (err) {
-                results.push({ zohoInvoiceId: invoice.invoice_id, success: false, error: err.message });
+                results.push({
+                    zohoInvoiceId: invoice.invoice_id,
+                    success: false,
+                    error: err.message,
+                });
             }
         }
 
-        const successCount = results.filter(r => r.success).length;
+        const successCount = results.filter((r) => r.success).length;
         return ok(res, {
-            message:      `Pulled and processed ${successCount}/${invoices.length} invoices`,
-            total:        invoices.length,
+            message: `Pulled and processed ${successCount}/${invoices.length} invoices`,
+            total: invoices.length,
             successCount,
             results,
         });
-
     } catch (err) {
         logger.error(`[ZOHO] Pull error: ${err.message}`);
         return fail(res, 'Failed to pull invoices from Zoho', err.message, 500);
@@ -258,7 +283,12 @@ router.get('/invoice-status/:zohoInvoiceId', async (req, res) => {
         );
 
         if (instrResult.rows.length === 0) {
-            return fail(res, `No Fusion instruction found for Zoho invoice ${zohoInvoiceId}`, null, 404);
+            return fail(
+                res,
+                `No Fusion instruction found for Zoho invoice ${zohoInvoiceId}`,
+                null,
+                404
+            );
         }
 
         const instructions = instrResult.rows;
@@ -276,28 +306,30 @@ router.get('/invoice-status/:zohoInvoiceId', async (req, res) => {
         return ok(res, {
             zohoInvoiceId,
             fusionInstructionId: primary.instruction_id,
-            state:               primary.state,
-            amount:              parseFloat(primary.amount),
-            netAmount:           parseFloat(primary.net_amount || primary.amount),
-            taxWithheld:         parseFloat(primary.tax_withheld || 0),
-            currency:            primary.currency,
-            settlementRef:       primary.currency === 'INR' ? (primary.utr || primary.external_intent_id) : primary.external_intent_id,
-            utr:                 primary.utr || null,
-            lastUpdated:         primary.updated_at,
+            state: primary.state,
+            amount: parseFloat(primary.amount),
+            netAmount: parseFloat(primary.net_amount || primary.amount),
+            taxWithheld: parseFloat(primary.tax_withheld || 0),
+            currency: primary.currency,
+            settlementRef:
+                primary.currency === 'INR'
+                    ? primary.utr || primary.external_intent_id
+                    : primary.external_intent_id,
+            utr: primary.utr || null,
+            lastUpdated: primary.updated_at,
             reconciliation: {
-                status:          recon?.status || 'PENDING',
-                reconciledAt:    recon?.reconciled_at || null,
-                zohoPaymentId:   recon?.zoho_payment_id || null,
+                status: recon?.status || 'PENDING',
+                reconciledAt: recon?.reconciled_at || null,
+                zohoPaymentId: recon?.zoho_payment_id || null,
             },
-            complianceDocs:      docsResult.rows,
-            allInstructions:     instructions.map(i => ({
-                id:       i.instruction_id,
-                state:    i.state,
-                amount:   parseFloat(i.amount),
+            complianceDocs: docsResult.rows,
+            allInstructions: instructions.map((i) => ({
+                id: i.instruction_id,
+                state: i.state,
+                amount: parseFloat(i.amount),
                 currency: i.currency,
             })),
         });
-
     } catch (err) {
         logger.error(`[ZOHO] invoice-status error: ${err.message}`);
         return fail(res, 'Failed to fetch invoice status', err.message, 500);
@@ -343,15 +375,14 @@ router.get('/compliance/documents/:instructionId', async (req, res) => {
         return ok(res, {
             instructionId,
             count: result.rows.length,
-            documents: result.rows.map(r => ({
-                docId:         r.doc_id,
-                docType:       r.doc_type,
+            documents: result.rows.map((r) => ({
+                docId: r.doc_id,
+                docType: r.doc_type,
                 zohoInvoiceId: r.zoho_invoice_id,
-                generatedAt:   r.generated_at,
-                payload:       r.doc_payload,
+                generatedAt: r.generated_at,
+                payload: r.doc_payload,
             })),
         });
-
     } catch (err) {
         logger.error(`[ZOHO] compliance docs error: ${err.message}`);
         return fail(res, 'Failed to fetch compliance documents', err.message, 500);
@@ -368,12 +399,12 @@ router.post('/pay/:zohoInvoiceId', async (req, res) => {
     const { zohoInvoiceId } = req.params;
     const { rail, currency, payer = 'Alice_Corp', draft = false } = req.body;
 
-    const VALID_RAILS = [
-        'core_razorpay', 'legacy_fiat', 'legacy_crypto',
-    ];
+    const VALID_RAILS = ['core_razorpay', 'legacy_fiat', 'legacy_crypto'];
 
-    if (!rail) return fail(res, 'Payment rail is required. Provide { rail, currency, payer }', null, 400);
-    if (!VALID_RAILS.includes(rail)) return fail(res, `Invalid rail. Must be one of: ${VALID_RAILS.join(', ')}`, null, 400);
+    if (!rail)
+        return fail(res, 'Payment rail is required. Provide { rail, currency, payer }', null, 400);
+    if (!VALID_RAILS.includes(rail))
+        return fail(res, `Invalid rail. Must be one of: ${VALID_RAILS.join(', ')}`, null, 400);
 
     try {
         // ── Step 1: Look up invoice in Fusion DB ──────────────────────────
@@ -389,9 +420,11 @@ router.post('/pay/:zohoInvoiceId', async (req, res) => {
 
         const inv = invResult.rows[0];
         const paymentCurrency = currency || inv.currency || 'INR';
-        const paymentAmount   = parseFloat(inv.total_amount);
+        const paymentAmount = parseFloat(inv.total_amount);
 
-        logger.info(`[ZOHO_PAY] Initiating payment for ${inv.invoice_id}: ${paymentAmount} ${paymentCurrency} via ${rail}`);
+        logger.info(
+            `[ZOHO_PAY] Initiating payment for ${inv.invoice_id}: ${paymentAmount} ${paymentCurrency} via ${rail}`
+        );
 
         // ── Step 2: Auto-generate OTP auth token ─────────────────────────
         const { processInstructionSagaAtomic } = require('../core/orchestrator/sagaCore');
@@ -415,8 +448,8 @@ router.post('/pay/:zohoInvoiceId', async (req, res) => {
                 paymentCurrency === 'INR' ? 'DOMESTIC_PAYMENT' : 'EXPORT_INVOICE',
                 initialState,
                 rail,
-                paymentAmount,   // net_amount (TDS handled by SAGA)
-                0,               // tax_withheld
+                paymentAmount, // net_amount (TDS handled by SAGA)
+                0, // tax_withheld
                 'zoho',
                 zohoInvoiceId,
             ]
@@ -430,24 +463,34 @@ router.post('/pay/:zohoInvoiceId', async (req, res) => {
 
         // ── Step 5: Fire SAGA asynchronously (if not draft) ───────────────
         if (!draft) {
-            processInstructionSagaAtomic(instructionId, pool)
-                .catch(e => logger.error(`[ZOHO_PAY] SAGA error for ${instructionId}: ${e.message}`));
-            logger.info(`[ZOHO_PAY] ✅ Dispatched instruction ${instructionId} for Zoho invoice ${zohoInvoiceId}`);
+            processInstructionSagaAtomic(instructionId, pool).catch((e) =>
+                logger.error(`[ZOHO_PAY] SAGA error for ${instructionId}: ${e.message}`)
+            );
+            logger.info(
+                `[ZOHO_PAY] ✅ Dispatched instruction ${instructionId} for Zoho invoice ${zohoInvoiceId}`
+            );
         } else {
-            logger.info(`[ZOHO_PAY] 📝 Draft instruction ${instructionId} created for Zoho invoice ${zohoInvoiceId} (Pending Approval)`);
+            logger.info(
+                `[ZOHO_PAY] 📝 Draft instruction ${instructionId} created for Zoho invoice ${zohoInvoiceId} (Pending Approval)`
+            );
         }
 
-        return ok(res, {
-            message:       draft ? 'Payment drafted and awaiting approval' : 'Payment dispatched via Fusion SAGA',
-            zohoInvoiceId,
-            instructionId,
-            amount:        paymentAmount,
-            currency:      paymentCurrency,
-            rail,
-            state:         initialState,
-            trackingNote:  `Monitor via GET /api/zoho/invoice-status/${zohoInvoiceId}`,
-        }, 202);
-
+        return ok(
+            res,
+            {
+                message: draft
+                    ? 'Payment drafted and awaiting approval'
+                    : 'Payment dispatched via Fusion SAGA',
+                zohoInvoiceId,
+                instructionId,
+                amount: paymentAmount,
+                currency: paymentCurrency,
+                rail,
+                state: initialState,
+                trackingNote: `Monitor via GET /api/zoho/invoice-status/${zohoInvoiceId}`,
+            },
+            202
+        );
     } catch (err) {
         logger.error(`[ZOHO_PAY] Error: ${err.message}`);
         return fail(res, 'Payment dispatch failed', err.message, 500);
@@ -483,7 +526,9 @@ router.get('/approvals', async (req, res) => {
 router.post('/approve/:instructionId', async (req, res) => {
     const pool = req.app.locals.pool;
     const { instructionId } = req.params;
-    const { defaultCanonicalApprovalService } = require('../core/approvals/canonicalApprovalService');
+    const {
+        defaultCanonicalApprovalService,
+    } = require('../core/approvals/canonicalApprovalService');
     try {
         const checkResult = await pool.query(
             `SELECT state, sender, zoho_invoice_id FROM instructions WHERE instruction_id = $1`,
@@ -491,7 +536,12 @@ router.post('/approve/:instructionId', async (req, res) => {
         );
 
         if (checkResult.rows.length === 0 || checkResult.rows[0].state !== 'PENDING_APPROVAL') {
-            return fail(res, `Instruction ${instructionId} not found or not in PENDING_APPROVAL state`, null, 404);
+            return fail(
+                res,
+                `Instruction ${instructionId} not found or not in PENDING_APPROVAL state`,
+                null,
+                404
+            );
         }
 
         const zohoInvoiceId = checkResult.rows[0].zoho_invoice_id;
@@ -512,12 +562,18 @@ router.post('/approve/:instructionId', async (req, res) => {
             );
         }
 
-        logger.info(`[ZOHO_APPROVE] ✅ CFO Approved instruction ${instructionId} via Canonical Approval Service.`);
-        return ok(res, { 
-            message: 'Instruction approved and durable SAGA dispatch enqueued', 
-            instructionId,
-            dispatch: approvalRes.dispatchRecord || null
-        }, 202);
+        logger.info(
+            `[ZOHO_APPROVE] ✅ CFO Approved instruction ${instructionId} via Canonical Approval Service.`
+        );
+        return ok(
+            res,
+            {
+                message: 'Instruction approved and durable SAGA dispatch enqueued',
+                instructionId,
+                dispatch: approvalRes.dispatchRecord || null,
+            },
+            202
+        );
     } catch (err) {
         logger.error(`[ZOHO_APPROVE] Error: ${err.message}`);
         return fail(res, 'Failed to approve instruction', err.message, err.statusCode || 500);

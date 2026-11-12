@@ -44,8 +44,16 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
     // Helper to register mock fiat and crypto adapters
     function registerMockAdapters({
-        fiatHandler = async (inst) => ({ status: 'SUCCESS', rail: 'MOCK_FIAT', currency: inst.currency }),
-        cryptoHandler = async (inst) => ({ status: 'SUCCESS', rail: 'STELLAR_TESTNET', currency: inst.currency }),
+        fiatHandler = async (inst) => ({
+            status: 'SUCCESS',
+            rail: 'MOCK_FIAT',
+            currency: inst.currency,
+        }),
+        cryptoHandler = async (inst) => ({
+            status: 'SUCCESS',
+            rail: 'STELLAR_TESTNET',
+            currency: inst.currency,
+        }),
     } = {}) {
         registry.registerCoreAdapters([
             {
@@ -247,7 +255,9 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
         expect(resFiat[0].input_index).toBe(0);
         expect(resFiat[0].status).toBe('SUCCESS');
 
-        const cryptoSingle = [{ instruction_id: 'inst_single_crypto', currency: 'XLM', amount: 75 }];
+        const cryptoSingle = [
+            { instruction_id: 'inst_single_crypto', currency: 'XLM', amount: 75 },
+        ];
         const resCrypto = await registry.executeBatchConcurrently(cryptoSingle);
         expect(resCrypto).toHaveLength(1);
         expect(resCrypto[0].instruction_id).toBe('inst_single_crypto');
@@ -365,7 +375,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('2. Explicit FAILED retains status FAILED', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'FAILED', error: 'Card was declined by issuing bank' }),
+                fiatHandler: async () => ({
+                    status: 'FAILED',
+                    error: 'Card was declined by issuing bank',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -379,7 +392,11 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('3. Explicit SIMULATED retains status SIMULATED and never becomes SUCCESS', async () => {
             registerMockAdapters({
-                cryptoHandler: async () => ({ status: 'SIMULATED', intent_id: 'sim_stellar_001', note: 'Mock run' }),
+                cryptoHandler: async () => ({
+                    status: 'SIMULATED',
+                    intent_id: 'sim_stellar_001',
+                    note: 'Mock run',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -408,7 +425,11 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('5. Explicit UNKNOWN retains status UNKNOWN', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'UNKNOWN', utr: null, note: 'Provider status uncertain' }),
+                fiatHandler: async () => ({
+                    status: 'UNKNOWN',
+                    utr: null,
+                    note: 'Provider status uncertain',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -524,7 +545,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('13. Unknown status string resolves to UNKNOWN and preserves raw_status', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'STRIPE_STATUS_WEIRD_CODE', intent_id: 'pi_weird_001' }),
+                fiatHandler: async () => ({
+                    status: 'STRIPE_STATUS_WEIRD_CODE',
+                    intent_id: 'pi_weird_001',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -599,7 +623,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('15. SUCCESS with non-empty error string resolves to UNKNOWN (contradiction)', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'SUCCESS', error: 'Transaction flagged by risk engine' }),
+                fiatHandler: async () => ({
+                    status: 'SUCCESS',
+                    error: 'Transaction flagged by risk engine',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -615,7 +642,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('16. SUCCESS with Error instance resolves to UNKNOWN (contradiction)', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'SUCCESS', error: new Error('Post-execution settlement warning') }),
+                fiatHandler: async () => ({
+                    status: 'SUCCESS',
+                    error: new Error('Post-execution settlement warning'),
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -629,7 +659,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('17. SUCCESS with non-empty errors array resolves to UNKNOWN (contradiction)', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'SUCCESS', errors: ['Provider reported partial decline'] }),
+                fiatHandler: async () => ({
+                    status: 'SUCCESS',
+                    errors: ['Provider reported partial decline'],
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -642,7 +675,11 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('18. SUCCESS with empty errors array [] preserves SUCCESS (no false contradiction)', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'SUCCESS', errors: [], intent_id: 'pi_clean_001' }),
+                fiatHandler: async () => ({
+                    status: 'SUCCESS',
+                    errors: [],
+                    intent_id: 'pi_clean_001',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([
@@ -670,7 +707,10 @@ describe('Project Fusion — Sprint 2.2: Batch Orchestration & Correlation', () 
 
         test('20. PROCESSING with non-empty error resolves to UNKNOWN (contradiction)', async () => {
             registerMockAdapters({
-                fiatHandler: async () => ({ status: 'PROCESSING', error: 'Network timeout during dispatch' }),
+                fiatHandler: async () => ({
+                    status: 'PROCESSING',
+                    error: 'Network timeout during dispatch',
+                }),
             });
 
             const results = await registry.executeBatchConcurrently([

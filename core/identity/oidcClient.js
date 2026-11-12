@@ -59,12 +59,16 @@ function parseEncryptionKey(rawKey, keyName = 'Key') {
     }
     if (Buffer.isBuffer(rawKey)) {
         if (rawKey.length !== 32) {
-            throw new Error(`${keyName} must be exactly 32 bytes (256 bits). Got ${rawKey.length} bytes.`);
+            throw new Error(
+                `${keyName} must be exactly 32 bytes (256 bits). Got ${rawKey.length} bytes.`
+            );
         }
         return rawKey;
     }
     if (typeof rawKey !== 'string') {
-        throw new Error(`${keyName} must be a 64-char hex string, 44-char base64 string, or 32-byte Buffer.`);
+        throw new Error(
+            `${keyName} must be a 64-char hex string, 44-char base64 string, or 32-byte Buffer.`
+        );
     }
     const trimmed = rawKey.trim();
     if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
@@ -76,7 +80,7 @@ function parseEncryptionKey(rawKey, keyName = 'Key') {
     }
     throw new Error(
         `${keyName} must be a high-entropy 256-bit (32-byte) key encoded in hex (64 chars) or base64 (44 chars). ` +
-        'Arbitrary human-readable passwords are not permitted.'
+            'Arbitrary human-readable passwords are not permitted.'
     );
 }
 
@@ -85,17 +89,26 @@ function parseEncryptionKey(rawKey, keyName = 'Key') {
  */
 function getTransactionKeyRing() {
     const primaryId = (process.env.OIDC_PRIMARY_KEY_ID || 'k1').trim();
-    const primaryRaw = (process.env.OIDC_TRANSACTION_SECRET || process.env.OIDC_ENCRYPTION_KEY || '').trim();
+    const primaryRaw = (
+        process.env.OIDC_TRANSACTION_SECRET ||
+        process.env.OIDC_ENCRYPTION_KEY ||
+        ''
+    ).trim();
     const keyRing = new Map();
 
     if (primaryRaw) {
         keyRing.set(primaryId, parseEncryptionKey(primaryRaw, `Primary key (${primaryId})`));
     } else {
         if (process.env.NODE_ENV === 'production') {
-            throw new Error('OIDC_TRANSACTION_SECRET is required in production for PKCE verifier encryption');
+            throw new Error(
+                'OIDC_TRANSACTION_SECRET is required in production for PKCE verifier encryption'
+            );
         }
         // High-entropy 32-byte hex test key for dev/test environments
-        keyRing.set('k1', Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex'));
+        keyRing.set(
+            'k1',
+            Buffer.from('0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex')
+        );
     }
 
     // Optional secondary keys from JSON environment configuration
@@ -146,7 +159,9 @@ function encryptCodeVerifier(plainVerifier, { key = null, keyId = null } = {}) {
     }
 
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, encKey, iv, { authTagLength: AUTH_TAG_LENGTH });
+    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, encKey, iv, {
+        authTagLength: AUTH_TAG_LENGTH,
+    });
     const encrypted = Buffer.concat([cipher.update(plainVerifier, 'utf8'), cipher.final()]);
     const tag = cipher.getAuthTag();
 
@@ -175,7 +190,9 @@ function decryptCodeVerifier(encryptedPayload, { keys = null } = {}) {
         keyId = 'legacy';
         [ivHex, tagHex, encryptedHex] = parts;
     } else {
-        throw new Error('Malformed encrypted code_verifier payload: must have v1:keyId:iv:tag:ciphertext');
+        throw new Error(
+            'Malformed encrypted code_verifier payload: must have v1:keyId:iv:tag:ciphertext'
+        );
     }
 
     let decKey = null;
@@ -188,11 +205,15 @@ function decryptCodeVerifier(encryptedPayload, { keys = null } = {}) {
         decKey = parseEncryptionKey(keys, 'Decryption key');
     } else {
         const ring = getTransactionKeyRing();
-        decKey = ring.keyRing.get(keyId) || (keyId === 'legacy' ? ring.keyRing.get(ring.primaryId) : null);
+        decKey =
+            ring.keyRing.get(keyId) ||
+            (keyId === 'legacy' ? ring.keyRing.get(ring.primaryId) : null);
     }
 
     if (!decKey) {
-        throw new Error(`Decryption failed: encryption key ID "${keyId}" is not available in configured key ring. Fail-closed.`);
+        throw new Error(
+            `Decryption failed: encryption key ID "${keyId}" is not available in configured key ring. Fail-closed.`
+        );
     }
 
     const iv = Buffer.from(ivHex, 'hex');
@@ -200,7 +221,9 @@ function decryptCodeVerifier(encryptedPayload, { keys = null } = {}) {
     const encrypted = Buffer.from(encryptedHex, 'hex');
 
     try {
-        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, decKey, iv, { authTagLength: AUTH_TAG_LENGTH });
+        const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, decKey, iv, {
+            authTagLength: AUTH_TAG_LENGTH,
+        });
         decipher.setAuthTag(tag);
         return decipher.update(encrypted, null, 'utf8') + decipher.final('utf8');
     } catch (err) {
@@ -212,11 +235,7 @@ function decryptCodeVerifier(encryptedPayload, { keys = null } = {}) {
  * Helper: Base64URL encoding without padding
  */
 function base64UrlEncode(buffer) {
-    return buffer
-        .toString('base64')
-        .replace(/=/g, '')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_');
+    return buffer.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
 /**
@@ -271,10 +290,19 @@ class OidcClient {
      * @param {Function} [config.tokenExchanger] - Custom token exchange function for testing
      */
     constructor(config = {}) {
-        this.issuer = (config.issuer || process.env.OIDC_ISSUER || 'https://identity.fusion.internal').trim();
-        this.clientId = (config.clientId || process.env.OIDC_CLIENT_ID || 'fusion-core-client').trim();
+        this.issuer = (
+            config.issuer ||
+            process.env.OIDC_ISSUER ||
+            'https://identity.fusion.internal'
+        ).trim();
+        this.clientId = (
+            config.clientId ||
+            process.env.OIDC_CLIENT_ID ||
+            'fusion-core-client'
+        ).trim();
         this.clientSecret = (config.clientSecret || process.env.OIDC_CLIENT_SECRET || '').trim();
-        this.clientAuthMethod = config.clientAuthMethod || process.env.OIDC_CLIENT_AUTH_METHOD || 'client_secret_basic';
+        this.clientAuthMethod =
+            config.clientAuthMethod || process.env.OIDC_CLIENT_AUTH_METHOD || 'client_secret_basic';
         this.privateKey = config.privateKey || process.env.OIDC_PRIVATE_KEY || null;
         this.privateKeyKid = config.privateKeyKid || process.env.OIDC_PRIVATE_KEY_KID || null;
 
@@ -294,12 +322,21 @@ class OidcClient {
             `${this.issuer}/oauth2/v1/keys`
         ).trim();
 
-        const configuredJwksHosts = config.allowedJwksHosts ||
-            (process.env.OIDC_ALLOWED_JWKS_HOSTS ? process.env.OIDC_ALLOWED_JWKS_HOSTS.split(',') : []);
-        this.allowedJwksHosts = configuredJwksHosts.map((h) => h.trim().toLowerCase()).filter(Boolean);
+        const configuredJwksHosts =
+            config.allowedJwksHosts ||
+            (process.env.OIDC_ALLOWED_JWKS_HOSTS
+                ? process.env.OIDC_ALLOWED_JWKS_HOSTS.split(',')
+                : []);
+        this.allowedJwksHosts = configuredJwksHosts
+            .map((h) => h.trim().toLowerCase())
+            .filter(Boolean);
 
-        const configuredUris = config.allowedRedirectUris || config.redirectUris ||
-            (process.env.OIDC_ALLOWED_REDIRECT_URIS ? process.env.OIDC_ALLOWED_REDIRECT_URIS.split(',') : []);
+        const configuredUris =
+            config.allowedRedirectUris ||
+            config.redirectUris ||
+            (process.env.OIDC_ALLOWED_REDIRECT_URIS
+                ? process.env.OIDC_ALLOWED_REDIRECT_URIS.split(',')
+                : []);
         this.allowedRedirectUris = configuredUris.map((u) => u.trim()).filter(Boolean);
 
         // Pre-configured public keys (kid -> PEM / KeyObject)
@@ -309,7 +346,8 @@ class OidcClient {
         this.jwksCache = new Map();
         this.jwksLastFetchedAt = 0;
         this.jwksCacheTtlMs = config.jwksCacheTtlMs || DEFAULT_JWKS_CACHE_TTL_MS;
-        this.jwksMinRefreshIntervalMs = config.jwksMinRefreshIntervalMs || MIN_JWKS_REFRESH_INTERVAL_MS;
+        this.jwksMinRefreshIntervalMs =
+            config.jwksMinRefreshIntervalMs || MIN_JWKS_REFRESH_INTERVAL_MS;
         this.customJwksFetcher = config.jwksFetcher || null;
 
         // Provisioning policy
@@ -413,7 +451,9 @@ class OidcClient {
             );
 
             if (res.rows.length === 0) {
-                const err = new Error('Authentication transaction is invalid, expired, or already used (Replay blocked)');
+                const err = new Error(
+                    'Authentication transaction is invalid, expired, or already used (Replay blocked)'
+                );
                 err.statusCode = 400;
                 throw err;
             }
@@ -429,7 +469,9 @@ class OidcClient {
         } else {
             const tx = this.inMemoryTransactions.get(state);
             if (!tx || tx.usedAt !== null || tx.expiresAt <= now) {
-                const err = new Error('Authentication transaction is invalid, expired, or already used (Replay blocked)');
+                const err = new Error(
+                    'Authentication transaction is invalid, expired, or already used (Replay blocked)'
+                );
                 err.statusCode = 400;
                 throw err;
             }
@@ -448,7 +490,9 @@ class OidcClient {
      * Helper: checks if a URL is local/loopback
      */
     _isTrustedLocal(url) {
-        return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1';
+        return (
+            url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1'
+        );
     }
 
     /**
@@ -473,7 +517,10 @@ class OidcClient {
         const KNOWN_IDP_JWKS_HOSTS = {
             'accounts.google.com': ['www.googleapis.com', 'accounts.google.com'],
         };
-        if (KNOWN_IDP_JWKS_HOSTS[issuerHost] && KNOWN_IDP_JWKS_HOSTS[issuerHost].includes(jwksHost)) {
+        if (
+            KNOWN_IDP_JWKS_HOSTS[issuerHost] &&
+            KNOWN_IDP_JWKS_HOSTS[issuerHost].includes(jwksHost)
+        ) {
             return true;
         }
 
@@ -509,12 +556,16 @@ class OidcClient {
      */
     async fetchJwks({ force = false } = {}) {
         const now = Date.now();
-        if (!force && this.jwksCache.size > 0 && (now - this.jwksLastFetchedAt < this.jwksCacheTtlMs)) {
+        if (
+            !force &&
+            this.jwksCache.size > 0 &&
+            now - this.jwksLastFetchedAt < this.jwksCacheTtlMs
+        ) {
             return this.jwksCache;
         }
 
         // Anti-storm cooldown: prevent multiple fetches within MIN_JWKS_REFRESH_INTERVAL_MS
-        if (force && (now - this.jwksLastFetchedAt < this.jwksMinRefreshIntervalMs)) {
+        if (force && now - this.jwksLastFetchedAt < this.jwksMinRefreshIntervalMs) {
             logger.warn('[OIDC JWKS] Refresh throttled: minimum refresh interval has not elapsed.');
             return this.jwksCache;
         }
@@ -525,7 +576,9 @@ class OidcClient {
 
         const isHostPermitted = this._isJwksHostAllowed(jwksUrl.hostname, issuerUrl.hostname);
         if (!isHostPermitted && !this._isTrustedLocal(jwksUrl)) {
-            throw new Error(`Untrusted JWKS endpoint: host "${jwksUrl.hostname}" does not match issuer "${issuerUrl.hostname}" and is not in the permitted JWKS hosts allowlist. Malicious JWKS URL blocked.`);
+            throw new Error(
+                `Untrusted JWKS endpoint: host "${jwksUrl.hostname}" does not match issuer "${issuerUrl.hostname}" and is not in the permitted JWKS hosts allowlist. Malicious JWKS URL blocked.`
+            );
         }
         if (jwksUrl.protocol !== 'https:' && !this._isTrustedLocal(jwksUrl)) {
             throw new Error(`Insecure JWKS endpoint: HTTPS is required (got ${jwksUrl.protocol})`);
@@ -567,10 +620,16 @@ class OidcClient {
 
             const req = transport.request(options, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400) {
-                    return reject(new Error(`Untrusted redirect encountered on JWKS endpoint: ${res.statusCode}`));
+                    return reject(
+                        new Error(
+                            `Untrusted redirect encountered on JWKS endpoint: ${res.statusCode}`
+                        )
+                    );
                 }
                 let raw = '';
-                res.on('data', (chunk) => { raw += chunk; });
+                res.on('data', (chunk) => {
+                    raw += chunk;
+                });
                 res.on('end', () => {
                     if (res.statusCode < 200 || res.statusCode >= 300) {
                         return reject(new Error(`JWKS request failed with HTTP ${res.statusCode}`));
@@ -583,7 +642,9 @@ class OidcClient {
                 });
             });
 
-            req.on('error', (err) => reject(new Error(`Network error contacting JWKS endpoint: ${err.message}`)));
+            req.on('error', (err) =>
+                reject(new Error(`Network error contacting JWKS endpoint: ${err.message}`))
+            );
             req.on('timeout', () => {
                 req.destroy();
                 reject(new Error('JWKS request timed out'));
@@ -654,7 +715,9 @@ class OidcClient {
 
         const endpointUrl = new URL(this.tokenEndpoint);
         if (endpointUrl.protocol !== 'https:' && !this._isTrustedLocal(endpointUrl)) {
-            const err = new Error(`Insecure token_endpoint: must use HTTPS (got ${endpointUrl.protocol})`);
+            const err = new Error(
+                `Insecure token_endpoint: must use HTTPS (got ${endpointUrl.protocol})`
+            );
             err.statusCode = 500;
             throw err;
         }
@@ -668,7 +731,7 @@ class OidcClient {
 
         const headers = {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
+            Accept: 'application/json',
         };
 
         // Apply configured confidential client authentication method
@@ -683,11 +746,18 @@ class OidcClient {
             }
         } else if (this.clientAuthMethod === 'private_key_jwt') {
             const assertion = this.generateClientAssertion();
-            bodyParams.set('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer');
+            bodyParams.set(
+                'client_assertion_type',
+                'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+            );
             bodyParams.set('client_assertion', assertion);
         }
 
-        const responseData = await this._postUrlEncoded(endpointUrl, bodyParams.toString(), headers);
+        const responseData = await this._postUrlEncoded(
+            endpointUrl,
+            bodyParams.toString(),
+            headers
+        );
 
         if (!responseData || !responseData.id_token) {
             const err = new Error('Token exchange response missing id_token');
@@ -720,14 +790,22 @@ class OidcClient {
 
             const req = transport.request(options, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400) {
-                    return reject(new Error(`Untrusted redirect encountered on token endpoint: ${res.statusCode}`));
+                    return reject(
+                        new Error(
+                            `Untrusted redirect encountered on token endpoint: ${res.statusCode}`
+                        )
+                    );
                 }
 
                 let raw = '';
-                res.on('data', (chunk) => { raw += chunk; });
+                res.on('data', (chunk) => {
+                    raw += chunk;
+                });
                 res.on('end', () => {
                     if (res.statusCode < 200 || res.statusCode >= 300) {
-                        return reject(new Error(`Token exchange failed with HTTP status ${res.statusCode}`));
+                        return reject(
+                            new Error(`Token exchange failed with HTTP status ${res.statusCode}`)
+                        );
                     }
                     try {
                         const parsed = JSON.parse(raw);
@@ -738,7 +816,9 @@ class OidcClient {
                 });
             });
 
-            req.on('error', (err) => reject(new Error(`Network error contacting token endpoint: ${err.message}`)));
+            req.on('error', (err) =>
+                reject(new Error(`Network error contacting token endpoint: ${err.message}`))
+            );
             req.on('timeout', () => {
                 req.destroy();
                 reject(new Error('Token exchange request timed out'));
@@ -754,7 +834,10 @@ class OidcClient {
      * Enforces RS256/ES256, issuer, aud, azp, exp, iat, nbf, nonce, sub.
      * Resolves signing keys via JWKS with one controlled refresh on unknown kid.
      */
-    async validateIdToken(idTokenJwt, { expectedNonce, publicKey = null, clockSkewSec = DEFAULT_CLOCK_SKEW_SECONDS } = {}) {
+    async validateIdToken(
+        idTokenJwt,
+        { expectedNonce, publicKey = null, clockSkewSec = DEFAULT_CLOCK_SKEW_SECONDS } = {}
+    ) {
         if (!idTokenJwt || typeof idTokenJwt !== 'string') {
             const err = new Error('Missing ID token');
             err.statusCode = 400;
@@ -782,14 +865,18 @@ class OidcClient {
 
         // 1. Explicit Algorithm Whitelist
         if (!header.alg || !ALLOWED_SIGNING_ALGORITHMS.includes(header.alg)) {
-            const err = new Error(`Untrusted signing algorithm: ${header.alg}. Allowed: ${ALLOWED_SIGNING_ALGORITHMS.join(', ')}`);
+            const err = new Error(
+                `Untrusted signing algorithm: ${header.alg}. Allowed: ${ALLOWED_SIGNING_ALGORITHMS.join(', ')}`
+            );
             err.statusCode = 400;
             throw err;
         }
 
         // 2. Strict Issuer Validation
         if (!payload.iss || payload.iss !== this.issuer) {
-            const err = new Error(`Issuer mismatch: expected ${this.issuer}, received ${payload.iss}`);
+            const err = new Error(
+                `Issuer mismatch: expected ${this.issuer}, received ${payload.iss}`
+            );
             err.statusCode = 401;
             throw err;
         }
@@ -797,26 +884,36 @@ class OidcClient {
         // 3. Strict Audience Validation
         const aud = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
         if (!aud.includes(this.clientId)) {
-            const err = new Error(`Audience mismatch: token audience ${JSON.stringify(payload.aud)} does not include ${this.clientId}`);
+            const err = new Error(
+                `Audience mismatch: token audience ${JSON.stringify(payload.aud)} does not include ${this.clientId}`
+            );
             err.statusCode = 401;
             throw err;
         }
 
         // 4. Authorized Party check (OIDC Core 3.1.3.7)
         if (aud.length > 1 && !payload.azp) {
-            const err = new Error('ID token with multiple audiences must include azp (authorized party) claim');
+            const err = new Error(
+                'ID token with multiple audiences must include azp (authorized party) claim'
+            );
             err.statusCode = 401;
             throw err;
         }
         if (payload.azp && payload.azp !== this.clientId) {
-            const err = new Error(`Authorized party (azp) mismatch: expected ${this.clientId}, received ${payload.azp}`);
+            const err = new Error(
+                `Authorized party (azp) mismatch: expected ${this.clientId}, received ${payload.azp}`
+            );
             err.statusCode = 401;
             throw err;
         }
 
         // 5. Expiration & Clock Skew Checks
         const nowSec = Math.floor(Date.now() / 1000);
-        if (!payload.exp || typeof payload.exp !== 'number' || payload.exp < nowSec - clockSkewSec) {
+        if (
+            !payload.exp ||
+            typeof payload.exp !== 'number' ||
+            payload.exp < nowSec - clockSkewSec
+        ) {
             const err = new Error('ID token has expired');
             err.statusCode = 401;
             throw err;
@@ -856,7 +953,11 @@ class OidcClient {
         }
 
         // If kid is unfamiliar, perform ONE controlled refresh from trusted JWKS endpoint
-        if (!verificationKey && header.kid && (this.jwksUri || typeof this.customJwksFetcher === 'function')) {
+        if (
+            !verificationKey &&
+            header.kid &&
+            (this.jwksUri || typeof this.customJwksFetcher === 'function')
+        ) {
             try {
                 await this.fetchJwks({ force: true });
                 verificationKey = this.jwksPublicKeys[header.kid] || this.jwksCache.get(header.kid);
@@ -872,7 +973,7 @@ class OidcClient {
         if (!verificationKey) {
             const err = new Error(
                 `No trusted public key found matching token key ID (kid: "${header.kid || 'none'}"). ` +
-                'Key unknown even after JWKS refresh.'
+                    'Key unknown even after JWKS refresh.'
             );
             err.statusCode = 401;
             throw err;
@@ -881,9 +982,10 @@ class OidcClient {
         const signedData = Buffer.from(`${rawHeader}.${rawPayload}`, 'utf8');
         const signatureBuffer = base64UrlDecode(rawSignature);
 
-        const verifier = header.alg === 'ES256'
-            ? crypto.createVerify('SHA256')
-            : crypto.createVerify('RSA-SHA256');
+        const verifier =
+            header.alg === 'ES256'
+                ? crypto.createVerify('SHA256')
+                : crypto.createVerify('RSA-SHA256');
         verifier.update(signedData);
         const isValid = verifier.verify(verificationKey, signatureBuffer);
 

@@ -97,9 +97,13 @@ async function runMigrations() {
 
     console.log('\n[MIGRATE] Connecting to database...');
     await client.connect();
-    console.log(`[MIGRATE] ✅ Connected to ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`);
+    console.log(
+        `[MIGRATE] ✅ Connected to ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`
+    );
 
-    console.log('\n[MIGRATE] Running invoice table migrations (additive only — no existing tables altered)...\n');
+    console.log(
+        '\n[MIGRATE] Running invoice table migrations (additive only — no existing tables altered)...\n'
+    );
 
     let successCount = 0;
     let failCount = 0;
@@ -136,7 +140,7 @@ async function runMigrations() {
     process.exit(0);
 }
 
-runMigrations().catch(err => {
+runMigrations().catch((err) => {
     console.error('[MIGRATE] Fatal error:', err.message);
     process.exit(1);
 });

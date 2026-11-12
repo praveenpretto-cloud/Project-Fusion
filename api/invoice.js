@@ -153,11 +153,14 @@ async function persistInvoice(pool, invoice, sagaConfig, sourceType) {
         }
 
         await client.query('COMMIT');
-        logger.info(`[INVOICE_API] ✅ Persisted invoice ${invoice.invoiceId} with ${sagaConfig.steps?.length || 0} saga steps and ${sagaConfig.instructions?.length || 0} instructions`);
-
+        logger.info(
+            `[INVOICE_API] ✅ Persisted invoice ${invoice.invoiceId} with ${sagaConfig.steps?.length || 0} saga steps and ${sagaConfig.instructions?.length || 0} instructions`
+        );
     } catch (dbErr) {
         await client.query('ROLLBACK');
-        logger.error(`[INVOICE_API] ❌ DB persist failed for ${invoice.invoiceId}: ${dbErr.message}`);
+        logger.error(
+            `[INVOICE_API] ❌ DB persist failed for ${invoice.invoiceId}: ${dbErr.message}`
+        );
         throw dbErr;
     } finally {
         client.release();
@@ -190,7 +193,12 @@ router.post('/process', async (req, res) => {
         const input = req.body;
 
         if (!input || Object.keys(input).length === 0) {
-            return apiError(res, 'Request body is required', 'Provide a structured invoice object', 400);
+            return apiError(
+                res,
+                'Request body is required',
+                'Provide a structured invoice object',
+                400
+            );
         }
 
         logger.info(`[INVOICE_API] POST /process — Processing single invoice`);
@@ -203,28 +211,37 @@ router.post('/process', async (req, res) => {
 
         // Persist to DB (idempotent)
         try {
-            await persistInvoice(pool, result.invoice, result.sagaConfig, result.invoice.sourceType || 'object');
+            await persistInvoice(
+                pool,
+                result.invoice,
+                result.sagaConfig,
+                result.invoice.sourceType || 'object'
+            );
         } catch (dbErr) {
             logger.error(`[INVOICE_API] DB persist failed: ${dbErr.message}`);
             // Return saga config even if DB failed — let operator retry persist
         }
 
-        return apiSuccess(res, {
-            message: result.success
-                ? 'Invoice processed and instructions queued for approval'
-                : 'Invoice processed with ISO validation warnings — review required before approval',
-            invoiceId: result.invoice.invoiceId,
-            sagaId: result.sagaConfig.sagaId,
-            isoCompliant: result.isoResult?.success || false,
-            hasEscrow: result.sagaConfig.hasEscrow,
-            totalSteps: result.sagaConfig.steps?.length || 0,
-            instructionIds: result.sagaConfig.instructions?.map(i => i.instruction_id) || [],
-            approvalRequired: true,
-            approvalNote: 'Call POST /api/instruction/approve with the instructionIds to trigger settlement',
-            sagaConfig: result.sagaConfig,
-            validationErrors: result.errors || [],
-        }, 202);
-
+        return apiSuccess(
+            res,
+            {
+                message: result.success
+                    ? 'Invoice processed and instructions queued for approval'
+                    : 'Invoice processed with ISO validation warnings — review required before approval',
+                invoiceId: result.invoice.invoiceId,
+                sagaId: result.sagaConfig.sagaId,
+                isoCompliant: result.isoResult?.success || false,
+                hasEscrow: result.sagaConfig.hasEscrow,
+                totalSteps: result.sagaConfig.steps?.length || 0,
+                instructionIds: result.sagaConfig.instructions?.map((i) => i.instruction_id) || [],
+                approvalRequired: true,
+                approvalNote:
+                    'Call POST /api/instruction/approve with the instructionIds to trigger settlement',
+                sagaConfig: result.sagaConfig,
+                validationErrors: result.errors || [],
+            },
+            202
+        );
     } catch (err) {
         logger.error(`[INVOICE_API] /process error: ${err.message}`);
         return apiError(res, 'Invoice processing failed', err.message, 500);
@@ -257,8 +274,10 @@ router.post('/bulk', async (req, res) => {
         if (contentType.includes('text/csv')) {
             // Raw CSV body
             let csvText = '';
-            req.on('data', chunk => { csvText += chunk.toString(); });
-            await new Promise(resolve => req.on('end', resolve));
+            req.on('data', (chunk) => {
+                csvText += chunk.toString();
+            });
+            await new Promise((resolve) => req.on('end', resolve));
             input = csvText;
         } else if (Array.isArray(req.body)) {
             input = req.body;
@@ -266,7 +285,12 @@ router.post('/bulk', async (req, res) => {
             // CSV text inside JSON payload
             input = req.body.csvData;
         } else {
-            return apiError(res, 'Bulk endpoint requires JSON array or CSV text', 'Set Content-Type to text/csv for CSV uploads', 400);
+            return apiError(
+                res,
+                'Bulk endpoint requires JSON array or CSV text',
+                'Set Content-Type to text/csv for CSV uploads',
+                400
+            );
         }
 
         logger.info(`[INVOICE_API] POST /bulk — Bulk invoice processing initiated`);
@@ -275,7 +299,13 @@ router.post('/bulk', async (req, res) => {
 
         if (!result.isBulk) {
             // processInvoice returned a single result — wrap it
-            const wrapped = { isBulk: true, total: 1, successCount: result.success ? 1 : 0, failureCount: result.success ? 0 : 1, results: [result] };
+            const wrapped = {
+                isBulk: true,
+                total: 1,
+                successCount: result.success ? 1 : 0,
+                failureCount: result.success ? 0 : 1,
+                results: [result],
+            };
             Object.assign(result, wrapped);
         }
 
@@ -287,35 +317,41 @@ router.post('/bulk', async (req, res) => {
                     await persistInvoice(pool, r.invoice, r.sagaConfig, 'csv');
                     persistedCount++;
                 } catch (dbErr) {
-                    logger.error(`[INVOICE_API] Bulk persist failed for ${r.invoice?.invoiceId}: ${dbErr.message}`);
+                    logger.error(
+                        `[INVOICE_API] Bulk persist failed for ${r.invoice?.invoiceId}: ${dbErr.message}`
+                    );
                 }
             }
         }
 
         // Gather all instruction IDs for approval
         const allInstructionIds = result.results
-            .filter(r => r.success && r.sagaConfig)
-            .flatMap(r => r.sagaConfig.instructions?.map(i => i.instruction_id) || []);
+            .filter((r) => r.success && r.sagaConfig)
+            .flatMap((r) => r.sagaConfig.instructions?.map((i) => i.instruction_id) || []);
 
-        return apiSuccess(res, {
-            message: `Bulk processing complete: ${result.successCount}/${result.total} invoices processed`,
-            total: result.total,
-            successCount: result.successCount,
-            failureCount: result.failureCount,
-            persistedCount,
-            approvalRequired: true,
-            approvalNote: 'Call POST /api/instruction/approve with instructionIds array to trigger settlement for each invoice',
-            instructionIds: allInstructionIds,
-            results: result.results.map(r => ({
-                invoiceId: r.invoice?.invoiceId || null,
-                sagaId: r.sagaConfig?.sagaId || null,
-                success: r.success,
-                isoCompliant: r.isoResult?.success || false,
-                steps: r.sagaConfig?.steps?.length || 0,
-                errors: r.errors || [],
-            })),
-        }, 202);
-
+        return apiSuccess(
+            res,
+            {
+                message: `Bulk processing complete: ${result.successCount}/${result.total} invoices processed`,
+                total: result.total,
+                successCount: result.successCount,
+                failureCount: result.failureCount,
+                persistedCount,
+                approvalRequired: true,
+                approvalNote:
+                    'Call POST /api/instruction/approve with instructionIds array to trigger settlement for each invoice',
+                instructionIds: allInstructionIds,
+                results: result.results.map((r) => ({
+                    invoiceId: r.invoice?.invoiceId || null,
+                    sagaId: r.sagaConfig?.sagaId || null,
+                    success: r.success,
+                    isoCompliant: r.isoResult?.success || false,
+                    steps: r.sagaConfig?.steps?.length || 0,
+                    errors: r.errors || [],
+                })),
+            },
+            202
+        );
     } catch (err) {
         logger.error(`[INVOICE_API] /bulk error: ${err.message}`);
         return apiError(res, 'Bulk invoice processing failed', err.message, 500);
@@ -344,10 +380,17 @@ router.post('/upload-pdf', upload.single('invoice'), async (req, res) => {
 
     try {
         if (!req.file) {
-            return apiError(res, 'PDF file is required', 'Upload a PDF using form field name "invoice"', 400);
+            return apiError(
+                res,
+                'PDF file is required',
+                'Upload a PDF using form field name "invoice"',
+                400
+            );
         }
 
-        logger.info(`[INVOICE_API] POST /upload-pdf — PDF received: ${req.file.originalname} (${req.file.size} bytes)`);
+        logger.info(
+            `[INVOICE_API] POST /upload-pdf — PDF received: ${req.file.originalname} (${req.file.size} bytes)`
+        );
 
         const result = await processor.processInvoice(req.file.buffer);
 
@@ -360,30 +403,34 @@ router.post('/upload-pdf', upload.single('invoice'), async (req, res) => {
 
         const confidence = result.invoice?._pdfMeta?.extractionConfidence || 'UNKNOWN';
 
-        return apiSuccess(res, {
-            message: `PDF invoice extracted with ${confidence} confidence`,
-            invoiceId: result.invoice.invoiceId,
-            sagaId: result.sagaConfig.sagaId,
-            extractionConfidence: confidence,
-            isoCompliant: result.isoResult?.success || false,
-            extractedFields: {
-                invoiceDate: result.invoice.invoiceDate,
-                dueDate: result.invoice.dueDate,
-                totalAmount: result.invoice.totalAmount,
-                currency: result.invoice.currency,
-                sellerName: result.invoice.seller?.name,
-                buyerName: result.invoice.buyer?.name,
-                lineItemCount: result.invoice.lineItems?.length || 0,
+        return apiSuccess(
+            res,
+            {
+                message: `PDF invoice extracted with ${confidence} confidence`,
+                invoiceId: result.invoice.invoiceId,
+                sagaId: result.sagaConfig.sagaId,
+                extractionConfidence: confidence,
+                isoCompliant: result.isoResult?.success || false,
+                extractedFields: {
+                    invoiceDate: result.invoice.invoiceDate,
+                    dueDate: result.invoice.dueDate,
+                    totalAmount: result.invoice.totalAmount,
+                    currency: result.invoice.currency,
+                    sellerName: result.invoice.seller?.name,
+                    buyerName: result.invoice.buyer?.name,
+                    lineItemCount: result.invoice.lineItems?.length || 0,
+                },
+                approvalRequired: true,
+                approvalNote:
+                    confidence !== 'HIGH'
+                        ? '⚠️ Extraction confidence is not HIGH — please review extracted fields before approving instructions'
+                        : 'Call POST /api/instruction/approve with instructionIds to trigger settlement',
+                instructionIds: result.sagaConfig.instructions?.map((i) => i.instruction_id) || [],
+                sagaConfig: result.sagaConfig,
+                validationErrors: result.errors || [],
             },
-            approvalRequired: true,
-            approvalNote: confidence !== 'HIGH'
-                ? '⚠️ Extraction confidence is not HIGH — please review extracted fields before approving instructions'
-                : 'Call POST /api/instruction/approve with instructionIds to trigger settlement',
-            instructionIds: result.sagaConfig.instructions?.map(i => i.instruction_id) || [],
-            sagaConfig: result.sagaConfig,
-            validationErrors: result.errors || [],
-        }, 202);
-
+            202
+        );
     } catch (err) {
         logger.error(`[INVOICE_API] /upload-pdf error: ${err.message}`);
         return apiError(res, 'PDF processing failed', err.message, 500);
@@ -411,7 +458,6 @@ router.get('/list', async (req, res) => {
             count: result.rows.length,
             data: result.rows,
         });
-
     } catch (err) {
         logger.error(`[INVOICE_API] GET /list error: ${err.message}`);
         return apiError(res, 'Failed to fetch invoice list', err.message, 500);
@@ -428,10 +474,9 @@ router.get('/:invoiceId', async (req, res) => {
     const { invoiceId } = req.params;
 
     try {
-        const result = await pool.query(
-            'SELECT * FROM invoices WHERE invoice_id = $1',
-            [invoiceId]
-        );
+        const result = await pool.query('SELECT * FROM invoices WHERE invoice_id = $1', [
+            invoiceId,
+        ]);
 
         if (result.rows.length === 0) {
             return apiError(res, `Invoice ${invoiceId} not found`, null, 404);
@@ -454,7 +499,6 @@ router.get('/:invoiceId', async (req, res) => {
             createdAt: inv.created_at,
             updatedAt: inv.updated_at,
         });
-
     } catch (err) {
         logger.error(`[INVOICE_API] GET /${invoiceId} error: ${err.message}`);
         return apiError(res, 'Failed to fetch invoice', err.message, 500);
@@ -497,7 +541,6 @@ router.get('/:invoiceId/saga-config', async (req, res) => {
             isoEnriched,
             steps: stepsResult.rows,
         });
-
     } catch (err) {
         logger.error(`[INVOICE_API] GET /${invoiceId}/saga-config error: ${err.message}`);
         return apiError(res, 'Failed to fetch saga config', err.message, 500);

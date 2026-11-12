@@ -2,7 +2,7 @@
 
 /**
  * Untrusted Evidence Sanitizer & Boundary Guard
- * 
+ *
  * Sanitizes external metadata (counterparty labels, invoice notes, beneficiary descriptions,
  * provider messages) before injecting into model prompts.
  * Enforces length bounds and strips control characters without changing financial data.
@@ -13,9 +13,9 @@ const MAX_ERROR_LENGTH = 1000;
 
 /**
  * Sanitizes a single string input.
- * 
- * @param {string} str 
- * @param {number} [maxLength=500] 
+ *
+ * @param {string} str
+ * @param {number} [maxLength=500]
  * @returns {string}
  */
 function sanitizeString(str, maxLength = MAX_STRING_LENGTH) {
@@ -40,8 +40,8 @@ function sanitizeString(str, maxLength = MAX_STRING_LENGTH) {
 
 /**
  * Deeply sanitizes an evidence object or array, ensuring all nested strings are bounded.
- * 
- * @param {any} obj 
+ *
+ * @param {any} obj
  * @param {number} [depth=0]
  * @returns {any}
  */
@@ -55,7 +55,7 @@ function sanitizeEvidenceObject(obj, depth = 0) {
     }
 
     if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeEvidenceObject(item, depth + 1));
+        return obj.map((item) => sanitizeEvidenceObject(item, depth + 1));
     }
 
     if (typeof obj === 'object') {
@@ -63,7 +63,8 @@ function sanitizeEvidenceObject(obj, depth = 0) {
         for (const [key, value] of Object.entries(obj)) {
             const cleanKey = sanitizeString(key, 64);
             if (key === 'error_message' || key === 'message') {
-                sanitized[cleanKey] = typeof value === 'string' ? sanitizeString(value, MAX_ERROR_LENGTH) : value;
+                sanitized[cleanKey] =
+                    typeof value === 'string' ? sanitizeString(value, MAX_ERROR_LENGTH) : value;
             } else {
                 sanitized[cleanKey] = sanitizeEvidenceObject(value, depth + 1);
             }
@@ -79,4 +80,3 @@ module.exports = {
     sanitizeEvidenceObject,
     MAX_STRING_LENGTH,
 };
-

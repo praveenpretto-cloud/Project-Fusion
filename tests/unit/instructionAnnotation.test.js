@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * RELIABILITY R2B: TRANSACTION ANNOTATION PERSISTENCE TEST SUITE
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Verifies institutional-grade transaction annotation persistence:
  * 1. Valid metadata creation (persists category, notes, GST, invoice link, version 1 -> 2).
  * 2. Metadata update (modifies fields, increments version 2 -> 3, preserves untouched fields).
@@ -156,7 +156,9 @@ function makeRequest(app, { method = 'GET', url = '/', headers = {}, body = null
         };
 
         // Match route parameters for Express router
-        const match = url.match(/^\/api\/instructions?\/([a-zA-Z0-9-]+)(\/metadata|\/dev-session)?/);
+        const match = url.match(
+            /^\/api\/instructions?\/([a-zA-Z0-9-]+)(\/metadata|\/dev-session)?/
+        );
         if (match) {
             req.params = { id: match[1] };
         }
@@ -302,7 +304,9 @@ describe('Project Fusion — Reliability R2B: Transaction Annotation Persistence
         expect(audit.event_type).toBe('INSTRUCTION_METADATA_ANNOTATED');
         expect(audit.operator_id).toBe(VALID_OPERATOR_ID);
         expect(audit.metadata.instruction_id).toBe(VALID_INSTRUCTION_ID);
-        expect(audit.metadata.changed_fields).toEqual(expect.arrayContaining(['category', 'notes', 'gstApplicable', 'linkedInvoiceId']));
+        expect(audit.metadata.changed_fields).toEqual(
+            expect.arrayContaining(['category', 'notes', 'gstApplicable', 'linkedInvoiceId'])
+        );
         expect(audit.metadata.status).toBe('SUCCESS');
     });
 
@@ -385,7 +389,9 @@ describe('Project Fusion — Reliability R2B: Transaction Annotation Persistence
         });
         expect(resUnapproved.statusCode).toBe(400);
         expect(resUnapproved.body.error).toBe('BAD_REQUEST');
-        expect(resUnapproved.body.detail).toContain('Unrecognized metadata field "unauthorizedKey"');
+        expect(resUnapproved.body.detail).toContain(
+            'Unrecognized metadata field "unauthorizedKey"'
+        );
 
         // Invalid category
         const resBadCategory = await makeRequest(app, {
@@ -435,7 +441,9 @@ describe('Project Fusion — Reliability R2B: Transaction Annotation Persistence
         });
         expect(resOversized.statusCode).toBe(400);
         expect(resOversized.body.error).toBe('BAD_REQUEST');
-        expect(resOversized.body.detail).toContain('Notes exceed maximum permitted length of 1000 characters');
+        expect(resOversized.body.detail).toContain(
+            'Notes exceed maximum permitted length of 1000 characters'
+        );
 
         // 1000 characters exactly: accepted
         const validMaxNotes = 'B'.repeat(1000);
@@ -532,7 +540,15 @@ describe('Project Fusion — Reliability R2B: Transaction Annotation Persistence
     // SCENARIO 9: ATTEMPTED PAYMENT-STATE MODIFICATION REJECTION (400)
     // ─────────────────────────────────────────────────────────────────────────
     test('Scenario 9: Attempted payment-state modification rejection (supplying amount, state, recipient returns 400)', async () => {
-        const testFields = ['amount', 'state', 'currency', 'recipient', 'sender', 'approval_status', 'utr'];
+        const testFields = [
+            'amount',
+            'state',
+            'currency',
+            'recipient',
+            'sender',
+            'approval_status',
+            'utr',
+        ];
 
         for (const field of testFields) {
             const res = await makeRequest(app, {
@@ -544,7 +560,9 @@ describe('Project Fusion — Reliability R2B: Transaction Annotation Persistence
 
             expect(res.statusCode).toBe(400);
             expect(res.body.error).toBe('BAD_REQUEST');
-            expect(res.body.detail).toContain(`Field "${field}" cannot be altered via annotation endpoint`);
+            expect(res.body.detail).toContain(
+                `Field "${field}" cannot be altered via annotation endpoint`
+            );
         }
     });
 

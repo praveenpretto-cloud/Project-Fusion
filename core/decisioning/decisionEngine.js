@@ -22,14 +22,14 @@ const DEFER_DAYS_AHEAD = parseInt(process.env.DECISION_DEFER_DAYS || 3);
  */
 function classifyUrgency(dueDateStr) {
     if (!dueDateStr) return 'STANDARD';
-    const dueDate  = new Date(dueDateStr);
-    const today    = new Date();
+    const dueDate = new Date(dueDateStr);
+    const today = new Date();
     const daysLeft = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
 
-    if (daysLeft < 0)  return 'OVERDUE';
+    if (daysLeft < 0) return 'OVERDUE';
     if (daysLeft === 0) return 'URGENT';
-    if (daysLeft <= 2)  return 'URGENT';
-    if (daysLeft <= 7)  return 'STANDARD';
+    if (daysLeft <= 2) return 'URGENT';
+    if (daysLeft <= 7) return 'STANDARD';
     return 'DEFERRED';
 }
 
@@ -72,10 +72,11 @@ function evaluateInvoice(normalizedInvoice) {
     let action;
     let reason;
 
-    const hasBlockingFlag = flags.some(f =>
-        f === 'OVERDUE_INVOICE' ||
-        f.startsWith('ABOVE_THRESHOLD') ||
-        f === 'CROSS_BORDER_HIGH_VALUE'
+    const hasBlockingFlag = flags.some(
+        (f) =>
+            f === 'OVERDUE_INVOICE' ||
+            f.startsWith('ABOVE_THRESHOLD') ||
+            f === 'CROSS_BORDER_HIGH_VALUE'
     );
 
     if (urgency === 'DEFERRED' && !flags.includes('OVERDUE_INVOICE')) {
@@ -97,13 +98,15 @@ function evaluateInvoice(normalizedInvoice) {
         urgency,
         reason,
         flags,
-        autoApprove:  action === 'AUTO_APPROVE',
+        autoApprove: action === 'AUTO_APPROVE',
         isCrossBorder,
         threshold,
-        evaluatedAt:  new Date().toISOString(),
+        evaluatedAt: new Date().toISOString(),
     };
 
-    logger.info(`[DECISION] Invoice ${normalizedInvoice.invoiceId}: ${action} (${urgency}) — ${reason}`);
+    logger.info(
+        `[DECISION] Invoice ${normalizedInvoice.invoiceId}: ${action} (${urgency}) — ${reason}`
+    );
     return decision;
 }
 
@@ -118,11 +121,11 @@ function evaluateInvoice(normalizedInvoice) {
 function applyDecisionToInstruction(instruction, decision) {
     return {
         ...instruction,
-        _paymentDecision:   decision.action,
-        _decisionUrgency:   decision.urgency,
-        _decisionFlags:     decision.flags,
-        _decisionReason:    decision.reason,
-        _isCrossBorder:     decision.isCrossBorder,
+        _paymentDecision: decision.action,
+        _decisionUrgency: decision.urgency,
+        _decisionFlags: decision.flags,
+        _decisionReason: decision.reason,
+        _isCrossBorder: decision.isCrossBorder,
         // State: auto-approved go straight to INITIATED, others stay PENDING_APPROVAL
         state: decision.autoApprove ? 'INITIATED' : 'PENDING_APPROVAL',
     };

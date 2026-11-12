@@ -12,6 +12,7 @@ licensing: Project Fusion Internal Engineering Manual - Proprietary Architecture
 # Project Fusion Double-Entry Ledger & Cryptographic Chain Verification
 
 ## Conventional Double-Entry Ledger Principles
+
 Project Fusion maintains an immutable financial ledger recording every monetary movement across balanced journal entry lines:
 
 - Debits Equal Credits: Every committed financial transaction must satisfy the fundamental accounting identity:
@@ -20,9 +21,9 @@ Project Fusion maintains an immutable financial ledger recording every monetary 
 - Multi-Asset Precision: Monetary amounts are stored using exact 18-decimal fixed-point precision (`NUMERIC(28,18)`) to eliminate floating-point truncation errors across fiat and crypto assets.
 
 ## Cryptographic Hash Chaining & Audit Invariants
+
 The ledger implements tamper-evident cryptographic chaining to provide verifiable proof of ledger continuity:
 
 - Stored Entry Hash (`entry_hash`): SHA-256 digest computed over canonical JSON representation of entry parameters (amount, currency, source account, destination account, timestamp, and predecessor hash).
 - Hash Mismatch Failure: If a database row is mutated out-of-band, recomputing SHA-256 over row data produces a divergence from stored `entry_hash`, flagging `ENTRY_HASH_MISMATCH`.
 - Immediate Global Predecessor Continuity: Each entry row must reference the immediate preceding entry ID and hash in the globally committed ledger. If intermediate rows were inserted, deleted, or committed out-of-order, the auditor flags `PREDECESSOR_NOT_IMMEDIATE` and `INTERNAL_LINK_NOT_IMMEDIATE`.
-

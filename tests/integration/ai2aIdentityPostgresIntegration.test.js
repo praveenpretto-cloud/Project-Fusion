@@ -48,7 +48,7 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
         } catch (err) {
             console.warn(
                 `[AI-2A.2 POSTGRES INTEGRATION] Live PostgreSQL connection unavailable (${err.message}). ` +
-                'Reporting as NOT VERIFIED. Mocked tests are not substituted.'
+                    'Reporting as NOT VERIFIED. Mocked tests are not substituted.'
             );
             isDbAvailable = false;
         }
@@ -85,7 +85,7 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
             ORDER BY table_name
         `);
 
-        const tables = res.rows.map(r => r.table_name);
+        const tables = res.rows.map((r) => r.table_name);
         expect(tables).toContain('operators');
         expect(tables).toContain('operator_identities');
         expect(tables).toContain('operator_sessions');
@@ -129,7 +129,10 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
             [opId, subCascade]
         );
 
-        const dummyHash = crypto.createHash('sha256').update(`dummy-token-${Date.now()}`).digest('hex');
+        const dummyHash = crypto
+            .createHash('sha256')
+            .update(`dummy-token-${Date.now()}`)
+            .digest('hex');
         await client.query(
             `INSERT INTO identity.operator_sessions (token_hash, operator_id, expires_at)
              VALUES ($1, $2, NOW() + INTERVAL '8 hours')`,
@@ -139,10 +142,16 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
         // Delete operator -> cascades
         await client.query('DELETE FROM identity.operators WHERE operator_id = $1', [opId]);
 
-        const idCheck = await client.query('SELECT * FROM identity.operator_identities WHERE operator_id = $1', [opId]);
+        const idCheck = await client.query(
+            'SELECT * FROM identity.operator_identities WHERE operator_id = $1',
+            [opId]
+        );
         expect(idCheck.rows.length).toBe(0);
 
-        const sessCheck = await client.query('SELECT * FROM identity.operator_sessions WHERE operator_id = $1', [opId]);
+        const sessCheck = await client.query(
+            'SELECT * FROM identity.operator_sessions WHERE operator_id = $1',
+            [opId]
+        );
         expect(sessCheck.rows.length).toBe(0);
     });
 
@@ -423,13 +432,14 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
             [stateVal]
         );
 
-        const consume = () => client.query(
-            `UPDATE identity.authentication_transactions
+        const consume = () =>
+            client.query(
+                `UPDATE identity.authentication_transactions
              SET used_at = NOW()
              WHERE state = $1 AND used_at IS NULL AND expires_at > NOW()
              RETURNING transaction_id`,
-            [stateVal]
-        );
+                [stateVal]
+            );
 
         const [r1, r2] = await Promise.all([consume(), consume()]);
         const total = r1.rows.length + r2.rows.length;
@@ -461,10 +471,9 @@ describe('Phase AI-2A.2: PostgreSQL Identity Integration & Mandatory Gate', () =
             txClient.release();
         }
 
-        const check = await client.query(
-            `SELECT * FROM identity.operators WHERE email = $1`,
-            [rollbackEmail]
-        );
+        const check = await client.query(`SELECT * FROM identity.operators WHERE email = $1`, [
+            rollbackEmail,
+        ]);
         expect(check.rows.length).toBe(0);
     });
 

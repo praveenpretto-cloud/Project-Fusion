@@ -42,12 +42,12 @@ const VALID_INVOICE_OBJECT = {
     invoiceId: 'INV-TEST-0001',
     invoiceDate: '2025-04-15',
     dueDate: '2025-07-14',
-    totalAmount: 85000.00,
+    totalAmount: 85000.0,
     currency: 'USD',
     seller: VALID_SELLER,
     buyer: VALID_BUYER,
     lineItems: [
-        { description: 'Cotton Yarn 40s', quantity: 100, unitPrice: 850.00, lineTotal: 85000.00 },
+        { description: 'Cotton Yarn 40s', quantity: 100, unitPrice: 850.0, lineTotal: 85000.0 },
     ],
     paymentTermsDays: 90,
     rawConditions: '50% on shipment proof and 50% on buyer acceptance',
@@ -68,7 +68,7 @@ describe('InvoiceProcessor', () => {
             const result = await processor.parseInvoice(VALID_INVOICE_OBJECT);
             expect(result).toBeDefined();
             expect(result.invoiceId).toBe('INV-TEST-0001');
-            expect(result.totalAmount).toBe(85000.00);
+            expect(result.totalAmount).toBe(85000.0);
             expect(result.currency).toBe('USD');
             expect(result.seller.name).toBe('Coimbatore Textiles Pvt Ltd');
             expect(result.buyer.name).toBe('GlobalThread Inc');
@@ -81,7 +81,11 @@ describe('InvoiceProcessor', () => {
         });
 
         test('should normalise DD/MM/YYYY dates to ISO format', async () => {
-            const input = { ...VALID_INVOICE_OBJECT, invoiceDate: '15/04/2025', dueDate: '14/07/2025' };
+            const input = {
+                ...VALID_INVOICE_OBJECT,
+                invoiceDate: '15/04/2025',
+                dueDate: '14/07/2025',
+            };
             const result = await processor.parseInvoice(input);
             expect(result.invoiceDate).toBe('2025-04-15');
             expect(result.dueDate).toBe('2025-07-14');
@@ -196,7 +200,9 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
             expect(result.enriched).toBeDefined();
             expect(result.enriched.iso20022).toBeDefined();
             expect(result.enriched.iso20022.messageType).toBe('pacs.008.001.10');
-            expect(result.enriched.iso20022.remittanceInfo.RmtInf.Strd.RfrdDocInf.Tp.CdOrPrtry.Cd).toBe('CINV');
+            expect(
+                result.enriched.iso20022.remittanceInfo.RmtInf.Strd.RfrdDocInf.Tp.CdOrPrtry.Cd
+            ).toBe('CINV');
         });
 
         test('should fail enrichment for missing seller street name', async () => {
@@ -225,7 +231,9 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
             const invoice = await processor.parseInvoice(badInvoice);
             const result = processor.enrichToISO(invoice);
             expect(result.success).toBe(false);
-            expect(result.validationErrors.some(e => e.includes('ISO 3166-1 alpha-2'))).toBe(true);
+            expect(result.validationErrors.some((e) => e.includes('ISO 3166-1 alpha-2'))).toBe(
+                true
+            );
         });
 
         test('should set FEMA IBU reporting flag for amounts > $25,000', async () => {
@@ -237,7 +245,10 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
         });
 
         test('should NOT set FEMA IBU flag for amounts <= $25,000', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, totalAmount: 10000 });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                totalAmount: 10000,
+            });
             const result = processor.enrichToISO(invoice);
             expect(result.success).toBe(true);
             expect(result.enriched.iso20022.femaReporting.required).toBe(false);
@@ -254,7 +265,11 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
             const result = processor.enrichToISO(invoice);
             expect(result.success).toBe(false);
             expect(result.enriched).toBeNull();
-            expect(result.validationErrors.some(e => e.includes('buyer.structuredAddress.streetName'))).toBe(true);
+            expect(
+                result.validationErrors.some((e) =>
+                    e.includes('buyer.structuredAddress.streetName')
+                )
+            ).toBe(true);
         });
 
         test('should fail enrichment when Indian postCode is not 6 digits', async () => {
@@ -269,7 +284,7 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
             const result = processor.enrichToISO(invoice);
             expect(result.success).toBe(false);
             expect(result.enriched).toBeNull();
-            expect(result.validationErrors.some(e => e.includes('6 digits'))).toBe(true);
+            expect(result.validationErrors.some((e) => e.includes('6 digits'))).toBe(true);
         });
 
         test('should succeed and normalise state codes and country for fully valid addresses', async () => {
@@ -300,8 +315,12 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
             const invoice = await processor.parseInvoice(VALID_INVOICE_OBJECT);
             const result = processor.createProgrammableConditions(invoice);
             expect(result.extractedConditions.length).toBeGreaterThan(0);
-            const shipment = result.extractedConditions.find(c => c.milestone === 'shipment_proof');
-            const acceptance = result.extractedConditions.find(c => c.milestone === 'buyer_acceptance');
+            const shipment = result.extractedConditions.find(
+                (c) => c.milestone === 'shipment_proof'
+            );
+            const acceptance = result.extractedConditions.find(
+                (c) => c.milestone === 'buyer_acceptance'
+            );
             expect(shipment).toBeDefined();
             expect(acceptance).toBeDefined();
             // Total must be 100%
@@ -310,22 +329,35 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
         });
 
         test('should use default exporter rules when no conditions are given', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, rawConditions: '' });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                rawConditions: '',
+            });
             const result = processor.createProgrammableConditions(invoice);
             expect(result.useDefaultRules).toBe(true);
             expect(result.extractedConditions.length).toBeGreaterThan(0);
         });
 
         test('should handle "Net 60" payment terms', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, rawConditions: 'Net 60 days', paymentTermsDays: 60 });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                rawConditions: 'Net 60 days',
+                paymentTermsDays: 60,
+            });
             const result = processor.createProgrammableConditions(invoice);
-            const dueDateStep = result.extractedConditions.find(c => c.triggerType === 'due_date');
+            const dueDateStep = result.extractedConditions.find(
+                (c) => c.triggerType === 'due_date'
+            );
             expect(dueDateStep).toBeDefined();
             expect(dueDateStep.timeoutDays).toBe(60);
         });
 
         test('should handle "Net 90" payment terms', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, rawConditions: 'Net 90 days', paymentTermsDays: 90 });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                rawConditions: 'Net 90 days',
+                paymentTermsDays: 90,
+            });
             const result = processor.createProgrammableConditions(invoice);
             expect(result.extractedConditions[0].timeoutDays).toBe(90);
         });
@@ -339,7 +371,7 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
         test('should flag escrow_required on non-immediate milestone steps', async () => {
             const invoice = await processor.parseInvoice(VALID_INVOICE_OBJECT);
             const result = processor.createProgrammableConditions(invoice);
-            const escrowSteps = result.sagaSteps.filter(s => s.escrow_required);
+            const escrowSteps = result.sagaSteps.filter((s) => s.escrow_required);
             expect(escrowSteps.length).toBeGreaterThan(0);
         });
 
@@ -471,12 +503,18 @@ INV-CSV-002,50000,EUR,Seller B,Buyer B,60`;
         });
 
         test('should handle invoice with no line items gracefully', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, lineItems: undefined });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                lineItems: undefined,
+            });
             expect(invoice.lineItems).toEqual([]);
         });
 
         test('should handle zero amount invoice (warn, not throw)', async () => {
-            const invoice = await processor.parseInvoice({ ...VALID_INVOICE_OBJECT, totalAmount: 0 });
+            const invoice = await processor.parseInvoice({
+                ...VALID_INVOICE_OBJECT,
+                totalAmount: 0,
+            });
             expect(invoice.totalAmount).toBe(0);
             // Should still create saga config
             const sagaConfig = processor.createSagaConfig(invoice);
@@ -503,7 +541,7 @@ describe('validateStructuredAddress()', () => {
         const addr = { ...VALID_SELLER.structuredAddress, country: 'INDIA' };
         const result = validateStructuredAddress(addr, 'seller');
         expect(result.valid).toBe(false);
-        expect(result.errors.some(e => e.includes('ISO 3166-1 alpha-2'))).toBe(true);
+        expect(result.errors.some((e) => e.includes('ISO 3166-1 alpha-2'))).toBe(true);
     });
 
     test('should return error when address is not an object or null', () => {

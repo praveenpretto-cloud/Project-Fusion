@@ -6,9 +6,9 @@ const { telemetry, SPAN_NAMES, FUSION_AI_ATTRIBUTES } = require('../observabilit
  * ════════════════════════════════════════════════════════════════════════════
  * CENTRAL DATA LOSS PREVENTION (DLP) & PII REDACTION MODULE — PHASE AI-3.3
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Secure, schema-aware, request-scoped context protection engine for AI pipelines.
- * 
+ *
  * CORE GOVERNANCE INVARIANTS:
  * 1. Request Isolation: Each investigation request receives an independent, short-lived
  *    DLP context. Token maps are never shared across requests or persisted globally.
@@ -27,10 +27,27 @@ const { telemetry, SPAN_NAMES, FUSION_AI_ATTRIBUTES } = require('../observabilit
 
 // ── EXCLUSION & PRESERVATION GUARDS ──────────────────────────────────────────
 
-const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
-const ISO_TIMESTAMP_REGEX = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+const UUID_REGEX =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+const ISO_TIMESTAMP_REGEX =
+    /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})?)?$/;
 const FINANCIAL_AMOUNT_REGEX = /^[+-]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,8})?$/;
-const CURRENCY_CODES = new Set(['USD', 'EUR', 'INR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY', 'CHF', 'CNY', 'XLM', 'USDC', 'BTC', 'ETH']);
+const CURRENCY_CODES = new Set([
+    'USD',
+    'EUR',
+    'INR',
+    'GBP',
+    'CAD',
+    'AUD',
+    'SGD',
+    'JPY',
+    'CHF',
+    'CNY',
+    'XLM',
+    'USDC',
+    'BTC',
+    'ETH',
+]);
 
 const PRESERVED_IDENTIFIERS = new Set([
     // Provider error codes
@@ -65,7 +82,7 @@ const PRESERVED_IDENTIFIERS = new Set([
     'getSettlementAndWebhookEvidence',
     'explainIsoValidationErrors',
     'verifyLedgerIntegrity',
-    'search_payment_knowledge'
+    'search_payment_knowledge',
 ]);
 
 /**
@@ -80,8 +97,18 @@ function isPreservedIdentifier(str) {
     if (PRESERVED_IDENTIFIERS.has(trimmed)) return true;
     if (/^DOC-[A-Z0-9]+-\d+$/i.test(trimmed)) return true;
     if (/^docs:[a-z0-9-]+:[a-z0-9-]+:chunk-\d+$/i.test(trimmed)) return true;
-    if (/^(?:instructions|transaction|evidence|ledger_journal|reconciliation_log|processed_webhook_events)(?:[:.].+)?$/i.test(trimmed)) return true;
-    if (/^(?:clearing|customer_funds|settlement|treasury|exchange):[a-z0-9_]+:[a-z0-9_]+$/i.test(trimmed)) return true;
+    if (
+        /^(?:instructions|transaction|evidence|ledger_journal|reconciliation_log|processed_webhook_events)(?:[:.].+)?$/i.test(
+            trimmed
+        )
+    )
+        return true;
+    if (
+        /^(?:clearing|customer_funds|settlement|treasury|exchange):[a-z0-9_]+:[a-z0-9_]+$/i.test(
+            trimmed
+        )
+    )
+        return true;
     return false;
 }
 
@@ -89,7 +116,7 @@ function isPreservedIdentifier(str) {
 
 /**
  * Luhn Algorithm validation for payment card PANs.
- * 
+ *
  * @param {string} candidate - Digits with optional spaces or hyphens
  * @returns {boolean} True if candidate is a valid 13-19 digit Luhn-compliant PAN
  */
@@ -112,19 +139,19 @@ function isValidLuhn(candidate) {
         sum += digit;
         shouldDouble = !shouldDouble;
     }
-    return (sum % 10 === 0);
+    return sum % 10 === 0;
 }
 
 /**
  * ISO 7064 Mod 97-10 Checksum validation for IBANs.
- * 
+ *
  * @param {string} candidate - International Bank Account Number string
  * @returns {boolean} True if candidate is a valid IBAN with correct checksum
  */
 function isValidIBAN(candidate) {
     if (!candidate || typeof candidate !== 'string') return false;
     const clean = candidate.replace(/[\s-]/g, '').toUpperCase();
-    
+
     // IBAN format: 2 country letters, 2 check digits, followed by 11 to 30 alphanumeric characters (total length 15..34)
     if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(clean)) return false;
 
@@ -182,7 +209,9 @@ function isValidIFSC(candidate) {
  */
 function isValidJWT(candidate) {
     if (!candidate || typeof candidate !== 'string') return false;
-    return /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/.test(candidate.trim());
+    return /^eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}$/.test(
+        candidate.trim()
+    );
 }
 
 // ── REGEX PATTERNS FOR FREE-TEXT DETECTION ───────────────────────────────────
@@ -200,14 +229,16 @@ const API_KEY_PATTERNS = [
     /\b(whsec_[0-9a-zA-Z]{24,})\b/g,
     /\b(rzp_live_[0-9a-zA-Z]{14,})\b/g,
     /\b(rzp_test_[0-9a-zA-Z]{14,})\b/g,
-    /\b(S[A-Z0-9]{55})\b/g // Stellar secret seed (starts with S, 56 chars base32)
+    /\b(S[A-Z0-9]{55})\b/g, // Stellar secret seed (starts with S, 56 chars base32)
 ];
 
 // Generic key-value secret pattern: api_key=..., client_secret=...
-const KEY_VALUE_SECRET_PATTERN = /(?:api[_-]?key|secret[_-]?key|client[_-]?secret)\s*[:=]\s*['"]?([A-Za-z0-9_.-]{16,})['"]?/gi;
+const KEY_VALUE_SECRET_PATTERN =
+    /(?:api[_-]?key|secret[_-]?key|client[_-]?secret)\s*[:=]\s*['"]?([A-Za-z0-9_.-]{16,})['"]?/gi;
 
 // Credentials: password: ..., auth_token: ...
-const CREDENTIAL_PATTERN = /(?:password|passwd|auth[_-]?token)\s*[:=]\s*['"]?(?!password|passwd)([^\s'":]{6,})['"]?/gi;
+const CREDENTIAL_PATTERN =
+    /(?:password|passwd|auth[_-]?token)\s*[:=]\s*['"]?(?!password|passwd)([^\s'":]{6,})['"]?/gi;
 
 // GSTIN pattern (15 chars)
 const GSTIN_PATTERN = /\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z])\b/g;
@@ -216,7 +247,8 @@ const GSTIN_PATTERN = /\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z])\b/g;
 const INDIAN_PAN_PATTERN = /\b([A-Z]{5}[0-9]{4}[A-Z])\b/g;
 
 // UPI VPA pattern: username@handle where handle is a known payment handle or contains bank
-const UPI_PATTERN = /\b[a-zA-Z0-9._-]+@(okhdfcbank|oksbi|okaxis|okicici|upi|paytm|ybl|axl|ibl|apl|hdfcbank|sbi|icici|axisbank|barodampay|federal)\b/gi;
+const UPI_PATTERN =
+    /\b[a-zA-Z0-9._-]+@(okhdfcbank|oksbi|okaxis|okicici|upi|paytm|ybl|axl|ibl|apl|hdfcbank|sbi|icici|axisbank|barodampay|federal)\b/gi;
 
 // Email pattern (standard RFC-compliant email)
 const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
@@ -225,34 +257,40 @@ const EMAIL_PATTERN = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 const PHONE_PATTERNS = [
     /(?:^|(?<=[^\w]))\+[1-9]\d{6,14}(?!\w)/g, // E.164
     /(?:^|(?<=[^\w]))(?:\+91[\s-]?)?[6-9]\d{9}(?!\w)/g, // Indian 10-digit mobile
-    /(?:^|(?<=[^\w]))(?:\+1[\s-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\w)/g // US/Canada formatted phone
+    /(?:^|(?<=[^\w]))(?:\+1[\s-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}(?!\w)/g, // US/Canada formatted phone
 ];
 
 // Card PAN candidate pattern (16-digit blocks or 13-19 digits, strictly avoiding UUID chunks)
-const CARD_CANDIDATE_PATTERN = /\b(?:\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}|\d{4}[\s-]\d{6}[\s-]\d{5}|\d{13,19})\b/g;
+const CARD_CANDIDATE_PATTERN =
+    /\b(?:\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}|\d{4}[\s-]\d{6}[\s-]\d{5}|\d{13,19})\b/g;
 
 // IBAN candidate pattern (15 to 34 characters starting with 2 letters and 2 digits)
 const IBAN_CANDIDATE_PATTERN = /\b([A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30})\b/g;
 
 // Explicit IBAN context pattern in text (e.g. IBAN: ...)
-const IBAN_CONTEXT_PATTERN = /(?:iban(?:\s*(?:number|no|#))?\s*[:=-]?\s*)\b([A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30})\b/gi;
+const IBAN_CONTEXT_PATTERN =
+    /(?:iban(?:\s*(?:number|no|#))?\s*[:=-]?\s*)\b([A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30})\b/gi;
 
 // IFSC pattern in text: requires IFSC or branch context preceding it
-const IFSC_CONTEXT_PATTERN = /(?:(?:ifsc(?:\s*code)?|branch)\s*[:=-]?\s*)\b([A-Z]{4}0[A-Z0-9]{6})\b/gi;
+const IFSC_CONTEXT_PATTERN =
+    /(?:(?:ifsc(?:\s*code)?|branch)\s*[:=-]?\s*)\b([A-Z]{4}0[A-Z0-9]{6})\b/gi;
 
 // Bank account pattern in text: requires explicit account context preceding it
-const BANK_ACCOUNT_CONTEXT_PATTERN = /(?:(?:bank\s+)?account(?:\s*(?:number|no|#))?\s*[:=-]?\s*)(?!(?:clearing|settlement|customer_funds|treasury|suspense|fee)\b)\b([0-9]{9,18}|[A-Z]{2}\d{2}[A-Za-z0-9]{6,20})\b/gi;
+const BANK_ACCOUNT_CONTEXT_PATTERN =
+    /(?:(?:bank\s+)?account(?:\s*(?:number|no|#))?\s*[:=-]?\s*)(?!(?:clearing|settlement|customer_funds|treasury|suspense|fee)\b)\b([0-9]{9,18}|[A-Z]{2}\d{2}[A-Za-z0-9]{6,20})\b/gi;
 
 // Context-labeled personal names in text: "Customer name: Alice Smith", "Beneficiary name: John Doe"
-const LABELED_NAME_PATTERN = /(?:(?:[Cc]ustomer|[Bb]eneficiary|[Aa]ccount\s+[Hh]older|[Rr]emitter|[Rr]ecipient|[Ss]ender)\s*(?:[Nn]ame|[Hh]older)?\s*[:=-]?\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/g;
+const LABELED_NAME_PATTERN =
+    /(?:(?:[Cc]ustomer|[Bb]eneficiary|[Aa]ccount\s+[Hh]older|[Rr]emitter|[Rr]ecipient|[Ss]ender)\s*(?:[Nn]ame|[Hh]older)?\s*[:=-]?\s+)([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/g;
 
 // Corporate & organizational suffixes indicating a business entity rather than a natural person
-const BUSINESS_ENTITY_SUFFIXES = /\b(?:Inc|Incorporated|Corp|Corporation|LLC|LLP|Ltd|Limited|PLC|GmbH|AG|S\.?A\.?|S\.?R\.?L\.?|B\.?V\.?|Pty|Pvt\.?\s*Ltd\.?|Co\.?|Company|Holdings|Group|Enterprise|Enterprises|Solutions|Services|Technologies|Logistics|Industries|Foundation|Associates|Bank|Clearing|Exchange|Treasury)\b/i;
+const BUSINESS_ENTITY_SUFFIXES =
+    /\b(?:Inc|Incorporated|Corp|Corporation|LLC|LLP|Ltd|Limited|PLC|GmbH|AG|S\.?A\.?|S\.?R\.?L\.?|B\.?V\.?|Pty|Pvt\.?\s*Ltd\.?|Co\.?|Company|Holdings|Group|Enterprise|Enterprises|Solutions|Services|Technologies|Logistics|Industries|Foundation|Associates|Bank|Clearing|Exchange|Treasury)\b/i;
 
 /**
  * Checks whether a name string represents a business, corporate, or system entity
  * rather than a natural person.
- * 
+ *
  * @param {string} candidate - Entity name string
  * @returns {boolean} True if candidate is a business entity
  */
@@ -260,7 +298,10 @@ function isBusinessEntityName(candidate) {
     if (!candidate || typeof candidate !== 'string') return false;
     const clean = candidate.trim();
     if (BUSINESS_ENTITY_SUFFIXES.test(clean)) return true;
-    if (/^(?:clearing|settlement|reserve|escrow|suspense|treasury|operations|system)\b/i.test(clean)) return true;
+    if (
+        /^(?:clearing|settlement|reserve|escrow|suspense|treasury|operations|system)\b/i.test(clean)
+    )
+        return true;
     return false;
 }
 
@@ -355,7 +396,7 @@ const SENSITIVE_KEY_CLASSIFICATIONS = {
     api_key: 'API_KEY',
     apikey: 'API_KEY',
     auth_token: 'CREDENTIAL',
-    bearer_token: 'BEARER_TOKEN'
+    bearer_token: 'BEARER_TOKEN',
 };
 
 /**
@@ -392,23 +433,22 @@ function normalizeSensitiveValue(category, rawValue) {
     }
 }
 
-
 // ── REQUEST-SCOPED DLP CONTEXT CLASS ─────────────────────────────────────────
 
 class DlpContext {
     /**
      * Creates an isolated, request-scoped DLP context.
-     * 
+     *
      * @param {object} [options]
      * @param {string} [options.requestId] - Optional request/investigation identifier
      */
     constructor(options = {}) {
         this.requestId = options.requestId || `REQ-${Date.now()}`;
         this.createdAt = new Date().toISOString();
-        
+
         // Short-lived, request-scoped token mapping: normalizedKey -> maskedToken
         this.tokenMap = new Map();
-        
+
         // Reverse classification map: maskedToken -> category
         this.reverseMap = new Map();
 
@@ -427,7 +467,7 @@ class DlpContext {
             BEARER_TOKEN: 0,
             API_KEY: 0,
             CREDENTIAL: 0,
-            PERSON_NAME: 0
+            PERSON_NAME: 0,
         };
 
         this.redactionCount = 0;
@@ -436,7 +476,7 @@ class DlpContext {
 
     /**
      * Retrieves or deterministically generates a masked token for a sensitive value.
-     * 
+     *
      * @param {string} category - Identifier category (e.g. 'EMAIL', 'IBAN')
      * @param {string} rawValue - Raw sensitive value
      * @param {string} [fieldHint] - Optional field name or context description
@@ -470,7 +510,7 @@ class DlpContext {
             category,
             token,
             fieldHint: fieldHint || 'unspecified',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
         });
 
         telemetry.recordDlpRedaction(1, category);
@@ -480,7 +520,7 @@ class DlpContext {
 
     /**
      * Masks free-text input across all supported sensitive categories.
-     * 
+     *
      * @param {string} text - Raw input string
      * @returns {string} Redacted string containing deterministic tokens
      */
@@ -628,7 +668,7 @@ class DlpContext {
     /**
      * Deeply scans and masks a JavaScript object or array without mutating the original.
      * Utilizes both schema-aware field inspection and text pattern matching.
-     * 
+     *
      * @param {any} obj - Object, array, or primitive
      * @param {string} [currentPath=''] - Object traversal path for auditing
      * @returns {any} Deeply cloned, masked object
@@ -653,14 +693,21 @@ class DlpContext {
             for (const [key, value] of Object.entries(obj)) {
                 const fieldPath = currentPath ? `${currentPath}.${key}` : key;
                 const lowerKey = key.toLowerCase();
-                const parentKey = currentPath ? currentPath.split('.').pop().toLowerCase().replace(/\[\d+\]$/, '') : '';
+                const parentKey = currentPath
+                    ? currentPath
+                          .split('.')
+                          .pop()
+                          .toLowerCase()
+                          .replace(/\[\d+\]$/, '')
+                    : '';
 
                 // Schema-Aware Classification based on object key and parent context
                 let schemaCategory = SENSITIVE_KEY_CLASSIFICATIONS[lowerKey];
 
                 // If key is generic 'name', verify that parent represents a personal/counterparty entity
                 if (lowerKey === 'name') {
-                    const PERSONAL_ENTITY_PARENT_PATTERN = /(?:customer|beneficiary|remitter|recipient|sender|holder|user|person|individual|contact|debtor|creditor|payer|payee|profile|party|client|member|owner|^$)/i;
+                    const PERSONAL_ENTITY_PARENT_PATTERN =
+                        /(?:customer|beneficiary|remitter|recipient|sender|holder|user|person|individual|contact|debtor|creditor|payer|payee|profile|party|client|member|owner|^$)/i;
                     if (!PERSONAL_ENTITY_PARENT_PATTERN.test(parentKey)) {
                         // Not a personal counterparty field (e.g. tool.name, rule.name, event.name)
                         schemaCategory = null;
@@ -684,7 +731,12 @@ class DlpContext {
                             validated = /^\d{9,18}$/.test(strVal);
                         } else if (schemaCategory === 'PERSON_NAME') {
                             // If explicitly first_name or last_name, always validate as personal name
-                            if (lowerKey === 'first_name' || lowerKey === 'firstname' || lowerKey === 'last_name' || lowerKey === 'lastname') {
+                            if (
+                                lowerKey === 'first_name' ||
+                                lowerKey === 'firstname' ||
+                                lowerKey === 'last_name' ||
+                                lowerKey === 'lastname'
+                            ) {
                                 validated = strVal.length > 0;
                             } else {
                                 // Preserve business entity names (e.g. Acme Corp, Supplier Logistics LLC)
@@ -713,7 +765,7 @@ class DlpContext {
 
     /**
      * Returns an audit summary of redactions without exposing raw values.
-     * 
+     *
      * @returns {object} Redaction metrics and sanitized audit trace
      */
     getAuditSummary() {
@@ -722,19 +774,19 @@ class DlpContext {
             totalRedactions: this.redactionCount,
             uniqueTokensGenerated: this.tokenMap.size,
             categories: { ...this.tokenCounters },
-            auditLog: this.auditLog.map(item => ({
+            auditLog: this.auditLog.map((item) => ({
                 category: item.category,
                 token: item.token,
                 fieldHint: item.fieldHint,
-                timestamp: item.timestamp
-            }))
+                timestamp: item.timestamp,
+            })),
         };
     }
 }
 
 /**
  * Creates an isolated, request-scoped DLP context.
- * 
+ *
  * @param {object} [options]
  * @returns {DlpContext}
  */
@@ -752,5 +804,5 @@ module.exports = {
     isValidIFSC,
     isValidJWT,
     isPreservedIdentifier,
-    isBusinessEntityName
+    isBusinessEntityName,
 };

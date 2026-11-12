@@ -65,7 +65,9 @@ function getKeyStore() {
 async function signStellarTransaction(senderName, transaction) {
     const masterSecret = process.env.VAULT_MASTER_SECRET;
     if (!masterSecret || masterSecret.trim() === '') {
-        throw new Error('VAULT_MASTER_SECRET not configured in environment. Key derivation aborted.');
+        throw new Error(
+            'VAULT_MASTER_SECRET not configured in environment. Key derivation aborted.'
+        );
     }
 
     // Software key derivation (HMAC-SHA256)
@@ -86,7 +88,9 @@ async function signStellarTransaction(senderName, transaction) {
 async function getStellarPublicKey(senderName) {
     const masterSecret = process.env.VAULT_MASTER_SECRET;
     if (!masterSecret || masterSecret.trim() === '') {
-        throw new Error('VAULT_MASTER_SECRET not configured in environment. Key derivation aborted.');
+        throw new Error(
+            'VAULT_MASTER_SECRET not configured in environment. Key derivation aborted.'
+        );
     }
 
     const derivedSeed = crypto.createHmac('sha256', masterSecret).update(senderName).digest();
@@ -108,9 +112,8 @@ function getAdapterCredential(keyName, version = 'latest') {
         throw new Error(`[VAULT] Access requested for unknown key: ${keyName}`);
     }
 
-    const rawValue = version === 'latest'
-        ? keyData.versions[keyData.latest_version]
-        : keyData.versions[version];
+    const rawValue =
+        version === 'latest' ? keyData.versions[keyData.latest_version] : keyData.versions[version];
 
     if (!rawValue || typeof rawValue !== 'string' || rawValue.trim() === '') {
         throw new Error(`[VAULT] Mandatory credential '${keyName}' is not set in environment.`);
@@ -121,19 +124,27 @@ function getAdapterCredential(keyName, version = 'latest') {
     // STRICT TESTNET PREFIX ENFORCEMENT
     if (keyName === 'STRIPE_KEY') {
         if (credential.startsWith('sk_live_') || credential.startsWith('rk_live_')) {
-            throw new Error('FATAL SECURITY VIOLATION: Production Stripe key (sk_live_* or rk_live_*) rejected. Testnet only.');
+            throw new Error(
+                'FATAL SECURITY VIOLATION: Production Stripe key (sk_live_* or rk_live_*) rejected. Testnet only.'
+            );
         }
         if (!credential.startsWith('sk_test_') && !credential.startsWith('rk_test_')) {
-            throw new Error("FATAL: STRIPE_KEY must be a valid testnet credential starting with 'sk_test_' or 'rk_test_'.");
+            throw new Error(
+                "FATAL: STRIPE_KEY must be a valid testnet credential starting with 'sk_test_' or 'rk_test_'."
+            );
         }
     }
 
     if (keyName === 'RAZORPAY_KEY_ID') {
         if (credential.startsWith('rzp_live_')) {
-            throw new Error('FATAL SECURITY VIOLATION: Production Razorpay key (rzp_live_*) rejected. Sandbox only.');
+            throw new Error(
+                'FATAL SECURITY VIOLATION: Production Razorpay key (rzp_live_*) rejected. Sandbox only.'
+            );
         }
         if (!credential.startsWith('rzp_test_')) {
-            throw new Error("FATAL: RAZORPAY_KEY_ID must be a valid sandbox credential starting with 'rzp_test_'.");
+            throw new Error(
+                "FATAL: RAZORPAY_KEY_ID must be a valid sandbox credential starting with 'rzp_test_'."
+            );
         }
     }
 

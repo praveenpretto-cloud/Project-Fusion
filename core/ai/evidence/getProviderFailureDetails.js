@@ -4,11 +4,11 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 
 /**
  * Tool 2: getProviderFailureDetails
- * 
+ *
  * Retrieves provider error diagnostics, attempts, and external intent references.
  * Classifies provider identity strictly according to four-tier evidence hierarchy.
  * Banned: claiming 64-char hex proves Stellar; exposing raw HTTP payloads or secrets.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {string} instructionId - Target instruction UUID
  * @returns {Promise<object>} Structured provider failure details
@@ -18,12 +18,16 @@ async function getProviderFailureDetails(client, instructionId) {
         throw new Error('getProviderFailureDetails: client with query method is required');
     }
 
-    if (!instructionId || typeof instructionId !== 'string' || !UUID_REGEX.test(instructionId.trim())) {
+    if (
+        !instructionId ||
+        typeof instructionId !== 'string' ||
+        !UUID_REGEX.test(instructionId.trim())
+    ) {
         return {
             success: false,
             status: 'INVALID_IDENTIFIER',
             message: 'instructionId must be a valid UUID string',
-            data: null
+            data: null,
         };
     }
 
@@ -52,7 +56,7 @@ async function getProviderFailureDetails(client, instructionId) {
             success: false,
             status: 'NOT_FOUND',
             message: `No instruction found for ID '${cleanId}'`,
-            data: null
+            data: null,
         };
     }
 
@@ -68,9 +72,10 @@ async function getProviderFailureDetails(client, instructionId) {
     `;
 
     const webhookResult = await client.query(webhookSql, [cleanId, row.external_intent_id || null]);
-    const webhookProvider = (webhookResult && webhookResult.rows && webhookResult.rows.length > 0)
-        ? webhookResult.rows[0].provider
-        : null;
+    const webhookProvider =
+        webhookResult && webhookResult.rows && webhookResult.rows.length > 0
+            ? webhookResult.rows[0].provider
+            : null;
 
     let providerClassification = 'NOT_RECORDED';
     let resolvedProvider = 'NOT_RECORDED';
@@ -93,11 +98,13 @@ async function getProviderFailureDetails(client, instructionId) {
         } else if (/^[0-9a-f]{64}$/i.test(intentId)) {
             providerClassification = 'IDENTIFIER_FORMAT_CANDIDATE';
             resolvedProvider = 'GENERIC_HEX64';
-            providerEvidenceNote = '64-character hexadecimal identifier alone is inconclusive and does not prove Stellar network settlement';
+            providerEvidenceNote =
+                '64-character hexadecimal identifier alone is inconclusive and does not prove Stellar network settlement';
         } else {
             providerClassification = 'IDENTIFIER_FORMAT_CANDIDATE';
             resolvedProvider = 'UNKNOWN_FORMAT';
-            providerEvidenceNote = 'Intent identifier does not match standard provider pattern heuristics';
+            providerEvidenceNote =
+                'Intent identifier does not match standard provider pattern heuristics';
         }
     } else if (row.provider) {
         providerClassification = 'UNVERIFIED_BROAD_CATEGORY';
@@ -121,12 +128,11 @@ async function getProviderFailureDetails(client, instructionId) {
             external_intent_id: row.external_intent_id || null,
             utr: row.utr || null,
             execution_attempts: parseInt(row.execution_attempts, 10) || 0,
-            error_message: row.error_message || null
-        }
+            error_message: row.error_message || null,
+        },
     };
 }
 
 module.exports = {
     getProviderFailureDetails,
 };
-

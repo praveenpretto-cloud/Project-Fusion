@@ -39,4 +39,3 @@ function getVerifierDbConfig() {
 module.exports = {
     getVerifierDbConfig,
 };
-

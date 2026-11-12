@@ -23,8 +23,12 @@ const logger = require('../logger');
  * @returns {Promise<object>}
  */
 async function executeMockRail(instruction) {
-    const instructionId = instruction.instruction_id || instruction.instructionId || crypto.randomUUID();
-    const mockHash = crypto.createHash('sha256').update(`mock_${instructionId}_${Date.now()}`).digest('hex');
+    const instructionId =
+        instruction.instruction_id || instruction.instructionId || crypto.randomUUID();
+    const mockHash = crypto
+        .createHash('sha256')
+        .update(`mock_${instructionId}_${Date.now()}`)
+        .digest('hex');
 
     logger.info(`[MOCK-ADAPTER] 🧪 Simulating execution for instruction: ${instructionId}`);
 
@@ -63,4 +67,3 @@ module.exports = {
     executeMockRail,
     createMockPlugin,
 };
-

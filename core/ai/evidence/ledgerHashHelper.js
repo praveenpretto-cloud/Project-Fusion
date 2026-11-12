@@ -5,13 +5,13 @@ const { toCanonicalDecimal } = require('../../orchestrator/financialDecimal');
 
 /**
  * PURE CANONICAL LEDGER PAYLOAD HASH HELPER
- * 
+ *
  * Computes canonical SHA-256 payload hash for a ledger entry.
  * Exactly matches core/orchestrator/ledgerUtils.js writeLedger() specification.
  * Supports legacy historical fallbacks documented in scripts/verify_integrity.js.
- * 
+ *
  * Zero database connections, zero dotenv calls, zero CLI side effects.
- * 
+ *
  * @param {object} entry - Ledger entry object
  * @param {string|Date} [timestampIso] - Optional ISO timestamp override
  * @returns {{ hash: string, format: 'CANONICAL' | 'LEGACY_FLOAT' | 'LEGACY_SCALE_2' }}
@@ -74,4 +74,3 @@ function computePayloadHash(entry, timestampIso) {
 module.exports = {
     computePayloadHash,
 };
-

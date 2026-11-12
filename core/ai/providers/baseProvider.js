@@ -2,7 +2,7 @@
 
 /**
  * Base Model Provider Interface
- * 
+ *
  * Defines standard outcome statuses and the contract required for all AI model providers.
  * Providers must be strictly process-isolated with zero database and payment-system dependencies.
  */
@@ -13,12 +13,12 @@ const PROVIDER_STATUSES = Object.freeze({
     MODEL_TIMEOUT: 'MODEL_TIMEOUT',
     MODEL_OUTPUT_INVALID: 'MODEL_OUTPUT_INVALID',
     MODEL_RESPONSE_EMPTY: 'MODEL_RESPONSE_EMPTY',
-    MODEL_PROVIDER_ERROR: 'MODEL_PROVIDER_ERROR'
+    MODEL_PROVIDER_ERROR: 'MODEL_PROVIDER_ERROR',
 });
 
 class BaseModelProvider {
     /**
-     * @param {string} providerName 
+     * @param {string} providerName
      */
     constructor(providerName = 'base') {
         this.providerName = providerName;
@@ -26,7 +26,7 @@ class BaseModelProvider {
 
     /**
      * Generate structured completion from prompt context.
-     * 
+     *
      * @param {object} params
      * @param {string} params.model - Model identifier
      * @param {string} params.systemInstruction - Trusted system instruction
@@ -42,14 +42,14 @@ class BaseModelProvider {
         evidenceContext,
         investigationQuestion,
         generationConfig = {},
-        timeoutMs = 15000
+        timeoutMs = 15000,
     }) {
         throw new Error('BaseModelProvider.generate() must be implemented by subclass');
     }
 
     /**
      * Multi-turn chat completion with tool calling support.
-     * 
+     *
      * @param {object} params
      * @param {string} [params.model] - Model identifier
      * @param {Array<object>} params.messages - Multi-turn conversation messages
@@ -65,7 +65,7 @@ class BaseModelProvider {
         tools = [],
         format = undefined,
         generationConfig = {},
-        timeoutMs = 30000
+        timeoutMs = 30000,
     }) {
         throw new Error('BaseModelProvider.chat() must be implemented by subclass');
     }

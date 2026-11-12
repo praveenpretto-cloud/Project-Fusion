@@ -4,7 +4,7 @@
  * ════════════════════════════════════════════════════════════════════════════
  * LOCAL METRICS REGISTRY & AGGREGATOR — PHASE AI-3.4
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * In-process metrics storage for counters, histograms, and gauges.
  * Computes min, max, median, p90, p95, p99 without database or cloud dependencies.
  * Powers the local developer metrics endpoint GET /api/ai/observability/metrics.
@@ -21,7 +21,7 @@ class MetricsAggregator {
     _makeKey(labels = {}) {
         const sorted = Object.keys(labels).sort();
         if (sorted.length === 0) return '_default';
-        return sorted.map(k => `${k}=${labels[k]}`).join(',');
+        return sorted.map((k) => `${k}=${labels[k]}`).join(',');
     }
 
     incrementCounter(name, value = 1, labels = {}) {
@@ -85,7 +85,7 @@ class MetricsAggregator {
             p90: percentile(90),
             p95: percentile(95),
             p99: percentile(99),
-            mean
+            mean,
         };
     }
 
@@ -138,7 +138,7 @@ class MetricsAggregator {
                 redactions: this.getCounterTotal('fusion.ai.dlp.redactions'),
                 duration_ms: this.getStats('fusion.ai.dlp.duration'),
                 detection_failures: this.getCounterTotal('fusion.ai.dlp.detection_failures'),
-            }
+            },
         };
     }
 
@@ -153,4 +153,3 @@ class MetricsAggregator {
 module.exports = {
     MetricsAggregator,
 };
-

@@ -21,12 +21,13 @@ class InvestigationOrchestrator {
         this.dbClient = options.dbClient || null;
         this.modelProvider = options.modelProvider || createModelProvider('ollama');
         this.evidenceTools = options.evidenceTools || defaultEvidenceTools;
-        this.timeoutMs = options.timeoutMs || (this.modelProvider && this.modelProvider.timeoutMs) || 30000;
+        this.timeoutMs =
+            options.timeoutMs || (this.modelProvider && this.modelProvider.timeoutMs) || 30000;
     }
 
     /**
      * Executes end-to-end deterministic investigation.
-     * 
+     *
      * @param {object} params
      * @param {string} params.transactionId - Instruction UUID or invoice/saga identifier
      * @param {string} [params.question] - Operator question
@@ -42,7 +43,7 @@ class InvestigationOrchestrator {
         model = null,
         generationConfig = {},
         evidenceOverride = null,
-        dlpContext = null
+        dlpContext = null,
     }) {
         const startTime = Date.now();
         const investigationId = `INV-INTEL-${crypto.randomUUID()}`;
@@ -53,7 +54,7 @@ class InvestigationOrchestrator {
                 success: false,
                 status: 'INVALID_PARAMETERS',
                 investigation_id: investigationId,
-                message: 'transactionId is required'
+                message: 'transactionId is required',
             };
         }
 
@@ -63,7 +64,7 @@ class InvestigationOrchestrator {
         const classification = IntentClassifier.classify({
             explicitIntent,
             question,
-            targetIdentifier: cleanTxId
+            targetIdentifier: cleanTxId,
         });
 
         if (classification.isClarificationRequired) {
@@ -72,7 +73,7 @@ class InvestigationOrchestrator {
                 status: 'INTENT_CLARIFICATION_REQUIRED',
                 investigation_id: investigationId,
                 transaction_id: cleanTxId,
-                reason: classification.reason
+                reason: classification.reason,
             };
         }
 
@@ -184,7 +185,7 @@ class InvestigationOrchestrator {
             transactionId: cleanTxId,
             intent,
             rawEvidence: maskedEvidence,
-            question: maskedQuestion
+            question: maskedQuestion,
         });
 
         // 4. Model Provider Dispatch
@@ -194,7 +195,7 @@ class InvestigationOrchestrator {
             evidenceContext: promptContext.evidenceContext,
             investigationQuestion: promptContext.investigationQuestion,
             generationConfig,
-            timeoutMs: this.timeoutMs
+            timeoutMs: this.timeoutMs,
         });
 
         // 5. Handle Provider Failures (Fail-Closed, zero heuristic fallback)
@@ -208,7 +209,7 @@ class InvestigationOrchestrator {
                 error: providerResult.error,
                 latency_ms: providerResult.latencyMs,
                 raw_evidence: rawEvidence,
-                message: `Inference failed with status ${providerResult.status}`
+                message: `Inference failed with status ${providerResult.status}`,
             };
         }
 
@@ -222,7 +223,7 @@ class InvestigationOrchestrator {
                 transaction_id: cleanTxId,
                 intent,
                 error: 'Model parsed response is not an object',
-                raw_evidence: maskedEvidence
+                raw_evidence: maskedEvidence,
             };
         }
 
@@ -237,34 +238,47 @@ class InvestigationOrchestrator {
             provider: providerResult.metadata.provider || 'unknown',
             model: providerResult.metadata.model || 'unknown',
             latency_ms: providerResult.latencyMs,
-            tokens: providerResult.metadata.tokens || {}
+            tokens: providerResult.metadata.tokens || {},
         };
 
         // Defensive normalization of optional string-or-null array fields
-        if (candidateReport.limitations !== undefined && !Array.isArray(candidateReport.limitations)) {
-            candidateReport.limitations = typeof candidateReport.limitations === 'string' && candidateReport.limitations.trim()
-                ? [candidateReport.limitations.trim()]
-                : [];
+        if (
+            candidateReport.limitations !== undefined &&
+            !Array.isArray(candidateReport.limitations)
+        ) {
+            candidateReport.limitations =
+                typeof candidateReport.limitations === 'string' &&
+                candidateReport.limitations.trim()
+                    ? [candidateReport.limitations.trim()]
+                    : [];
         }
-        if (candidateReport.missing_information !== undefined && !Array.isArray(candidateReport.missing_information)) {
-            candidateReport.missing_information = typeof candidateReport.missing_information === 'string' && candidateReport.missing_information.trim()
-                ? [candidateReport.missing_information.trim()]
-                : [];
+        if (
+            candidateReport.missing_information !== undefined &&
+            !Array.isArray(candidateReport.missing_information)
+        ) {
+            candidateReport.missing_information =
+                typeof candidateReport.missing_information === 'string' &&
+                candidateReport.missing_information.trim()
+                    ? [candidateReport.missing_information.trim()]
+                    : [];
         }
 
         // Deterministic mapping of exact recommendation codes to application display descriptions
         if (Array.isArray(candidateReport.recommended_checks)) {
-            candidateReport.recommended_checks_display = candidateReport.recommended_checks.map(code => ({
-                code,
-                description: formatRecommendationDisplay(code) || 'Operational review required.'
-            }));
+            candidateReport.recommended_checks_display = candidateReport.recommended_checks.map(
+                (code) => ({
+                    code,
+                    description:
+                        formatRecommendationDisplay(code) || 'Operational review required.',
+                })
+            );
         }
 
         // 7. Strict Evidence-Reference & Schema Validation
         const validation = EvidenceCitationValidator.validate({
             report: candidateReport,
             availableEvidenceKeys,
-            rawEvidence
+            rawEvidence,
         });
 
         if (!validation.valid) {
@@ -277,7 +291,7 @@ class InvestigationOrchestrator {
                 validation_errors: validation.errors,
                 candidate_report: candidateReport,
                 raw_evidence: rawEvidence,
-                message: 'Generated report failed evidence citation or schema validation'
+                message: 'Generated report failed evidence citation or schema validation',
             };
         }
 
@@ -291,7 +305,7 @@ class InvestigationOrchestrator {
             warnings: validation.warnings,
             latency_ms: Date.now() - startTime,
             raw_evidence: maskedEvidence,
-            dlp_audit: activeDlp.getAuditSummary()
+            dlp_audit: activeDlp.getAuditSummary(),
         };
     }
 }

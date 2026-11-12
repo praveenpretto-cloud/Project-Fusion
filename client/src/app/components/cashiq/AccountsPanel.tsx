@@ -25,17 +25,17 @@ interface Props {
 const BANK_COLORS: Record<string, string> = {
     'HDFC Bank': 'from-blue-900/30 to-blue-950/20 border-blue-800/30',
     'ICICI Bank': 'from-orange-900/20 to-orange-950/10 border-orange-800/20',
-    'SBI':       'from-indigo-900/30 to-indigo-950/20 border-indigo-800/30',
+    SBI: 'from-indigo-900/30 to-indigo-950/20 border-indigo-800/30',
     'Axis Bank': 'from-purple-900/20 to-purple-950/10 border-purple-800/20',
-    'Kotak':     'from-red-900/20 to-red-950/10 border-red-800/20',
+    Kotak: 'from-red-900/20 to-red-950/10 border-red-800/20',
 };
 
 const BANK_INITIALS: Record<string, string> = {
     'HDFC Bank': 'HD',
     'ICICI Bank': 'IC',
-    'SBI': 'SB',
+    SBI: 'SB',
     'Axis Bank': 'AX',
-    'Kotak': 'KO',
+    Kotak: 'KO',
 };
 
 function fmt(n: number) {
@@ -53,9 +53,17 @@ function BankLogo({ bankName }: { bankName: string }) {
 
 function SourceBadge({ source }: { source: string }) {
     if (source === 'AA_CONSENT') {
-        return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">AA CONNECTED</span>;
+        return (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                AA CONNECTED
+            </span>
+        );
     }
-    return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">MANUAL IMPORT</span>;
+    return (
+        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+            MANUAL IMPORT
+        </span>
+    );
 }
 
 function UploadModal({
@@ -77,7 +85,10 @@ function UploadModal({
 
     async function handleUpload() {
         const file = fileRef.current?.files?.[0];
-        if (!file) { setError('Please select a CSV file'); return; }
+        if (!file) {
+            setError('Please select a CSV file');
+            return;
+        }
 
         setUploading(true);
         setError('');
@@ -105,17 +116,29 @@ function UploadModal({
             <div className="bg-[#0F1318] border border-gray-700/50 rounded-2xl p-6 w-[420px] shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
                     <div>
-                        <h3 className="text-sm font-semibold text-gray-200">Upload Bank Statement</h3>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{account.bank_name} · {account.account_number_masked}</p>
+                        <h3 className="text-sm font-semibold text-gray-200">
+                            Upload Bank Statement
+                        </h3>
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                            {account.bank_name} · {account.account_number_masked}
+                        </p>
                     </div>
-                    <button onClick={onClose} className="text-gray-600 hover:text-gray-400 text-lg leading-none">×</button>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-600 hover:text-gray-400 text-lg leading-none"
+                    >
+                        ×
+                    </button>
                 </div>
 
                 <div className="bg-[#0a0d11] border border-dashed border-gray-700/60 rounded-xl p-5 text-center mb-4">
                     <div className="text-2xl mb-2">📄</div>
-                    <div className="text-xs text-gray-400 mb-3">Upload a CSV bank statement export</div>
+                    <div className="text-xs text-gray-400 mb-3">
+                        Upload a CSV bank statement export
+                    </div>
                     <div className="text-[10px] text-gray-600 mb-3">
-                        Supported formats: HDFC, ICICI, SBI, Axis, Kotak<br />
+                        Supported formats: HDFC, ICICI, SBI, Axis, Kotak
+                        <br />
                         Columns: Date, Narration, Debit, Credit, Balance
                     </div>
                     <input
@@ -126,7 +149,11 @@ function UploadModal({
                     />
                 </div>
 
-                {error && <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 mb-3">{error}</div>}
+                {error && (
+                    <div className="text-xs text-red-400 bg-red-950/20 border border-red-900/30 rounded-lg px-3 py-2 mb-3">
+                        {error}
+                    </div>
+                )}
 
                 <div className="flex gap-2">
                     <button
@@ -243,53 +270,76 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
                 <div>
                     <h2 className="text-sm font-semibold text-gray-200">Bank Accounts</h2>
                     <p className="text-[10px] text-gray-600 mt-0.5">
-                        {accounts.length} account{accounts.length !== 1 ? 's' : ''} · Total: ₹{fmt(totalBalance)}
+                        {accounts.length} account{accounts.length !== 1 ? 's' : ''} · Total: ₹
+                        {fmt(totalBalance)}
                     </p>
                 </div>
                 <div className="text-[10px] text-gray-600 bg-[#0F1318] border border-gray-800/40 px-3 py-1.5 rounded-lg">
-                    <span className="text-amber-400 font-bold">MANUAL IMPORT</span> · AA integration coming
+                    <span className="text-amber-400 font-bold">MANUAL IMPORT</span> · AA integration
+                    coming
                 </div>
             </div>
 
             {/* Account cards */}
             {loading ? (
-                <div className="text-center text-gray-600 text-sm py-12 animate-pulse">Loading accounts...</div>
+                <div className="text-center text-gray-600 text-sm py-12 animate-pulse">
+                    Loading accounts...
+                </div>
             ) : accounts.length === 0 ? (
                 <div className="text-center py-16">
                     <div className="text-4xl mb-3">🏦</div>
                     <div className="text-gray-400 text-sm">No bank accounts added yet</div>
-                    <div className="text-gray-600 text-xs mt-1">Add a bank account to start importing statements</div>
+                    <div className="text-gray-600 text-xs mt-1">
+                        Add a bank account to start importing statements
+                    </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {accounts.map(account => {
-                        const gradientClass = BANK_COLORS[account.bank_name] || 'from-gray-900/40 to-gray-950/20 border-gray-800/30';
+                    {accounts.map((account) => {
+                        const gradientClass =
+                            BANK_COLORS[account.bank_name] ||
+                            'from-gray-900/40 to-gray-950/20 border-gray-800/30';
                         return (
-                            <div key={account.account_id} className={`bg-gradient-to-br ${gradientClass} border rounded-2xl p-4 transition-all hover:scale-[1.01]`}>
+                            <div
+                                key={account.account_id}
+                                className={`bg-gradient-to-br ${gradientClass} border rounded-2xl p-4 transition-all hover:scale-[1.01]`}
+                            >
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex items-center gap-3">
                                         <BankLogo bankName={account.bank_name} />
                                         <div>
-                                            <div className="text-xs font-semibold text-gray-200">{account.bank_name}</div>
-                                            <div className="text-[10px] text-gray-500 font-mono">{account.account_number_masked}</div>
+                                            <div className="text-xs font-semibold text-gray-200">
+                                                {account.bank_name}
+                                            </div>
+                                            <div className="text-[10px] text-gray-500 font-mono">
+                                                {account.account_number_masked}
+                                            </div>
                                         </div>
                                     </div>
                                     <SourceBadge source={account.data_source} />
                                 </div>
 
                                 <div className="mb-3">
-                                    <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Current Balance</div>
-                                    <div className="text-xl font-black text-white font-mono">₹{fmt(account.balance)}</div>
+                                    <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">
+                                        Current Balance
+                                    </div>
+                                    <div className="text-xl font-black text-white font-mono">
+                                        ₹{fmt(account.balance)}
+                                    </div>
                                 </div>
 
                                 <div className="mb-3 border-t border-gray-800/40 pt-2.5 mt-2.5">
-                                    <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Overdraft Limit</div>
+                                    <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">
+                                        Overdraft Limit
+                                    </div>
                                     {editingLimitAccountId === account.account_id ? (
                                         <div className="flex items-center gap-1.5 mt-1">
                                             <input
                                                 type="number"
                                                 value={editingLimitValue}
-                                                onChange={e => setEditingLimitValue(e.target.value)}
+                                                onChange={(e) =>
+                                                    setEditingLimitValue(e.target.value)
+                                                }
                                                 className="w-24 bg-[#0a0d11] text-xs px-2 py-0.5 rounded border border-gray-800 text-white font-mono outline-none focus:border-indigo-500/50"
                                                 autoFocus
                                             />
@@ -309,11 +359,15 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-sm font-bold text-amber-500 font-mono">₹{fmt(account.od_limit || 0)}</span>
+                                            <span className="text-sm font-bold text-amber-500 font-mono">
+                                                ₹{fmt(account.od_limit || 0)}
+                                            </span>
                                             <button
                                                 onClick={() => {
                                                     setEditingLimitAccountId(account.account_id);
-                                                    setEditingLimitValue((account.od_limit || 0).toString());
+                                                    setEditingLimitValue(
+                                                        (account.od_limit || 0).toString()
+                                                    );
                                                 }}
                                                 className="text-[9px] text-indigo-400 hover:text-indigo-300 font-bold"
                                             >
@@ -323,7 +377,9 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
                                     )}
                                 </div>
 
-                                <div className="text-[10px] text-gray-500 mt-0.5 mb-3">{account.account_type} Account</div>
+                                <div className="text-[10px] text-gray-500 mt-0.5 mb-3">
+                                    {account.account_type} Account
+                                </div>
 
                                 <div className="flex items-center justify-between">
                                     <div className="text-[9px] text-gray-700">
@@ -347,21 +403,26 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
             {/* GSTIN Verification Console */}
             <div className="bg-[#0F1318] border border-gray-800/60 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-sm font-semibold text-gray-200">🔍 GSTIN Registry Verification</h3>
-                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">ROADMAP</span>
+                    <h3 className="text-sm font-semibold text-gray-200">
+                        🔍 GSTIN Registry Verification
+                    </h3>
+                    <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/30">
+                        ROADMAP
+                    </span>
                 </div>
                 <p className="text-[10px] text-gray-600 mb-4">
-                    Verify taxpayer legal details and corporate addresses directly from the GST Portal Central Database Registry.
+                    Verify taxpayer legal details and corporate addresses directly from the GST
+                    Portal Central Database Registry.
                 </p>
 
                 <div className="flex gap-2">
-                    <input 
+                    <input
                         className="flex-1 bg-[#0a0d11] text-xs px-3 py-2 rounded-lg border border-gray-800 text-gray-300 font-mono outline-none focus:border-indigo-500/50"
                         placeholder="Enter 15-Digit GSTIN (e.g. 33AABCC1234D1Z5)"
                         value={gstin}
                         onChange={(e) => setGstin(e.target.value.toUpperCase())}
                     />
-                    <button 
+                    <button
                         onClick={verifyGstin}
                         disabled={verifying}
                         className="px-4 py-2 rounded-lg bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold transition-colors disabled:opacity-50"
@@ -378,7 +439,9 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
                         ) : (
                             <div className="bg-[#0a0d11] border border-gray-800/60 rounded-xl p-4 space-y-3">
                                 <div className="flex items-center justify-between border-b border-gray-800/40 pb-2">
-                                    <span className="text-xs font-bold text-gray-200">{gstStatus.tradeName}</span>
+                                    <span className="text-xs font-bold text-gray-200">
+                                        {gstStatus.tradeName}
+                                    </span>
                                     <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
                                         ✓ ACTIVE REGISTRY
                                     </span>
@@ -386,23 +449,39 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-[10px]">
                                     <div>
                                         <span className="text-gray-500 block">Legal Name</span>
-                                        <span className="text-gray-300 font-semibold">{gstStatus.legalName}</span>
+                                        <span className="text-gray-300 font-semibold">
+                                            {gstStatus.legalName}
+                                        </span>
                                     </div>
                                     <div>
                                         <span className="text-gray-500 block">GSTIN</span>
-                                        <span className="text-gray-300 font-mono">{gstStatus.gstin}</span>
+                                        <span className="text-gray-300 font-mono">
+                                            {gstStatus.gstin}
+                                        </span>
                                     </div>
                                     <div>
                                         <span className="text-gray-500 block">Taxpayer Type</span>
-                                        <span className="text-gray-300">{gstStatus.taxpayerType}</span>
+                                        <span className="text-gray-300">
+                                            {gstStatus.taxpayerType}
+                                        </span>
                                     </div>
                                     <div>
-                                        <span className="text-gray-500 block">Verification Timestamp</span>
-                                        <span className="text-gray-500 font-mono">{gstStatus.verifiedAt ? new Date(gstStatus.verifiedAt).toLocaleString('en-IN') : 'N/A'}</span>
+                                        <span className="text-gray-500 block">
+                                            Verification Timestamp
+                                        </span>
+                                        <span className="text-gray-500 font-mono">
+                                            {gstStatus.verifiedAt
+                                                ? new Date(gstStatus.verifiedAt).toLocaleString(
+                                                      'en-IN'
+                                                  )
+                                                : 'N/A'}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="text-[10px] border-t border-gray-800/40 pt-2">
-                                    <span className="text-gray-500 block">Registered Place of Business</span>
+                                    <span className="text-gray-500 block">
+                                        Registered Place of Business
+                                    </span>
                                     <span className="text-gray-300">{gstStatus.address}</span>
                                 </div>
                             </div>
@@ -413,9 +492,10 @@ export default function AccountsPanel({ businessId, accounts, loading, apiKey, o
 
             {/* Info box */}
             <div className="bg-[#0a0d11] border border-gray-800/40 rounded-xl p-4 text-[10px] text-gray-600 leading-relaxed">
-                <span className="text-gray-400 font-semibold">Account Aggregator (AA):</span> When FIU registration is complete, 
-                bank data will sync automatically via the AA framework. Until then, upload your bank statement CSV exports above.
-                Supported: HDFC, ICICI, SBI, Axis Bank, Kotak — standard CSV export format.
+                <span className="text-gray-400 font-semibold">Account Aggregator (AA):</span> When
+                FIU registration is complete, bank data will sync automatically via the AA
+                framework. Until then, upload your bank statement CSV exports above. Supported:
+                HDFC, ICICI, SBI, Axis Bank, Kotak — standard CSV export format.
             </div>
         </div>
     );

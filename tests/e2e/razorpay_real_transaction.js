@@ -10,9 +10,8 @@ if (!API_KEY) {
     process.exit(1);
 }
 
-const agent = PROTOCOL === 'https' 
-    ? new https.Agent({ rejectUnauthorized: false })
-    : new http.Agent();
+const agent =
+    PROTOCOL === 'https' ? new https.Agent({ rejectUnauthorized: false }) : new http.Agent();
 
 const client = axios.create({
     [PROTOCOL + 'Agent']: agent,

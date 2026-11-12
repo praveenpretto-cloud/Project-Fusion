@@ -2,7 +2,12 @@
 
 const crypto = require('crypto');
 const { Ollama } = require('ollama');
-const { telemetry, SPAN_NAMES, FUSION_AI_ATTRIBUTES, GEN_AI_ATTRIBUTES } = require('../../observability');
+const {
+    telemetry,
+    SPAN_NAMES,
+    FUSION_AI_ATTRIBUTES,
+    GEN_AI_ATTRIBUTES,
+} = require('../../observability');
 
 /**
  * Normalizes a vector to unit length (L2 norm).
@@ -14,7 +19,7 @@ function normalizeVector(vec) {
     }
     norm = Math.sqrt(norm);
     if (norm === 0) return vec;
-    return vec.map(v => v / norm);
+    return vec.map((v) => v / norm);
 }
 
 /**
@@ -55,7 +60,7 @@ class BaseEmbeddingProvider {
 
 /**
  * Deterministic Mock Embedding Provider
- * 
+ *
  * Generates 384-dimensional unit vectors using deterministic token hashing and projection.
  * Used for reproducible unit testing, benchmark evaluation, and offline CI runs.
  */
@@ -87,8 +92,8 @@ class MockEmbeddingProvider extends BaseEmbeddingProvider {
                 const hash = crypto.createHash('sha256').update(word).digest();
                 for (let i = 0; i < 16; i++) {
                     const idx = hash.readUInt16LE(i * 2) % this.dimension;
-                    const sign = (hash[i] % 2 === 0) ? 1 : -1;
-                    const weight = 1 + (word.length / 10);
+                    const sign = hash[i] % 2 === 0 ? 1 : -1;
+                    const weight = 1 + word.length / 10;
                     vector[idx] += sign * weight;
                 }
             }
@@ -102,7 +107,7 @@ class MockEmbeddingProvider extends BaseEmbeddingProvider {
 
 /**
  * Ollama Embedding Provider
- * 
+ *
  * Calls local Ollama daemon embedding endpoints (ollama.embeddings or ollama.embed).
  */
 class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
@@ -119,12 +124,13 @@ class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
     async ping() {
         try {
             const list = await this.client.list();
-            const found = list && list.models && list.models.some(m => m.name.startsWith(this.modelName));
+            const found =
+                list && list.models && list.models.some((m) => m.name.startsWith(this.modelName));
             return {
                 available: !!found,
                 modelFound: !!found,
                 host: this.host,
-                model: this.modelName
+                model: this.modelName,
             };
         } catch (err) {
             return {
@@ -132,7 +138,7 @@ class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
                 modelFound: false,
                 host: this.host,
                 model: this.modelName,
-                error: err.message
+                error: err.message,
             };
         }
     }
@@ -148,12 +154,14 @@ class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
                 if (typeof this.client.embed === 'function') {
                     const res = await this.client.embed({
                         model: this.modelName,
-                        input: text
+                        input: text,
                     });
                     if (res && res.embeddings && res.embeddings[0]) {
                         const normVec = normalizeVector(res.embeddings[0]);
                         if (normVec.length !== this.dimension) {
-                            throw new Error(`Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`);
+                            throw new Error(
+                                `Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`
+                            );
                         }
                         telemetry.recordRagEmbedding(Date.now() - start, { model: this.modelName });
                         return normVec;
@@ -163,17 +171,21 @@ class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
                 // Fallback to classic embeddings API
                 const res = await this.client.embeddings({
                     model: this.modelName,
-                    prompt: text
+                    prompt: text,
                 });
                 if (res && res.embedding) {
                     const normVec = normalizeVector(res.embedding);
                     if (normVec.length !== this.dimension) {
-                        throw new Error(`Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`);
+                        throw new Error(
+                            `Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`
+                        );
                     }
                     telemetry.recordRagEmbedding(Date.now() - start, { model: this.modelName });
                     return normVec;
                 }
-                throw new Error(`Ollama returned no embedding vector for model '${this.modelName}'`);
+                throw new Error(
+                    `Ollama returned no embedding vector for model '${this.modelName}'`
+                );
             } catch (err) {
                 throw new Error(`Local Ollama embedding generation failed: ${err.message}`);
             }
@@ -186,13 +198,15 @@ class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
             if (typeof this.client.embed === 'function') {
                 const res = await this.client.embed({
                     model: this.modelName,
-                    input: texts
+                    input: texts,
                 });
                 if (res && res.embeddings && res.embeddings.length === texts.length) {
-                    return res.embeddings.map(vec => {
+                    return res.embeddings.map((vec) => {
                         const normVec = normalizeVector(vec);
                         if (normVec.length !== this.dimension) {
-                            throw new Error(`Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`);
+                            throw new Error(
+                                `Embedding dimension mismatch: expected ${this.dimension}, got ${normVec.length}`
+                            );
                         }
                         return normVec;
                     });
@@ -215,6 +229,5 @@ module.exports = {
     MockEmbeddingProvider,
     OllamaEmbeddingProvider,
     normalizeVector,
-    cosineSimilarity
+    cosineSimilarity,
 };
-

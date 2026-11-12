@@ -67,9 +67,7 @@ function isBankRailIdentifier(str) {
         const rUnderscore = r.replace(/[\s-]+/g, '_');
         const rCompact = r.replace(/[^A-Z0-9]/g, '');
         return (
-            rawUpper.includes(r) ||
-            underscore.includes(rUnderscore) ||
-            compact.includes(rCompact)
+            rawUpper.includes(r) || underscore.includes(rUnderscore) || compact.includes(rCompact)
         );
     });
 }
@@ -88,19 +86,26 @@ function toStripeMinorUnits(amount, currency) {
         throw new Error(`Unsupported Stripe fiat currency: '${currency}'`);
     }
 
-    const { toCanonicalDecimal, toCanonicalMinorUnits, getAssetScale } = require('../core/orchestrator/financialDecimal');
+    const {
+        toCanonicalDecimal,
+        toCanonicalMinorUnits,
+        getAssetScale,
+    } = require('../core/orchestrator/financialDecimal');
     const scale = getAssetScale(curr);
     const canonical = toCanonicalDecimal(amount, curr);
     const minorUnitsBigInt = toCanonicalMinorUnits(amount, curr);
 
     // Reject non-positive amounts
     if (minorUnitsBigInt <= 0n) {
-        throw new Error(`Invalid Stripe amount: '${amount}'. Amount must be strictly greater than zero.`);
+        throw new Error(
+            `Invalid Stripe amount: '${amount}'. Amount must be strictly greater than zero.`
+        );
     }
 
     const minUnits = STRIPE_MIN_AMOUNT_CENTS[curr] || 50n;
     if (minorUnitsBigInt < minUnits) {
-        const minStr = scale === 0 ? String(minUnits) : (Number(minUnits) / (10 ** scale)).toFixed(scale);
+        const minStr =
+            scale === 0 ? String(minUnits) : (Number(minUnits) / 10 ** scale).toFixed(scale);
         throw new RangeError(
             `Amount '${canonical}' is below Stripe minimum transaction limit of ${minStr} ${curr}`
         );
@@ -121,16 +126,6 @@ function toStripeMinorUnits(amount, currency) {
 }
 
 async function executePaymentRail(instruction) {
-    const { getAdapterCredential } = require('../vaultProvider');
-    const { validateProviderCredentialMode } = require('../core/configValidator');
-    const stripeKey = getAdapterCredential('STRIPE_KEY');
-    validateProviderCredentialMode({
-        provider: 'core_stripe',
-        credential: stripeKey,
-        environment: process.env.NETWORK_ENVIRONMENT || 'sandbox',
-        endpoint: 'https://api.stripe.com',
-    });
-
     const { amount, currency, sender, recipient } = instruction;
     const instructionId = instruction.instructionId || instruction.instruction_id;
 
@@ -140,14 +135,18 @@ async function executePaymentRail(instruction) {
         instruction.rail,
         instruction.route_selected,
         instruction.payment_method,
-    ].filter(Boolean).map((s) => String(s).trim());
+    ]
+        .filter(Boolean)
+        .map((s) => String(s).trim());
 
     const isBankRail = rawCandidates.some((cand) => isBankRailIdentifier(cand));
 
     if (isBankRail) {
         const detectedCandidate = rawCandidates.find((cand) => isBankRailIdentifier(cand));
         const detectedRail = detectedCandidate ? detectedCandidate.toUpperCase() : 'BANK_RAIL';
-        logger.warn(`[STRIPE] Rejected bank rail '${detectedRail}' on Stripe card adapter. Bank rails cannot be processed via card test rails.`);
+        logger.warn(
+            `[STRIPE] Rejected bank rail '${detectedRail}' on Stripe card adapter. Bank rails cannot be processed via card test rails.`
+        );
         return {
             adapter_type: 'SIMULATED_BANK_RAIL',
             status: 'SIMULATED',
@@ -183,11 +182,22 @@ async function executePaymentRail(instruction) {
             };
         }
     } else {
-        const rawPurpose = (instruction.purpose || instruction.rail || instruction.route_selected || 'CARD').toUpperCase();
+        const rawPurpose = (
+            instruction.purpose ||
+            instruction.rail ||
+            instruction.route_selected ||
+            'CARD'
+        ).toUpperCase();
         selectedRail = rawPurpose;
-        pmToUse = SUPPORTED_CARD_METHODS[rawPurpose] || (['PAYROLL', 'EXPENSE', 'SETTLEMENT', 'INVOICE'].includes(rawPurpose) ? 'pm_card_visa' : null);
+        pmToUse =
+            SUPPORTED_CARD_METHODS[rawPurpose] ||
+            (['PAYROLL', 'EXPENSE', 'SETTLEMENT', 'INVOICE'].includes(rawPurpose)
+                ? 'pm_card_visa'
+                : null);
         if (!pmToUse) {
-            logger.warn(`[STRIPE] Unsupported payment rail/purpose '${rawPurpose}'. Failing closed.`);
+            logger.warn(
+                `[STRIPE] Unsupported payment rail/purpose '${rawPurpose}'. Failing closed.`
+            );
             return {
                 adapter_type: 'STRIPE_UNSUPPORTED',
                 status: 'SIMULATED',
@@ -214,8 +224,21 @@ async function executePaymentRail(instruction) {
         };
     }
 
+    // SUPPORTED STRIPE EXECUTION PATH: VALIDATE TESTNET CREDENTIALS BEFORE NETWORK CALL
+    const { getAdapterCredential } = require('../vaultProvider');
+    const { validateProviderCredentialMode } = require('../core/configValidator');
+    const stripeKey = getAdapterCredential('STRIPE_KEY');
+    validateProviderCredentialMode({
+        provider: 'core_stripe',
+        credential: stripeKey,
+        environment: process.env.NETWORK_ENVIRONMENT || 'sandbox',
+        endpoint: 'https://api.stripe.com',
+    });
+
     const stripe = require('stripe')(stripeKey, { timeout: 20000 });
-    logger.info(`[STRIPE] Executing PaymentIntent for ${minorUnits} minor units ${currency} (Rail: LIVE_TESTNET, PM: ${pmToUse})`);
+    logger.info(
+        `[STRIPE] Executing PaymentIntent for ${minorUnits} minor units ${currency} (Rail: LIVE_TESTNET, PM: ${pmToUse})`
+    );
 
     try {
         logger.info(
@@ -289,7 +312,9 @@ async function refundPaymentRail(intentId) {
     const logger = require('../logger');
 
     try {
-        logger.warn(`[STRIPE REFUND] 🔄 Initiating compensating refund for PaymentIntent: ${intentId}`);
+        logger.warn(
+            `[STRIPE REFUND] 🔄 Initiating compensating refund for PaymentIntent: ${intentId}`
+        );
         const refund = await stripe.refunds.create({
             payment_intent: intentId,
         });

@@ -1,6 +1,10 @@
 'use strict';
 
-const { toCanonicalDecimal, decimalAdd, decimalEquals } = require('../../orchestrator/financialDecimal');
+const {
+    toCanonicalDecimal,
+    decimalAdd,
+    decimalEquals,
+} = require('../../orchestrator/financialDecimal');
 const { computePayloadHash } = require('./ledgerHashHelper');
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -8,7 +12,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 /**
  * Verifies that prevHash is the immediate preceding committed global ledger entry.
  * Validates either GENESIS_HASH or linear NOT EXISTS continuity.
- * 
+ *
  * @param {object} client - Database query client
  * @param {string} prevHash - Predecessor hash reference
  * @param {number|string} currentSeq - Sequence ID of the entry being verified
@@ -24,13 +28,12 @@ async function verifyImmediatePredecessor(client, prevHash, currentSeq) {
             ) AS is_valid_genesis;
         `;
         const genesisResult = await client.query(genesisSql, [currentSeq]);
-        const isValidGenesis = (genesisResult && genesisResult.rows && genesisResult.rows.length > 0)
-            ? Boolean(genesisResult.rows[0].is_valid_genesis)
-            : false;
+        const isValidGenesis =
+            genesisResult && genesisResult.rows && genesisResult.rows.length > 0
+                ? Boolean(genesisResult.rows[0].is_valid_genesis)
+                : false;
 
-        return isValidGenesis
-            ? 'GENESIS_VERIFIED'
-            : 'INVALID_GENESIS_PREDECESSOR_EXISTS';
+        return isValidGenesis ? 'GENESIS_VERIFIED' : 'INVALID_GENESIS_PREDECESSOR_EXISTS';
     }
 
     const predSql = `
@@ -75,7 +78,7 @@ async function verifyImmediatePredecessor(client, prevHash, currentSeq) {
 
 /**
  * Tool 5: verifyLedgerIntegrity
- * 
+ *
  * Conducts a rigorous five-dimension transaction-scoped verification of ledger entries.
  * Evaluates:
  * 1. Application posting consistency (total_debit === total_credit + tax_withheld).
@@ -83,10 +86,10 @@ async function verifyImmediatePredecessor(client, prevHash, currentSeq) {
  * 3. Individual entry hash validity (SHA-256 payload integrity, canonical & legacy).
  * 4. Internal transaction link continuity (Entry 2 prev_hash === Entry 1 hash).
  * 5. Immediate global predecessor validity for BOTH Entry 1 and Entry 2 (NOT EXISTS intervening rows).
- * 
+ *
  * Prohibits: collapsing results into a single misleading status; assuming conventional
  * double-entry balance when tax is withheld; leaking predecessor financial fields.
- * 
+ *
  * @param {object} client - Database query client ({ query: Function })
  * @param {string} instructionId - Target instruction UUID
  * @returns {Promise<object>} Structured five-dimension verification report
@@ -96,12 +99,16 @@ async function verifyLedgerIntegrity(client, instructionId) {
         throw new Error('verifyLedgerIntegrity: client with query method is required');
     }
 
-    if (!instructionId || typeof instructionId !== 'string' || !UUID_REGEX.test(instructionId.trim())) {
+    if (
+        !instructionId ||
+        typeof instructionId !== 'string' ||
+        !UUID_REGEX.test(instructionId.trim())
+    ) {
         return {
             success: false,
             status: 'INVALID_IDENTIFIER',
             message: 'instructionId must be a valid UUID string',
-            dimensions: null
+            dimensions: null,
         };
     }
 
@@ -121,7 +128,7 @@ async function verifyLedgerIntegrity(client, instructionId) {
             success: false,
             status: 'NOT_FOUND',
             message: `No instruction found for ID '${cleanId}'`,
-            dimensions: null
+            dimensions: null,
         };
     }
 
@@ -146,7 +153,7 @@ async function verifyLedgerIntegrity(client, instructionId) {
         ORDER BY sequence_id ASC;
     `;
     const ledgerResult = await client.query(ledgerSql, [cleanId]);
-    const ledgerRows = (ledgerResult && ledgerResult.rows) ? ledgerResult.rows : [];
+    const ledgerRows = ledgerResult && ledgerResult.rows ? ledgerResult.rows : [];
 
     // Case 2A: Zero ledger entries recorded
     if (ledgerRows.length === 0) {
@@ -155,9 +162,10 @@ async function verifyLedgerIntegrity(client, instructionId) {
             status: 'NO_LEDGER_ENTRIES_RECORDED',
             instruction_id: cleanId,
             instruction_state: instruction.state,
-            discrepancy: instruction.state === 'SETTLED' ? 'INCONSISTENCY_SETTLED_WITHOUT_LEDGER' : null,
+            discrepancy:
+                instruction.state === 'SETTLED' ? 'INCONSISTENCY_SETTLED_WITHOUT_LEDGER' : null,
             message: 'No ledger journal entries found for this instruction',
-            dimensions: null
+            dimensions: null,
         };
     }
 
@@ -169,20 +177,20 @@ async function verifyLedgerIntegrity(client, instructionId) {
             instruction_id: cleanId,
             message: `Expected exactly 2 entries for standard transaction posting, found ${ledgerRows.length}`,
             entries_found: ledgerRows.length,
-            dimensions: null
+            dimensions: null,
         };
     }
 
     // Identify DEBIT and CREDIT entries
-    const debitEntry = ledgerRows.find(r => r.direction === 'DEBIT');
-    const creditEntry = ledgerRows.find(r => r.direction === 'CREDIT');
+    const debitEntry = ledgerRows.find((r) => r.direction === 'DEBIT');
+    const creditEntry = ledgerRows.find((r) => r.direction === 'CREDIT');
 
     if (!debitEntry || !creditEntry) {
         return {
             success: false,
             status: 'INCOMPLETE_POSTING_PAIR',
             message: 'Ledger entries do not form a valid DEBIT and CREDIT pair',
-            dimensions: null
+            dimensions: null,
         };
     }
 
@@ -192,7 +200,7 @@ async function verifyLedgerIntegrity(client, instructionId) {
             success: false,
             status: 'CURRENCY_MISMATCH',
             message: `Currency mismatch: instruction is '${currency}', debit entry is '${debitEntry.currency}', credit entry is '${creditEntry.currency}'`,
-            dimensions: null
+            dimensions: null,
         };
     }
 
@@ -249,8 +257,8 @@ async function verifyLedgerIntegrity(client, instructionId) {
     const entry1HashResult = computePayloadHash(ledgerRows[0]);
     const entry2HashResult = computePayloadHash(ledgerRows[1]);
 
-    const entry1Matches = (ledgerRows[0].hash && ledgerRows[0].hash === entry1HashResult.hash);
-    const entry2Matches = (ledgerRows[1].hash && ledgerRows[1].hash === entry2HashResult.hash);
+    const entry1Matches = ledgerRows[0].hash && ledgerRows[0].hash === entry1HashResult.hash;
+    const entry2Matches = ledgerRows[1].hash && ledgerRows[1].hash === entry2HashResult.hash;
 
     if (!entry1Matches || !entry2Matches) {
         entryHashValidity = 'ENTRY_HASH_MISMATCH';
@@ -283,7 +291,10 @@ async function verifyLedgerIntegrity(client, instructionId) {
     // If Entry 2 has an intervening committed row, internal link is not immediate
     if (entry2PredStatus === 'PREDECESSOR_NOT_IMMEDIATE') {
         internalLinkContinuity = 'INTERNAL_LINK_NOT_IMMEDIATE';
-    } else if (entry2PredStatus === 'PREDECESSOR_HASH_NOT_FOUND' || entry2PredStatus === 'PREDECESSOR_SEQUENCE_VIOLATION') {
+    } else if (
+        entry2PredStatus === 'PREDECESSOR_HASH_NOT_FOUND' ||
+        entry2PredStatus === 'PREDECESSOR_SEQUENCE_VIOLATION'
+    ) {
         internalLinkContinuity = 'INTERNAL_LINK_BROKEN';
     }
 
@@ -298,7 +309,7 @@ async function verifyLedgerIntegrity(client, instructionId) {
         immediateGlobalPredecessor = 'PREDECESSOR_VERIFIED';
     }
 
-    const allDimensionsPassed = 
+    const allDimensionsPassed =
         applicationPostingConsistency === 'CONSISTENT' &&
         (entryHashValidity === 'VALID' || entryHashValidity === 'VERIFIED_LEGACY_FORMAT') &&
         internalLinkContinuity === 'CONTINUOUS' &&
@@ -319,17 +330,18 @@ async function verifyLedgerIntegrity(client, instructionId) {
             immediate_global_predecessor: immediateGlobalPredecessor,
             predecessor_detail: {
                 entry_1: entry1PredStatus,
-                entry_2: entry2PredStatus
-            }
+                entry_2: entry2PredStatus,
+            },
         },
         arithmetic_summary: {
             debits_equal_credits: debitsEqualCredits,
             debit_gross: canonicalGross,
             credit_net: canonicalNet,
             tax_withheld: taxWithheldStr,
-            tax_withheld_status: taxWithheldStatus
+            tax_withheld_status: taxWithheldStatus,
         },
-        audit_note: 'Conventional double-entry equality (DEBITS_EQUAL_CREDITS) is distinct from application posting consistency; tax withheld is not credited to a separate liability account.'
+        audit_note:
+            'Conventional double-entry equality (DEBITS_EQUAL_CREDITS) is distinct from application posting consistency; tax withheld is not credited to a separate liability account.',
     };
 }
 
@@ -337,4 +349,3 @@ module.exports = {
     verifyLedgerIntegrity,
     verifyImmediatePredecessor,
 };
-

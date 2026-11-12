@@ -5,7 +5,7 @@
  * ===============================================================
  * Enforces session verification, internal credential boundaries,
  * double-submit anti-CSRF protection, and origin validation.
- * 
+ *
  * Boundary Mandate:
  * - Operator sessions strictly require HttpOnly cookies (__Host-Fusion-Session).
  * - Operator sessions masquerading as Bearer tokens are explicitly rejected.
@@ -70,11 +70,16 @@ function verifyOrigin(req, allowedOrigins = null) {
         return true;
     }
 
-    const origins = allowedOrigins || (
-        process.env.ALLOWED_ORIGINS
+    const origins =
+        allowedOrigins ||
+        (process.env.ALLOWED_ORIGINS
             ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim().toLowerCase())
-            : ['http://localhost:3000', 'http://127.0.0.1:3000', 'https://localhost:3000', 'http://localhost:3001']
-    );
+            : [
+                  'http://localhost:3000',
+                  'http://127.0.0.1:3000',
+                  'https://localhost:3000',
+                  'http://localhost:3001',
+              ]);
 
     const origin = (req.headers['origin'] || '').trim().toLowerCase();
     if (origin) {
@@ -121,7 +126,10 @@ function verifyCsrfToken(req) {
         return false;
     }
 
-    return crypto.timingSafeEqual(Buffer.from(headerToken, 'utf8'), Buffer.from(cookieToken, 'utf8'));
+    return crypto.timingSafeEqual(
+        Buffer.from(headerToken, 'utf8'),
+        Buffer.from(cookieToken, 'utf8')
+    );
 }
 
 /**
@@ -146,7 +154,9 @@ function createSessionAuthMiddleware(sessionManager, { enforceCsrf = true, pool 
 
         // Validate Origin on mutating requests
         if (enforceCsrf && !verifyOrigin(req)) {
-            logger.warn(`[AUTH] 403 Forbidden: Origin validation failed on ${req.method} ${req.path}`);
+            logger.warn(
+                `[AUTH] 403 Forbidden: Origin validation failed on ${req.method} ${req.path}`
+            );
             return res.status(403).json({
                 error: 'Forbidden',
                 detail: 'Origin validation failed: untrusted or missing origin for state-mutating request',
@@ -167,7 +177,9 @@ function createSessionAuthMiddleware(sessionManager, { enforceCsrf = true, pool 
         });
 
         if (!validation.valid) {
-            logger.warn(`[AUTH] 401 Session invalid: ${validation.reason} on ${req.method} ${req.path}`);
+            logger.warn(
+                `[AUTH] 401 Session invalid: ${validation.reason} on ${req.method} ${req.path}`
+            );
             return res.status(401).json({
                 error: 'Unauthorized',
                 detail: `Session is invalid or expired (${validation.reason})`,
@@ -204,7 +216,8 @@ function isPublicAuthRoute(method, originalUrl) {
 
     // Whitelisted OIDC endpoints
     if (urlPath === '/api/auth/oidc/login' && (method === 'GET' || method === 'POST')) return true;
-    if (urlPath === '/api/auth/oidc/callback' && (method === 'GET' || method === 'POST')) return true;
+    if (urlPath === '/api/auth/oidc/callback' && (method === 'GET' || method === 'POST'))
+        return true;
 
     // Whitelisted Dev Login (Local test adapter ONLY)
     const nodeEnv = (process.env.NODE_ENV || '').trim().toLowerCase();
@@ -227,7 +240,9 @@ function isPublicAuthRoute(method, originalUrl) {
 function requirePermission(permissionKey, { rbacService = defaultRbacService } = {}) {
     return async (req, res, next) => {
         if (!req.operator || !req.operator.operatorId) {
-            logger.warn(`[RBAC] 401 Unauthorized: Permission check for "${permissionKey}" failed - missing authenticated operator`);
+            logger.warn(
+                `[RBAC] 401 Unauthorized: Permission check for "${permissionKey}" failed - missing authenticated operator`
+            );
             return res.status(401).json({
                 error: 'Unauthorized',
                 detail: 'Authentication required before checking permissions',
@@ -245,7 +260,9 @@ function requirePermission(permissionKey, { rbacService = defaultRbacService } =
             req.roles = roles;
 
             if (!permissions.has(permissionKey)) {
-                logger.warn(`[RBAC] 403 Forbidden: Operator ${operatorId} lacks permission "${permissionKey}" on ${req.method} ${req.path}`);
+                logger.warn(
+                    `[RBAC] 403 Forbidden: Operator ${operatorId} lacks permission "${permissionKey}" on ${req.method} ${req.path}`
+                );
                 await rbacService.logSecurityEvent({
                     eventType: 'PERMISSION_DENIED',
                     operatorId,
@@ -267,7 +284,9 @@ function requirePermission(permissionKey, { rbacService = defaultRbacService } =
 
             next();
         } catch (err) {
-            logger.error(`[RBAC] Error resolving permissions for operator ${operatorId}: ${err.message}`);
+            logger.error(
+                `[RBAC] Error resolving permissions for operator ${operatorId}: ${err.message}`
+            );
             return res.status(500).json({
                 error: 'Internal Server Error',
                 detail: 'Failed to evaluate operator authorization',
@@ -299,7 +318,9 @@ function requireAnyRole(allowedRoles = [], { rbacService = defaultRbacService } 
 
             const hasRole = roles.some((r) => rolesList.includes(r));
             if (!hasRole) {
-                logger.warn(`[RBAC] 403 Forbidden: Operator ${operatorId} lacks required roles [${rolesList.join(', ')}] on ${req.method} ${req.path}`);
+                logger.warn(
+                    `[RBAC] 403 Forbidden: Operator ${operatorId} lacks required roles [${rolesList.join(', ')}] on ${req.method} ${req.path}`
+                );
                 await rbacService.logSecurityEvent({
                     eventType: 'ROLE_DENIED',
                     operatorId,

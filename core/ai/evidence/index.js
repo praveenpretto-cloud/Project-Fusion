@@ -2,7 +2,7 @@
 
 /**
  * Fusion Operations Intelligence — Phase AI-1A Evidence Retrieval Functions
- * 
+ *
  * Centralized export for the seven private, dependency-injected evidence functions.
  * These functions are purely internal and are NOT exposed via HTTP endpoints.
  */
@@ -26,4 +26,3 @@ module.exports = {
     explainIsoValidationErrors,
     computePayloadHash,
 };
-

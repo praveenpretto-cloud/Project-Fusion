@@ -56,7 +56,9 @@ class WebAuthnVerifierService {
                 this.verifierPool = new Pool(getVerifierDbConfig());
                 this._ownsPool = true;
             } catch (err) {
-                logger.warn(`[WEBAUTHN-VERIFIER] Could not initialize isolated verifier pool: ${err.message}`);
+                logger.warn(
+                    `[WEBAUTHN-VERIFIER] Could not initialize isolated verifier pool: ${err.message}`
+                );
             }
         }
     }
@@ -85,15 +87,24 @@ class WebAuthnVerifierService {
         customClient = null,
     } = {}) {
         if (!operatorId || !credentialId || !assertionResponse) {
-            const err = new Error('operatorId, credentialId, and assertionResponse are required for verification');
+            const err = new Error(
+                'operatorId, credentialId, and assertionResponse are required for verification'
+            );
             err.statusCode = 400;
             err.code = 'INVALID_ARGUMENTS';
             throw err;
         }
 
         // Strictly reject Boolean verified=true shortcuts without cryptographic evidence
-        if (typeof assertionResponse === 'boolean' || assertionResponse.verified === true && !assertionResponse.response && !assertionResponse.clientDataJSON) {
-            const err = new Error('Cryptographic assertionResponse is mandatory. Boolean verified flags are strictly rejected.');
+        if (
+            typeof assertionResponse === 'boolean' ||
+            (assertionResponse.verified === true &&
+                !assertionResponse.response &&
+                !assertionResponse.clientDataJSON)
+        ) {
+            const err = new Error(
+                'Cryptographic assertionResponse is mandatory. Boolean verified flags are strictly rejected.'
+            );
             err.statusCode = 403;
             err.code = 'FORGED_ASSERTION_FLAG';
             throw err;
@@ -105,21 +116,21 @@ class WebAuthnVerifierService {
         const signature = inner.signature;
 
         if (!clientDataJSON || !authenticatorData || !signature) {
-            const err = new Error('Malformed assertionResponse: clientDataJSON, authenticatorData, and signature are required');
+            const err = new Error(
+                'Malformed assertionResponse: clientDataJSON, authenticatorData, and signature are required'
+            );
             err.statusCode = 400;
             err.code = 'MALFORMED_ASSERTION';
             throw err;
         }
 
-        const clientDataStr = typeof clientDataJSON === 'string'
-            ? clientDataJSON
-            : base64UrlEncode(clientDataJSON);
-        const authDataStr = typeof authenticatorData === 'string'
-            ? authenticatorData
-            : base64UrlEncode(authenticatorData);
-        const sigStr = typeof signature === 'string'
-            ? signature
-            : base64UrlEncode(signature);
+        const clientDataStr =
+            typeof clientDataJSON === 'string' ? clientDataJSON : base64UrlEncode(clientDataJSON);
+        const authDataStr =
+            typeof authenticatorData === 'string'
+                ? authenticatorData
+                : base64UrlEncode(authenticatorData);
+        const sigStr = typeof signature === 'string' ? signature : base64UrlEncode(signature);
 
         // Parse and validate clientDataJSON
         const clientDataBuf = base64UrlDecode(clientDataStr);
@@ -135,8 +146,13 @@ class WebAuthnVerifierService {
 
         // Origin check
         const originToCheck = expectedOrigin || this.origin;
-        if (clientData.origin !== originToCheck && !this.allowedOrigins.includes(clientData.origin)) {
-            const err = new Error(`Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`);
+        if (
+            clientData.origin !== originToCheck &&
+            !this.allowedOrigins.includes(clientData.origin)
+        ) {
+            const err = new Error(
+                `Untrusted WebAuthn origin: "${clientData.origin}" (expected "${originToCheck}")`
+            );
             err.statusCode = 400;
             err.code = 'INVALID_ORIGIN';
             throw err;
@@ -144,13 +160,16 @@ class WebAuthnVerifierService {
 
         // Ceremony type check
         if (clientData.type !== 'webauthn.get') {
-            const err = new Error(`Invalid clientData type for authentication: "${clientData.type}" (must be "webauthn.get")`);
+            const err = new Error(
+                `Invalid clientData type for authentication: "${clientData.type}" (must be "webauthn.get")`
+            );
             err.statusCode = 400;
             err.code = 'INVALID_CEREMONY';
             throw err;
         }
 
-        const dbClient = customClient || (this.verifierPool ? await this.verifierPool.connect() : null);
+        const dbClient =
+            customClient || (this.verifierPool ? await this.verifierPool.connect() : null);
         if (!dbClient) {
             const err = new Error('Verifier database pool is unavailable');
             err.statusCode = 503;
@@ -180,7 +199,9 @@ class WebAuthnVerifierService {
             const challengeRow = chRes.rows[0];
 
             if (challengeRow.consumed_at !== null) {
-                const err = new Error('WebAuthn challenge has already been consumed (replay blocked)');
+                const err = new Error(
+                    'WebAuthn challenge has already been consumed (replay blocked)'
+                );
                 err.statusCode = 400;
                 err.code = 'CHALLENGE_REPLAY';
                 throw err;
@@ -201,7 +222,9 @@ class WebAuthnVerifierService {
             }
 
             if (challengeRow.ceremony_type !== 'authentication') {
-                const err = new Error(`WebAuthn ceremony mismatch: expected authentication, got ${challengeRow.ceremony_type}`);
+                const err = new Error(
+                    `WebAuthn ceremony mismatch: expected authentication, got ${challengeRow.ceremony_type}`
+                );
                 err.statusCode = 400;
                 err.code = 'CEREMONY_MISMATCH';
                 throw err;
@@ -211,7 +234,9 @@ class WebAuthnVerifierService {
             let canonicalDigest = challengeRow.context_digest || '0'.repeat(64);
             if (expectedPaymentContext || challengeRow.context_digest) {
                 if (!expectedPaymentContext) {
-                    const err = new Error('Payment context is required to verify approval assertion');
+                    const err = new Error(
+                        'Payment context is required to verify approval assertion'
+                    );
                     err.statusCode = 403;
                     err.code = 'PAYMENT_CONTEXT_REQUIRED';
                     throw err;
@@ -227,8 +252,13 @@ class WebAuthnVerifierService {
 
                     if (instCheck.rows.length > 0) {
                         const authoritativeInst = instCheck.rows[0];
-                        if (expectedPaymentContext.version && authoritativeInst.version !== expectedPaymentContext.version) {
-                            const err = new Error('Payment context version mismatch against authoritative database record');
+                        if (
+                            expectedPaymentContext.version &&
+                            authoritativeInst.version !== expectedPaymentContext.version
+                        ) {
+                            const err = new Error(
+                                'Payment context version mismatch against authoritative database record'
+                            );
                             err.statusCode = 409;
                             err.code = 'CONCURRENCY_CONFLICT';
                             throw err;
@@ -238,8 +268,13 @@ class WebAuthnVerifierService {
 
                 canonicalDigest = computePaymentContextDigest(expectedPaymentContext);
 
-                if (challengeRow.context_digest && challengeRow.context_digest !== canonicalDigest) {
-                    const err = new Error('WebAuthn payment context mismatch: approval details have been altered or mismatched');
+                if (
+                    challengeRow.context_digest &&
+                    challengeRow.context_digest !== canonicalDigest
+                ) {
+                    const err = new Error(
+                        'WebAuthn payment context mismatch: approval details have been altered or mismatched'
+                    );
                     err.statusCode = 403;
                     err.code = 'PAYMENT_CONTEXT_MISMATCH';
                     throw err;
@@ -254,7 +289,9 @@ class WebAuthnVerifierService {
             );
 
             if (credRes.rows.length === 0) {
-                const err = new Error(`WebAuthn credential "${credentialId}" not registered for operator`);
+                const err = new Error(
+                    `WebAuthn credential "${credentialId}" not registered for operator`
+                );
                 err.statusCode = 404;
                 err.code = 'CREDENTIAL_NOT_FOUND';
                 throw err;
@@ -294,13 +331,20 @@ class WebAuthnVerifierService {
             } catch (verifyErr) {
                 const msg = (verifyErr.message || '').toLowerCase();
                 if (msg.includes('counter') || msg.includes('lower than expected')) {
-                    const err = new Error('WebAuthn authenticator counter regression (possible cloned token)');
+                    const err = new Error(
+                        'WebAuthn authenticator counter regression (possible cloned token)'
+                    );
                     err.statusCode = 403;
                     err.code = 'COUNTER_REGRESSION';
                     throw err;
                 }
-                if (msg.includes('user verification') || msg.includes('user could not be verified')) {
-                    const err = new Error('User verification (UV) flag required but not satisfied in assertion');
+                if (
+                    msg.includes('user verification') ||
+                    msg.includes('user could not be verified')
+                ) {
+                    const err = new Error(
+                        'User verification (UV) flag required but not satisfied in assertion'
+                    );
                     err.statusCode = 403;
                     err.code = 'USER_VERIFICATION_REQUIRED';
                     throw err;
@@ -312,19 +356,25 @@ class WebAuthnVerifierService {
                     throw err;
                 }
                 if (msg.includes('rp id') || msg.includes('rpid')) {
-                    const err = new Error(`rpIdHash mismatch: assertion not bound to rpId "${this.rpId}"`);
+                    const err = new Error(
+                        `rpIdHash mismatch: assertion not bound to rpId "${this.rpId}"`
+                    );
                     err.statusCode = 400;
                     err.code = 'RPID_MISMATCH';
                     throw err;
                 }
-                const err = new Error(`WebAuthn assertion verification failed: ${verifyErr.message}`);
+                const err = new Error(
+                    `WebAuthn assertion verification failed: ${verifyErr.message}`
+                );
                 err.statusCode = 401;
                 err.code = 'VERIFICATION_FAILED';
                 throw err;
             }
 
             if (!verification.verified) {
-                const err = new Error('WebAuthn cryptographic assertion signature verification failed');
+                const err = new Error(
+                    'WebAuthn cryptographic assertion signature verification failed'
+                );
                 err.statusCode = 401;
                 err.code = 'INVALID_SIGNATURE';
                 throw err;
@@ -351,14 +401,22 @@ class WebAuthnVerifierService {
             // 6. Record verified assertion evidence using isolated verifier role
             const recordRes = await dbClient.query(
                 `SELECT identity.fn_record_verified_webauthn_assertion($1, $2, $3, $4, $5) AS assertion_id`,
-                [challengeRow.challenge_id, operatorId, credentialId, signatureHash, canonicalDigest]
+                [
+                    challengeRow.challenge_id,
+                    operatorId,
+                    credentialId,
+                    signatureHash,
+                    canonicalDigest,
+                ]
             );
 
             const assertionId = recordRes.rows[0].assertion_id;
 
             await dbClient.query('COMMIT');
 
-            logger.info(`[WEBAUTHN-VERIFIER] ✅ Successfully verified and recorded WebAuthn assertion ${assertionId} for operator ${operatorId}`);
+            logger.info(
+                `[WEBAUTHN-VERIFIER] ✅ Successfully verified and recorded WebAuthn assertion ${assertionId} for operator ${operatorId}`
+            );
 
             return {
                 verified: true,
@@ -391,4 +449,3 @@ class WebAuthnVerifierService {
 module.exports = {
     WebAuthnVerifierService,
 };
-

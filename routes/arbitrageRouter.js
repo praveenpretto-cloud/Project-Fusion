@@ -4,9 +4,9 @@
  * ════════════════════════════════════════════════════════════════════════════
  * ARBITRAGE & TREASURY SIMULATION ROUTER
  * ════════════════════════════════════════════════════════════════════════════
- * 
+ *
  * Exposes deterministic treasury arbitrage simulation endpoints.
- * 
+ *
  * STRICT GOVERNANCE:
  * - Analytical & simulation only.
  * - Does NOT execute trades, submit orders, or mutate balances.
@@ -20,14 +20,14 @@ const {
     getArbitrageReport,
     FEE_REGISTRY,
     DISCLAIMER_TEXT,
-    DATA_PROVENANCE
+    DATA_PROVENANCE,
 } = require('../core/treasury/arbitrage');
 const logger = require('../logger');
 
 /**
  * POST /api/treasury/arbitrage/calculate
  * POST /api/arbitrage/calculate
- * 
+ *
  * Calculates deterministic arbitrage P&L and ROI from explicit parameters.
  */
 function handleCalculateArbitrage(req, res) {
@@ -47,19 +47,23 @@ function handleCalculateArbitrage(req, res) {
             isSimulated: true,
             isExecutable: false,
             disclaimer: DISCLAIMER_TEXT,
-            dataProvenance: DATA_PROVENANCE
+            dataProvenance: DATA_PROVENANCE,
         });
     }
 }
 
 /**
  * GET /api/treasury/arbitrage/simulation-defaults
- * 
+ *
  * Provides explicit, documented simulation defaults for portfolio demonstration.
  */
 function handleGetSimulationDefaults(req, res) {
-    const currency = String(req.query.currency || 'USD').trim().toUpperCase();
-    const asset = String(req.query.asset || (currency === 'INR' ? 'USDC' : 'XLM')).trim().toUpperCase();
+    const currency = String(req.query.currency || 'USD')
+        .trim()
+        .toUpperCase();
+    const asset = String(req.query.asset || (currency === 'INR' ? 'USDC' : 'XLM'))
+        .trim()
+        .toUpperCase();
 
     const defaults = {
         asset,
@@ -77,7 +81,7 @@ function handleGetSimulationDefaults(req, res) {
         transferFee: currency === 'INR' ? '2.00' : '0.05',
         settlementFee: currency === 'INR' ? '2.00' : '0.05',
         dataProvenance: DATA_PROVENANCE,
-        disclaimer: DISCLAIMER_TEXT
+        disclaimer: DISCLAIMER_TEXT,
     };
 
     return res.json({
@@ -85,13 +89,13 @@ function handleGetSimulationDefaults(req, res) {
         isSimulated: true,
         isExecutable: false,
         defaults,
-        feeRegistry: FEE_REGISTRY
+        feeRegistry: FEE_REGISTRY,
     });
 }
 
 /**
  * POST /api/treasury/arbitrage/report
- * 
+ *
  * Batch comparative report endpoint.
  */
 function handleGetBatchReport(req, res) {
@@ -106,4 +110,3 @@ router.get('/treasury/arbitrage/simulation-defaults', handleGetSimulationDefault
 router.post('/treasury/arbitrage/report', handleGetBatchReport);
 
 module.exports = router;
-

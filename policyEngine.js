@@ -36,8 +36,8 @@ function evaluatePolicy(transaction, apiSecretKey) {
     // STR (Suspicious Transaction Report) is subjective and handled by compliance team.
     const AML_CTR_THRESHOLD_INR = 1000000; // ₹10L
     const AML_HARD_LIMIT_INR = 50000000; // ₹5 Crore absolute safety ceiling
-    const amountInINR = parseFloat(transaction.amount) *
-        (['INR'].includes(transaction.currency) ? 1 : 83.2); // Approximate USD→INR conversion
+    const amountInINR =
+        parseFloat(transaction.amount) * (['INR'].includes(transaction.currency) ? 1 : 83.2); // Approximate USD→INR conversion
 
     if (amountInINR > AML_HARD_LIMIT_INR) {
         decision = 'REJECTED';
@@ -46,7 +46,9 @@ function evaluatePolicy(transaction, apiSecretKey) {
         // Flag for enhanced due diligence — but do NOT auto-reject wire transfers
         // (FEMA allows high-value wire transfers with proper documentation)
         rationale = `High-Value Transaction: CTR filing required (₹${(amountInINR / 100000).toFixed(1)}L). Routed to enhanced review queue.`;
-        logger.info?.(`[POLICY] CTR flag: Amount ${amountInINR.toFixed(0)} INR exceeds ₹10L threshold.`);
+        logger.info?.(
+            `[POLICY] CTR flag: Amount ${amountInINR.toFixed(0)} INR exceeds ₹10L threshold.`
+        );
         // In production: submit CTR to FIU-IND via API; do not block the instruction.
     }
 

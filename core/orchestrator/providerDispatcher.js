@@ -170,7 +170,10 @@ function verifyProviderIntegrity(adapter) {
                 reason: `Provider instance for '${providerId}' is mutable (not frozen)`,
             };
         }
-        if (adapter.instance !== binding.module && !hasCanonicalProviderStructure(providerId, adapter.instance)) {
+        if (
+            adapter.instance !== binding.module &&
+            !hasCanonicalProviderStructure(providerId, adapter.instance)
+        ) {
             return {
                 isIntact: false,
                 reason: `Provider instance for '${providerId}' does not match server-owned implementation`,
@@ -188,10 +191,10 @@ function verifyProviderIntegrity(adapter) {
 
     if (executionCandidate) {
         const expectedFn = adapter.instance
-            ? (adapter.instance.executeCryptoRail ||
-               adapter.instance.executeRazorpayRail ||
-               adapter.instance.executePaymentRail ||
-               binding.executeFn)
+            ? adapter.instance.executeCryptoRail ||
+              adapter.instance.executeRazorpayRail ||
+              adapter.instance.executePaymentRail ||
+              binding.executeFn
             : binding.executeFn;
 
         if (executionCandidate !== expectedFn) {

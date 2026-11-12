@@ -124,7 +124,10 @@ async function runAllMigrations(customConfig = {}) {
                 const row = check.rows[0];
                 if (row.checksum && row.checksum !== 'LEGACY_UNVERIFIED') {
                     const currentSql = fs.readFileSync(filePath, 'utf8');
-                    const currentChecksum = crypto.createHash('sha256').update(currentSql).digest('hex');
+                    const currentChecksum = crypto
+                        .createHash('sha256')
+                        .update(currentSql)
+                        .digest('hex');
                     if (currentChecksum !== row.checksum) {
                         throw new Error(
                             `MIGRATION_CHECKSUM_MISMATCH: Migration ${file} has altered disk contents! Recorded: ${row.checksum}, Current: ${currentChecksum}`
@@ -174,7 +177,9 @@ async function runAllMigrations(customConfig = {}) {
     } finally {
         if (lockAcquired) {
             try {
-                await client.query("SELECT pg_advisory_unlock(hashtext('project_fusion_migrations'))");
+                await client.query(
+                    "SELECT pg_advisory_unlock(hashtext('project_fusion_migrations'))"
+                );
                 console.log('[MIGRATOR] 🔓 Released migration advisory lock.');
             } catch (unlockErr) {
                 console.error('[MIGRATOR] ⚠️ Error releasing advisory lock:', unlockErr.message);
